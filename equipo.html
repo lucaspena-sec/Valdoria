@@ -1,0 +1,18 @@
+<!doctype html><html lang="es"><head><title>Valdoria - Equipamiento</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script><script src="app.js"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
+<div class="win"><div id="cab"></div><div class="body">
+<h2>Equipamiento</h2><h3>Equipado</h3><div id="eq"></div>
+<h3>Mochila</h3><div id="mo"></div></div></div>
+<script>
+async function cargar(){
+ const{data}=await sb.from('inventario').select('*').order('nombre');
+ const f=x=>'<div class="box"><b>'+x.nombre+'</b> x'+x.cantidad+'<br><small>'+(x.descripcion||'')+'</small><br>'+
+  '<button onclick="alternar('+x.id+','+!x.equipado+')">'+(x.equipado?'Guardar en mochila':'Equipar')+'</button> <button onclick="tirar('+x.id+','+x.cantidad+')">Tirar 1</button></div>';
+ const v=t=>t||'<p><i>Vacío.</i></p>';
+ eq.innerHTML=v((data||[]).filter(x=>x.equipado).map(f).join(''));
+ mo.innerHTML=v((data||[]).filter(x=>!x.equipado).map(f).join(''));
+}
+async function alternar(id,v){await sb.from('inventario').update({equipado:v}).eq('id',id);cargar()}
+async function tirar(id,c){if(!confirm('¿Tirar 1 unidad?'))return;
+ if(c>1)await sb.from('inventario').update({cantidad:c-1}).eq('id',id);else await sb.from('inventario').delete().eq('id',id);cargar()}
+cabecera('Equipamiento');cargar();
+</script></body></html>

@@ -1,0 +1,22 @@
+<!doctype html><html lang="es"><head><title>Red de Valdoria</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script><script src="app.js"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
+<div class="win" style="max-width:460px;margin-top:20px">
+<div class="tb"><span>⚔ Red de Valdoria - Acceso</span></div>
+<div class="marquee"><span>★ Bienvenido, aventurero, a la Red de Valdoria ★ Ingresá tus datos para continuar ★</span></div>
+<div class="body">
+<h2>Bienvenido a la Red de Valdoria</h2>
+<p>Ingresá con tu usuario y contraseña, o creá tu cuenta de aventurero.</p>
+<label>Usuario<input id="u" autocapitalize="none" autocomplete="username"></label>
+<label>Contraseña (mín. 6)<input id="p" type="password" autocomplete="current-password"></label>
+<div class="err" id="e"></div>
+<button onclick="entrar()">Ingresar</button> <button onclick="crear()">Crear cuenta</button>
+</div></div>
+<script>
+const e=m=>document.getElementById('e').textContent=m;
+(async()=>{const{data:{session}}=await sb.auth.getSession();if(session)location.href='main.html'})();
+async function entrar(){e('');const{error}=await sb.auth.signInWithPassword({email:mail(u.value),password:p.value});
+ if(error)return e('Usuario o contraseña incorrectos.');location.href='main.html'}
+async function crear(){e('');if(limpio(u.value).length<3)return e('El usuario necesita 3 letras o más (sin espacios).');
+ const{error}=await sb.auth.signUp({email:mail(u.value),password:p.value,options:{data:{username:limpio(u.value)}}});
+ if(error)return e(error.message.includes('registered')?'Ese usuario ya existe.':'No se pudo crear: '+error.message);
+ location.href='main.html'}
+</script></body></html>

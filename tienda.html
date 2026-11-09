@@ -1,0 +1,34 @@
+<!doctype html><html lang="es"><head><title>Valdoria - Tienda</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script><script src="app.js"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
+<div class="win"><div id="cab"></div><div class="body">
+<h2>Tienda</h2>
+<div class="tabs" id="tabs"></div>
+<div id="info" class="box"></div>
+<div class="carr" id="carr"></div>
+<div id="msg" class="err"></div>
+</div></div>
+<script>
+// EDITÁ ACÁ: copiá un bloque {n,d,p} para agregar ítems, o un bloque de mercader para agregar mercaderes.
+const MERCADERES=[
+ {n:'Borin Yunquebravo',t:'Herrero',items:[{n:'Espada corta',d:'Hoja ligera y confiable.',p:15},{n:'Escudo de madera',d:'Resiste algún que otro golpe.',p:10},{n:'Daga afilada',d:'Fácil de ocultar.',p:2}]},
+ {n:'Elara Hojaverde',t:'Herbolaria',items:[{n:'Poción de curación',d:'Restaura 2d4+2 PG.',p:50},{n:'Antídoto',d:'Cura venenos comunes.',p:30}]},
+ {n:'Tobías Cuatrodedos',t:'Mercader ambulante',items:[{n:'Cuerda de cáñamo (15 m)',d:'Útil para todo.',p:1},{n:'Antorcha',d:'Luz por 1 hora.',p:1},{n:'Raciones (1 día)',d:'Carne seca y pan duro.',p:5}]},
+ {n:'Madame Zelda',t:'Objetos arcanos',items:[{n:'Pergamino de Luz',d:'Conjuro de nivel 0, un uso.',p:25},{n:'Amuleto extraño',d:'Brilla de noche. Nadie sabe por qué.',p:80}]},
+ {n:'Grumlok el Cojo',t:'Armero',items:[{n:'Cota de cuero',d:'CA 11 + Des.',p:10},{n:'Cota de mallas',d:'CA 16. Pesada.',p:75}]},
+ {n:'Pip Bolsafina',t:'Buhonero',items:[{n:'Mochila reforzada',d:'Más espacio para tu botín.',p:2},{n:'Herramientas de ladrón',d:'Ganzúas y limas.',p:25},{n:'Mapa de la región',d:'Con anotaciones dudosas.',p:8}]}
+];
+let actual=0;
+function dibujar(){
+ tabs.innerHTML=MERCADERES.map((m,i)=>'<button class="'+(i==actual?'on':'')+'" onclick="actual='+i+';dibujar()">'+m.n+'</button>').join('');
+ const m=MERCADERES[actual];
+ info.innerHTML='<!-- FOTO DEL MERCADER: <img src="mercader1.png" width="64"> --><b>'+m.n+'</b> - '+m.t+'<br><small>Deslizá para ver más productos →</small>';
+ carr.innerHTML=m.items.map((it,j)=>'<div class="item"><h3>'+it.n+'</h3><p>'+it.d+'</p><p class="precio">'+it.p+' po</p><button onclick="comprar('+j+',this)">Comprar</button></div>').join('');
+}
+async function comprar(j,b){
+ const it=MERCADERES[actual].items[j];msg.className='err';msg.textContent='';b.disabled=true;
+ const{data,error}=await sb.rpc('comprar',{p_nombre:it.n,p_desc:it.d,p_precio:it.p});
+ b.disabled=false;
+ if(error){msg.textContent=error.message.includes('insuficiente')?'No te alcanza el oro.':'Error: '+error.message;return}
+ oro.textContent=data;msg.className='ok';msg.textContent='Compraste: '+it.n;
+}
+cabecera('Tienda');dibujar();
+</script></body></html>

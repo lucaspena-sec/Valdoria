@@ -1,0 +1,27 @@
+<!doctype html><html lang="es"><head><title>Valdoria - Panel DM</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script><script src="app.js"></script>
+<style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
+<div class="win"><div id="cab"></div><div class="body">
+<h2>Panel del DM</h2>
+<div id="msg" class="err"></div>
+<div id="lista"></div>
+</div></div>
+<script>
+async function cargar(){
+ const{data:u}=await sb.from('profiles').select('*').order('username');
+ const{data:i}=await sb.from('inventario').select('*').order('nombre');
+ const inv=i||[];
+ lista.innerHTML=(u||[]).map(x=>{
+  const its=inv.filter(y=>y.user_id==x.id);
+  return '<div class="box"><b>'+x.username+(x.is_dm?' (DM)':'')+'</b> · 💰 '+x.gold+' po<br>'+
+   '<input type="number" id="m'+x.id+'" placeholder="Cantidad de oro" min="0">'+
+   '<button onclick="oro(\''+x.id+'\',1)">Dar</button> <button onclick="oro(\''+x.id+'\',-1)">Quitar</button> <button onclick="fijar(\''+x.id+'\')">Fijar total</button>'+
+   '<details><summary>Mochila ('+its.length+')</summary>'+(its.map(y=>y.nombre+' x'+y.cantidad+(y.equipado?' (equipado)':'')).join('<br>')||'<i>Vacía</i>')+'</details></div>';
+ }).join('');
+}
+function val(id){const v=parseInt(document.getElementById('m'+id).value);if(!(v>=0)){msg.textContent='Escribí una cantidad válida.';return null}msg.textContent='';return v}
+async function oro(id,s){const v=val(id);if(v===null)return;
+ const{error}=await sb.rpc('dm_oro',{p_user:id,p_delta:s*v});if(error)msg.textContent=error.message;cargar()}
+async function fijar(id){const v=val(id);if(v===null)return;
+ const{error}=await sb.rpc('dm_fijar_oro',{p_user:id,p_oro:v});if(error)msg.textContent=error.message;cargar()}
+(async()=>{const p=await cabecera('Panel DM');if(!p)return;if(!p.is_dm){location.href='main.html';return}cargar()})();
+</script></body></html>
