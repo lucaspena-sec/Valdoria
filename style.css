@@ -48,3 +48,17 @@ button:disabled{opacity:.5}
 .nota h3{margin:0}
 .nota small{color:#5a5030}
 @media(min-width:700px){.layout{flex-direction:row}.side{width:230px}.apps{grid-template-columns:repeat(4,1fr)}.notas{columns:2}.item{flex-basis:260px}}
+/* equipamiento */
+.eq{display:flex;flex-direction:column;gap:10px}
+.izq,.der{flex:1;min-width:0}
+.pj{display:flex;gap:8px;align-items:center}
+.retrato{width:90px;height:110px;flex:none;position:relative}
+.retrato img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none}
+.slots{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;grid-template-areas:"e1 cu e2" "mi co md" "br pi ."}
+.grid{display:grid;grid-template-columns:repeat(6,1fr);gap:3px;background:#2a2418;padding:4px;border:2px inset #fff}
+.celda{aspect-ratio:1;background:#14110b;border:1px solid #5a4d2a;color:#f3e3a6;font-size:10px;line-height:1.1;display:flex;align-items:center;justify-content:center;text-align:center;overflow:hidden;cursor:pointer;padding:1px;word-break:break-word}
+.celda.tiene{background:#3b3220;font-weight:bold}
+.celda.sel{outline:3px solid #ffd54a;outline-offset:-3px}
+.lab{color:#7a6a3a;font-weight:normal}
+.zona{width:90px}
+@media(min-width:700px){.eq{flex-direction:row}}

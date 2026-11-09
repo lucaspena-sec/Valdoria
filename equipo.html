@@ -1,18 +1,64 @@
-<!doctype html><html lang="es"><head><title>Valdoria - Equipamiento</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
+<!doctype html><html lang="es"><head><title>Valdoria - Equipamiento</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js"></script>
+<style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
 <div class="win"><div id="cab"></div><div class="body">
-<h2>Equipamiento</h2><h3>Equipado</h3><div id="eq"></div>
-<h3>Mochila</h3><div id="mo"></div></div></div>
+<div id="msg" class="err"></div>
+<div class="eq">
+<div class="izq">
+ <div class="box pj"><div class="foto retrato">🧙<img id="ret" alt="" onerror="this.style.display='none'"></div>
+  <div>Foto del personaje:<br><input type="file" id="f" accept="image/*" onchange="subir()"></div></div>
+ <h3>Equipo</h3><div id="slots" class="slots"></div>
+ <div class="box" id="desc">Tocá un objeto para ver su descripción. Después tocá el casillero donde querés ponerlo (si hay otro objeto, se intercambian).</div>
+ <div class="box"><h3>Descartar o dar</h3>
+  <div class="celda zona" id="zonaEl" onclick="aZona()"></div>
+  <button onclick="descartar()">Descartar</button><br>
+  <input id="para" placeholder="Usuario que lo recibe"><button onclick="dar()">Dar</button></div>
+ <div class="box"><h3>Oro</h3>
+  <input id="pj" placeholder="Usuario"><input id="monto" type="number" min="1" placeholder="Monto">
+  <button onclick="oroDar()">Dar oro</button> <button onclick="oroTirar()">Tirar oro</button></div>
+</div>
+<div class="der"><h3>Mochila</h3><div id="mo" class="grid"></div><h3>Cofre</h3><div id="co" class="grid"></div></div>
+</div></div></div>
 <script>
-async function cargar(){
- const{data}=await sb.from('inventario').select('*').order('nombre');
- const f=x=>'<div class="box"><b>'+x.nombre+'</b> x'+x.cantidad+'<br><small>'+(x.descripcion||'')+'</small><br>'+
-  '<button onclick="alternar('+x.id+','+!x.equipado+')">'+(x.equipado?'Guardar en mochila':'Equipar')+'</button> <button onclick="tirar('+x.id+','+x.cantidad+')">Tirar 1</button></div>';
- const v=t=>t||'<p><i>Vacío.</i></p>';
- eq.innerHTML=v((data||[]).filter(x=>x.equipado).map(f).join(''));
- mo.innerHTML=v((data||[]).filter(x=>!x.equipado).map(f).join(''));
+let items=[],sel=null,zona=null,P=null;
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>'&#'+c.charCodeAt(0)+';');
+const en=(l,p)=>items.find(x=>x.lugar==l&&x.pos==p);
+const NOM=['Cuerpo','Pies','Brazos','Mano izq.','Mano der.','Cuello','Extra 1','Extra 2'];
+const AREA=['cu','pi','br','mi','md','co','e1','e2'];
+function celda(l,p,area){const x=en(l,p);
+ return '<div class="celda'+(x?' tiene':'')+(x&&x.id==sel?' sel':'')+'"'+(area?' style="grid-area:'+area+'"':'')+' onclick="clic(\''+l+'\','+p+')">'+(x?esc(x.nombre):'<span class="lab">'+(l=='equipo'?NOM[p]:'')+'</span>')+'</div>'}
+function render(){
+ slots.innerHTML=NOM.map((_,i)=>celda('equipo',i,AREA[i])).join('');
+ mo.innerHTML=Array.from({length:30},(_,i)=>celda('mochila',i)).join('');
+ co.innerHTML=Array.from({length:30},(_,i)=>celda('cofre',i)).join('');
+ const z=items.find(x=>x.id==zona);
+ zonaEl.innerHTML=z?esc(z.nombre):'<span class="lab">Soltar acá</span>';
 }
-async function alternar(id,v){await sb.from('inventario').update({equipado:v}).eq('id',id);cargar()}
-async function tirar(id,c){if(!confirm('¿Tirar 1 unidad?'))return;
- if(c>1)await sb.from('inventario').update({cantidad:c-1}).eq('id',id);else await sb.from('inventario').delete().eq('id',id);cargar()}
-cabecera('Equipamiento');cargar();
+async function cargar(){const{data}=await sb.from('inventario').select('*');items=data||[];render()}
+function aviso(error,ok){msg.className=error?'err':'ok';msg.textContent=error?error.message:(ok||'Listo.')}
+async function clic(l,p){
+ const x=en(l,p);
+ if(sel==null){if(!x)return;sel=x.id;desc.innerHTML='<b>'+esc(x.nombre)+'</b><br>'+esc(x.descripcion||'Sin descripción.');render();return}
+ if(x&&x.id==sel){sel=null;render();return}
+ const id=sel;sel=null;
+ const{error}=await sb.rpc('mover_item',{p_id:id,p_lugar:l,p_pos:p});
+ aviso(error,'');await cargar()}
+function aZona(){if(sel!=null){zona=sel;sel=null}else zona=null;render()}
+const zi=()=>items.find(x=>x.id==zona);
+async function descartar(){const z=zi();if(!z)return aviso({message:'Primero poné un objeto en la zona.'});
+ if(!confirm('¿Seguro que querés descartar '+z.nombre+'? No se puede deshacer.'))return;
+ const{error}=await sb.rpc('descartar_item',{p_id:z.id});zona=null;aviso(error);cargar()}
+async function dar(){const z=zi(),u=para.value.trim();
+ if(!z||!u)return aviso({message:'Poné un objeto en la zona y escribí el usuario.'});
+ if(!confirm('¿Dar '+z.nombre+' a '+u+'?'))return;
+ const{error}=await sb.rpc('dar_item',{p_id:z.id,p_usuario:u});if(!error)zona=null;aviso(error);cargar()}
+async function oroOp(fn,args){const{data,error}=await sb.rpc(fn,args);if(!error)oro.textContent=data;aviso(error)}
+function oroDar(){const m=parseInt(monto.value);if(!(m>0)||!pj.value.trim())return aviso({message:'Poné usuario y un monto mayor a 0.'});
+ oroOp('dar_oro',{p_usuario:pj.value.trim(),p_monto:m})}
+function oroTirar(){const m=parseInt(monto.value);if(!(m>0))return aviso({message:'Poné un monto mayor a 0.'});
+ if(confirm('¿Seguro que querés tirar '+m+' po? No se recuperan.'))oroOp('tirar_oro',{p_monto:m})}
+function mostrarRet(){ret.style.display='block';ret.src=sb.storage.from('retratos').getPublicUrl(P.id+'.jpg').data.publicUrl+'?t='+Date.now()}
+async function subir(){const a=f.files[0];if(!a)return;if(a.size>2e6)return aviso({message:'La imagen pesa más de 2 MB.'});
+ const{error}=await sb.storage.from('retratos').upload(P.id+'.jpg',a,{upsert:true,contentType:a.type});
+ aviso(error);if(!error)mostrarRet()}
+(async()=>{P=await cabecera('Equipamiento');if(!P)return;mostrarRet();cargar()})();
 </script></body></html>
