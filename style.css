@@ -54,7 +54,7 @@ button:disabled{opacity:.5}
 .pj{display:flex;gap:8px;align-items:center}
 .retrato{width:90px;height:110px;flex:none;position:relative}
 .retrato img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none}
-.slots{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;grid-template-areas:"e1 cu e2" "mi co md" "br pi ."}
+.slots{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;grid-template-areas:"e1 ca e2" "m1 cu m2" "e3 pi e4"}
 .grid{display:grid;grid-template-columns:repeat(6,1fr);gap:3px;background:#2a2418;padding:4px;border:2px inset #fff}
 .celda{aspect-ratio:1;background:#14110b;border:1px solid #5a4d2a;color:#f3e3a6;font-size:10px;line-height:1.1;display:flex;align-items:center;justify-content:center;text-align:center;overflow:hidden;cursor:pointer;padding:1px;word-break:break-word}
 .celda.tiene{background:#3b3220;font-weight:bold}
@@ -62,3 +62,14 @@ button:disabled{opacity:.5}
 .lab{color:#7a6a3a;font-weight:normal}
 .zona{width:90px}
 @media(min-width:700px){.eq{flex-direction:row}}
+/* rarezas e imágenes de ítems */
+.r-comun{--rc:#9a9a9a}.r-infrecuente{--rc:#2e9b3a}.r-rara{--rc:#2f6fd8}.r-epica{--rc:#9b4fd8}.r-legendaria{--rc:#e08a00}
+.celda{position:relative}
+.celda.tiene{border:2px solid var(--rc,#5a4d2a)}
+.celda.img{background-size:cover;background-position:center}
+.celda .nm{position:absolute;left:0;right:0;bottom:0;background:#000b;font-size:9px;line-height:1.1;padding:1px;font-weight:bold}
+.celda:not(.img) .nm{position:static;background:none;font-size:10px}
+.item{border:3px solid var(--rc,#bbb)}
+.ifoto{height:110px;background:#d8cfb0 center/cover;border:1px solid #0005;margin-bottom:6px}
+.rg{margin:4px 0;padding:3px 6px;border-left:6px solid var(--rc)}
+.rg button{margin:2px;padding:4px 8px}

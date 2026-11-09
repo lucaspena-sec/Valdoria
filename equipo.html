@@ -7,8 +7,7 @@
  <div class="box pj"><div class="foto retrato">🧙<img id="ret" alt="" onerror="this.style.display='none'"></div>
   <div>Foto del personaje:<br><input type="file" id="f" accept="image/*" onchange="subir()"></div></div>
  <h3>Equipo</h3><div id="slots" class="slots"></div>
- <div class="box" id="desc">Tocá un objeto para ver su descripción. Después tocá el casillero donde querés ponerlo (si hay otro objeto, se intercambian).</div>
- <div class="box"><h3>Descartar o dar</h3>
+  <div class="box"><h3>Descartar o dar</h3>
   <div class="celda zona" id="zonaEl" onclick="aZona()"></div>
   <button onclick="descartar()">Descartar</button><br>
   <input id="para" placeholder="Usuario que lo recibe"><select id="dest"><option value="cofre">Enviar a su cofre</option><option value="mochila">Enviar a su mochila</option></select> <button onclick="dar()">Dar</button></div>
@@ -16,16 +15,17 @@
   <input id="pj" placeholder="Usuario"><input id="monto" type="number" min="1" placeholder="Monto">
   <button onclick="oroDar()">Dar oro</button> <button onclick="oroTirar()">Tirar oro</button></div>
 </div>
-<div class="der"><h3>Mochila</h3><div id="mo" class="grid"></div><h3>Cofre</h3><div id="co" class="grid"></div></div>
+<div class="der"><h3>Mochila</h3><div id="mo" class="grid"></div><div class="box" id="desc">Tocá un objeto para ver su descripción. Después tocá el casillero donde querés ponerlo (si hay otro objeto, se intercambian).</div><h3>Cofre</h3><div id="co" class="grid"></div></div>
 </div></div></div>
 <script>
 let items=[],sel=null,zona=null,P=null;
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>'&#'+c.charCodeAt(0)+';');
 const en=(l,p)=>items.find(x=>x.lugar==l&&x.pos==p);
-const NOM=['Cuerpo','Pies','Brazos','Mano izq.','Mano der.','Cuello','Extra 1','Extra 2'];
-const AREA=['cu','pi','br','mi','md','co','e1','e2'];
+const NOM=['Cabeza','Cuerpo','Pies','Mano 1','Mano 2','Extra 1','Extra 2','Extra 3','Extra 4'];
+const AREA=['ca','cu','pi','m1','m2','e1','e2','e3','e4'];
 function celda(l,p,area){const x=en(l,p);
- return '<div class="celda'+(x?' tiene':'')+(x&&x.id==sel?' sel':'')+'"'+(area?' style="grid-area:'+area+'"':'')+' onclick="clic(\''+l+'\','+p+')">'+(x?esc(x.nombre):'<span class="lab">'+(l=='equipo'?NOM[p]:'')+'</span>')+'</div>'}
+ const st=(area?'grid-area:'+area+';':'')+(x&&x.imagen?"background-image:url('"+esc(x.imagen.replace(/'/g,'%27'))+"')":'');
+ return '<div class="celda'+(x?' tiene r-'+(x.rareza||'comun'):'')+(x&&x.imagen?' img':'')+(x&&x.id==sel?' sel':'')+'" style="'+st+'" onclick="clic(\''+l+'\','+p+')">'+(x?'<span class="nm">'+esc(x.nombre)+'</span>':'<span class="lab">'+(l=='equipo'?NOM[p]:'')+'</span>')+'</div>'}
 function render(){
  slots.innerHTML=NOM.map((_,i)=>celda('equipo',i,AREA[i])).join('');
  mo.innerHTML=Array.from({length:30},(_,i)=>celda('mochila',i)).join('');
@@ -37,7 +37,7 @@ async function cargar(){const{data}=await sb.from('inventario').select('*');item
 function aviso(error,ok){msg.className=error?'err':'ok';msg.textContent=error?error.message:(ok||'Listo.')}
 async function clic(l,p){
  const x=en(l,p);
- if(sel==null){if(!x)return;sel=x.id;desc.innerHTML='<b>'+esc(x.nombre)+'</b><br>'+esc(x.descripcion||'Sin descripción.');render();return}
+ if(sel==null){if(!x)return;sel=x.id;desc.innerHTML='<b>'+esc(x.nombre)+'</b> <small>('+esc(x.rareza||'comun')+')</small><br>'+esc(x.descripcion||'Sin descripción.');render();return}
  if(x&&x.id==sel){sel=null;render();return}
  const id=sel;sel=null;
  const{error}=await sb.rpc('mover_item',{p_id:id,p_lugar:l,p_pos:p});

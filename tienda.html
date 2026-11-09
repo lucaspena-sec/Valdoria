@@ -7,28 +7,30 @@
 <div id="msg" class="err"></div>
 </div></div>
 <script>
-// EDITÁ ACÁ: copiá un bloque {n,d,p} para agregar ítems, o un bloque de mercader para agregar mercaderes.
-const MERCADERES=[
- {n:'Borin Yunquebravo',t:'Herrero',items:[{n:'Espada corta',d:'Hoja ligera y confiable.',p:15},{n:'Escudo de madera',d:'Resiste algún que otro golpe.',p:10},{n:'Daga afilada',d:'Fácil de ocultar.',p:2}]},
- {n:'Elara Hojaverde',t:'Herbolaria',items:[{n:'Poción de curación',d:'Restaura 2d4+2 PG.',p:50},{n:'Antídoto',d:'Cura venenos comunes.',p:30}]},
- {n:'Tobías Cuatrodedos',t:'Mercader ambulante',items:[{n:'Cuerda de cáñamo (15 m)',d:'Útil para todo.',p:1},{n:'Antorcha',d:'Luz por 1 hora.',p:1},{n:'Raciones (1 día)',d:'Carne seca y pan duro.',p:5}]},
- {n:'Madame Zelda',t:'Objetos arcanos',items:[{n:'Pergamino de Luz',d:'Conjuro de nivel 0, un uso.',p:25},{n:'Amuleto extraño',d:'Brilla de noche. Nadie sabe por qué.',p:80}]},
- {n:'Grumlok el Cojo',t:'Armero',items:[{n:'Cota de cuero',d:'CA 11 + Des.',p:10},{n:'Cota de mallas',d:'CA 16. Pesada.',p:75}]},
- {n:'Pip Bolsafina',t:'Buhonero',items:[{n:'Mochila reforzada',d:'Más espacio para tu botín.',p:2},{n:'Herramientas de ladrón',d:'Ganzúas y limas.',p:25},{n:'Mapa de la región',d:'Con anotaciones dudosas.',p:8}]}
-];
-let actual=0;
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>'&#'+c.charCodeAt(0)+';');
+const url=u=>esc((u||'').replace(/'/g,'%27'));
+const RN={comun:'Común',infrecuente:'Infrecuente',rara:'Rara',epica:'Épica',legendaria:'Legendaria'};
+let ME=[],OF=[],actual=0;
+async function iniciar(){
+ const a=await sb.from('mercaderes').select('*').eq('activo',true).order('id');
+ const b=await sb.from('oferta').select('mercader_id,items(*)');
+ ME=a.data||[];OF=b.data||[];dibujar()}
 function dibujar(){
- tabs.innerHTML=MERCADERES.map((m,i)=>'<button class="'+(i==actual?'on':'')+'" onclick="actual='+i+';dibujar()">'+m.n+'</button>').join('');
- const m=MERCADERES[actual];
- info.innerHTML='<!-- FOTO DEL MERCADER: <img src="mercader1.png" width="64"> --><b>'+m.n+'</b> - '+m.t+'<br><small>Deslizá para ver más productos →</small>';
- carr.innerHTML=m.items.map((it,j)=>'<div class="item"><h3>'+it.n+'</h3><p>'+it.d+'</p><p class="precio">'+it.p+' po</p><button onclick="comprar('+j+',this)">Comprar</button></div>').join('');
+ if(!ME.length){tabs.innerHTML='';info.innerHTML='<i>No hay mercaderes disponibles por ahora.</i>';carr.innerHTML='';return}
+ if(actual>=ME.length)actual=0;
+ tabs.innerHTML=ME.map((m,i)=>'<button class="'+(i==actual?'on':'')+'" onclick="actual='+i+';dibujar()">'+esc(m.nombre)+'</button>').join('');
+ const m=ME[actual];
+ info.innerHTML=(m.imagen?'<img src="'+esc(m.imagen)+'" width="64" height="64" style="object-fit:cover;vertical-align:middle;border:2px inset #fff" onerror="this.remove()"> ':'')+'<b>'+esc(m.nombre)+'</b> - '+esc(m.titulo)+'<br><small>Deslizá para ver más productos →</small>';
+ const its=OF.filter(o=>o.mercader_id==m.id&&o.items).map(o=>o.items);
+ carr.innerHTML=its.map(it=>'<div class="item r-'+it.rareza+'"><div class="ifoto" style="background-image:url(\''+url(it.imagen)+'\')"></div><h3>'+esc(it.nombre)+'</h3><small>'+RN[it.rareza]+'</small><p>'+esc(it.descripcion)+'</p><p class="precio">'+it.precio+' po</p><button onclick="comprar('+m.id+','+it.id+',this)">Comprar</button></div>').join('')||'<i>Este mercader no tiene nada para vender.</i>';
 }
-async function comprar(j,b){
- const it=MERCADERES[actual].items[j];msg.className='err';msg.textContent='';b.disabled=true;
- const{data,error}=await sb.rpc('comprar',{p_nombre:it.n,p_desc:it.d,p_precio:it.p});
+async function comprar(mid,iid,b){
+ msg.className='err';msg.textContent='';b.disabled=true;
+ const it=OF.find(o=>o.items&&o.items.id==iid).items;
+ const{data,error}=await sb.rpc('comprar_item',{p_mercader:mid,p_item:iid});
  b.disabled=false;
- if(error){msg.textContent=error.message.includes('insuficiente')?'No te alcanza el oro.':'Error: '+error.message;return}
- oro.textContent=data;msg.className='ok';msg.textContent='Compraste: '+it.n+' (está en tu mochila)';
+ if(error){msg.textContent=error.message;return}
+ oro.textContent=data;msg.className='ok';msg.textContent='Compraste: '+it.nombre+' (está en tu mochila)';
 }
-cabecera('Tienda');dibujar();
+cabecera('Tienda');iniciar();
 </script></body></html>
