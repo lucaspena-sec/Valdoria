@@ -2,13 +2,13 @@
 <div class="win"><div id="cab"></div><div class="body">
 <div class="diario">
 <div class="cab"><h1>El Heraldo de Valdoria</h1><small>Edición de la mañana · Un cobre el ejemplar</small></div>
-<div class="notas">
-<!-- COPIÁ UN BLOQUE <div class="nota"> PARA AGREGAR NOTICIAS -->
-<div class="nota"><h3>Misteriosa luz sobre el bosque</h3><small>Por Corresponsal Anónimo</small><p>Vecinos aseguran haber visto una luz verde sobre el bosque durante tres noches seguidas. Las autoridades piden calma.</p></div>
-<div class="nota"><h3>Sube el precio del hierro</h3><small>Sección Comercio</small><p>Los herreros se quejan: el hierro cuesta el doble desde que cerró la mina del norte.</p></div>
-<div class="nota"><h3>Se busca: Tobías Cuatrodedos</h3><small>Sección Sucesos</small><p>Recompensa de 50 monedas de oro por información sobre su paradero. Se lo vio por última vez cerca del mercado.</p></div>
-<div class="nota"><h3>Feria de primavera</h3><small>Sociales</small><p>Este fin de semana abre la feria en la plaza central. Habrá música, comida y un torneo de lucha de brazos.</p></div>
-<div class="nota"><h3>Lobos cerca del camino real</h3><small>Aviso</small><p>Los viajeros deben ir en grupo. La guardia ofrece escolta por una módica suma.</p></div>
-<div class="nota"><h3>Nuevo libro en la biblioteca</h3><small>Cultura</small><p>Llegó un tomo antiguo sobre las estrellas. Solo se permite leerlo en el lugar.</p></div>
-</div></div></div></div>
-<script>cabecera('Novedades')</script></body></html>
+<div class="notas" id="notas"><i>Cargando…</i></div>
+</div></div></div>
+<script>
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>'&#'+c.charCodeAt(0)+';');
+async function cargar(){
+ const{data}=await sb.from('noticias').select('*').eq('publicada',true).order('fecha',{ascending:false});
+ notas.innerHTML=(data||[]).map(n=>'<div class="nota"><h3>'+esc(n.titulo)+'</h3><small>'+esc(n.seccion)+(n.seccion?' · ':'')+new Date(n.fecha).toLocaleDateString('es-AR')+'</small><p style="white-space:pre-wrap">'+esc(n.texto)+'</p></div>').join('')||'<i>No hay noticias por ahora.</i>';
+}
+cabecera('Novedades');cargar();
+</script></body></html>

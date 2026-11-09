@@ -1,0 +1,44 @@
+<!doctype html><html lang="es"><head><title>Valdoria - Novedades DM</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
+<div class="win"><div id="cab"></div><div class="body">
+<h2>Novedades y alertas</h2>
+<a href="dm.html">← Volver al panel de jugadores</a>
+<div id="msg" class="err"></div>
+<h3>Alertas (barra lateral del inicio)</h3>
+<input id="a_nueva" placeholder="Texto de la alerta"><button onclick="agAl()">+ Agregar alerta</button>
+<div id="alertas"></div>
+<h3>Noticias (El Heraldo de Valdoria)</h3>
+<button onclick="edN(0)">+ Nueva noticia</button>
+<div id="ed" class="box" style="display:none">
+ <input type="hidden" id="n_id">
+ <input id="n_titulo" placeholder="Título"><input id="n_sec" placeholder="Sección o autor (opcional)">
+ <textarea id="n_texto" rows="6" style="width:100%;font:inherit;padding:8px" placeholder="Texto de la noticia"></textarea>
+ <button onclick="guardarN()">Guardar</button> <button onclick="ed.style.display='none'">Cancelar</button>
+</div>
+<div id="noticias"></div>
+</div></div>
+<script>
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>'&#'+c.charCodeAt(0)+';');
+const g=id=>document.getElementById(id).value;
+let NO=[],AL=[];
+async function cargar(){
+ const[a,b]=await Promise.all([sb.from('noticias').select('*').order('fecha',{ascending:false}),sb.from('alertas').select('*').order('id',{ascending:false})]);
+ NO=a.data||[];AL=b.data||[];pintar()}
+async function q(p){const{error}=await p;msg.textContent=error?error.message:'';await cargar()}
+function pintar(){
+ alertas.innerHTML=AL.map(a=>'<div class="box"><input id="al'+a.id+'" value="'+esc(a.texto)+'"> '+(a.activa?'🟢 visible':'🔴 oculta')+'<br><button onclick="gAl('+a.id+')">Guardar</button> <button onclick="actAl('+a.id+','+!a.activa+')">'+(a.activa?'Ocultar':'Mostrar')+'</button> <button onclick="borAl('+a.id+')">Eliminar</button></div>').join('')||'<i>Sin alertas.</i>';
+ noticias.innerHTML=NO.map(n=>'<div class="box"><b>'+esc(n.titulo)+'</b> '+(n.publicada?'🟢 publicada':'🔴 oculta')+' <small>'+new Date(n.fecha).toLocaleDateString('es-AR')+'</small><br><button onclick="edN('+n.id+')">Editar</button> <button onclick="pubN('+n.id+','+!n.publicada+')">'+(n.publicada?'Ocultar':'Publicar')+'</button> <button onclick="borN('+n.id+')">Eliminar</button></div>').join('')||'<i>Sin noticias.</i>';
+}
+function agAl(){const t=g('a_nueva').trim();if(!t)return;a_nueva.value='';q(sb.from('alertas').insert({texto:t}))}
+const gAl=id=>q(sb.from('alertas').update({texto:g('al'+id).trim()}).eq('id',id));
+const actAl=(id,v)=>q(sb.from('alertas').update({activa:v}).eq('id',id));
+function borAl(id){if(confirm('¿Eliminar esta alerta?'))q(sb.from('alertas').delete().eq('id',id))}
+function edN(id){const n=id?NO.find(x=>x.id==id):{id:'',titulo:'',seccion:'',texto:''};
+ ed.style.display='block';n_id.value=n.id;n_titulo.value=n.titulo;n_sec.value=n.seccion||'';n_texto.value=n.texto;ed.scrollIntoView()}
+async function guardarN(){const d={titulo:g('n_titulo').trim(),seccion:g('n_sec').trim(),texto:g('n_texto')};
+ if(!d.titulo){msg.textContent='Falta el título.';return}
+ const{error}=g('n_id')?await sb.from('noticias').update(d).eq('id',g('n_id')):await sb.from('noticias').insert(d);
+ msg.textContent=error?error.message:'Guardado.';if(!error)ed.style.display='none';cargar()}
+const pubN=(id,v)=>q(sb.from('noticias').update({publicada:v}).eq('id',id));
+function borN(id){if(confirm('¿Eliminar esta noticia?'))q(sb.from('noticias').delete().eq('id',id))}
+(async()=>{const p=await cabecera('Novedades DM');if(!p)return;if(!p.is_dm){location.href='main.html';return}cargar()})();
+</script></body></html>

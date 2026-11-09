@@ -2,12 +2,16 @@
 <div class="win"><div id="cab"></div>
 <div class="marquee"><span>★ Portal de la Red de Valdoria ★ Revisá las Novedades para enterarte de lo último ★</span></div>
 <div class="body layout">
-<div class="side"><h3>⚠ Alertas</h3><ul style="padding-left:16px;margin:6px 0">
-<li>Ejemplo: El mercado abre al amanecer.</li><li>Ejemplo: Nueva nota en Novedades.</li><li>Ejemplo: Se busca aventurero.</li></ul></div>
+<div class="side"><h3>⚠ Alertas</h3><ul id="al" style="padding-left:16px;margin:6px 0"><li>Cargando…</li></ul></div>
 <div class="apps">
 <a class="app" href="tienda.html"><div class="foto">🛒<!-- <img src="icono-tienda.png"> --></div>Tienda</a>
 <a class="app" href="equipo.html"><div class="foto">🎒<!-- <img src="icono-equipo.png"> --></div>Equipamiento</a>
 <a class="app" href="novedades.html"><div class="foto">📰<!-- <img src="icono-novedades.png"> --></div>Novedades</a>
 <a class="app" href="torre.html"><div class="foto">🏰<!-- <img src="icono-torre.png"> --></div>Torre</a>
 </div></div></div>
-<script>cabecera('Inicio')</script></body></html>
+<script>
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>'&#'+c.charCodeAt(0)+';');
+cabecera('Inicio');
+(async()=>{const{data}=await sb.from('alertas').select('*').eq('activa',true).order('id',{ascending:false});
+ al.innerHTML=(data||[]).map(a=>'<li>'+esc(a.texto)+'</li>').join('')||'<li>Sin alertas por ahora.</li>'})();
+</script></body></html>
