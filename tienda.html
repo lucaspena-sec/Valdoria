@@ -13,7 +13,7 @@ const RN={comun:'Común',infrecuente:'Infrecuente',rara:'Rara',epica:'Épica',le
 let ME=[],OF=[],actual=0;
 async function iniciar(){
  const a=await sb.from('mercaderes').select('*').eq('activo',true).order('id');
- const b=await sb.from('oferta').select('mercader_id,items(*)');
+ const b=await sb.from('oferta').select('mercader_id,stock,items(*)');
  ME=a.data||[];OF=b.data||[];dibujar()}
 function dibujar(){
  if(!ME.length){tabs.innerHTML='';info.innerHTML='<i>No hay mercaderes disponibles por ahora.</i>';carr.innerHTML='';return}
@@ -21,16 +21,16 @@ function dibujar(){
  tabs.innerHTML=ME.map((m,i)=>'<button class="'+(i==actual?'on':'')+'" onclick="actual='+i+';dibujar()">'+esc(m.nombre)+'</button>').join('');
  const m=ME[actual];
  info.innerHTML=(m.imagen?'<img src="'+esc(m.imagen)+'" width="64" height="64" style="object-fit:cover;vertical-align:middle;border:2px inset #fff" onerror="this.remove()"> ':'')+'<b>'+esc(m.nombre)+'</b> - '+esc(m.titulo)+'<br><small>Deslizá para ver más productos →</small>';
- const its=OF.filter(o=>o.mercader_id==m.id&&o.items).map(o=>o.items);
- carr.innerHTML=its.map(it=>'<div class="item r-'+it.rareza+'"><div class="ifoto" style="background-image:url(\''+url(it.imagen)+'\')"></div><h3>'+esc(it.nombre)+'</h3><small>'+RN[it.rareza]+'</small><p>'+esc(it.descripcion)+'</p><p class="precio">'+it.precio+' po</p><button onclick="comprar('+m.id+','+it.id+',this)">Comprar</button></div>').join('')||'<i>Este mercader no tiene nada para vender.</i>';
+ const its=OF.filter(o=>o.mercader_id==m.id&&o.items).map(o=>({...o.items,stock:o.stock}));
+ carr.innerHTML=its.map(it=>'<div class="item r-'+it.rareza+'"><div class="ifoto" style="background-image:url(\''+url(it.imagen)+'\')"></div><h3>'+esc(it.nombre)+'</h3><small>'+RN[it.rareza]+'</small><p>'+esc(it.descripcion)+'</p><p class="precio">'+it.precio+' po</p>'+(it.stock==null?'':'<p><small>'+(it.stock>0?'Quedan: '+it.stock:'Agotado')+'</small></p>')+'<button'+(it.stock===0?' disabled':'')+' onclick="comprar('+m.id+','+it.id+',this)">Comprar</button></div>').join('')||'<i>Este mercader no tiene nada para vender.</i>';
 }
 async function comprar(mid,iid,b){
  msg.className='err';msg.textContent='';b.disabled=true;
- const it=OF.find(o=>o.items&&o.items.id==iid).items;
+ const ofe=OF.find(o=>o.mercader_id==mid&&o.items&&o.items.id==iid),it=ofe.items;
  const{data,error}=await sb.rpc('comprar_item',{p_mercader:mid,p_item:iid});
  b.disabled=false;
- if(error){msg.textContent=error.message;return}
- oro.textContent=data;msg.className='ok';msg.textContent='Compraste: '+it.nombre+' (está en tu mochila)';
+ if(error){msg.textContent=error.message;if(error.message=='Agotado')iniciar();return}
+ oro.textContent=data;if(ofe.stock!=null)ofe.stock--;const sl=carr.scrollLeft;dibujar();carr.scrollLeft=sl;msg.className='ok';msg.textContent='Compraste: '+it.nombre+' (está en tu mochila)';
 }
 cabecera('Tienda');iniciar();
 </script></body></html>

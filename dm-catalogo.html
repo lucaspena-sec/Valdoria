@@ -34,8 +34,8 @@ function pintar(){
   return '<details id="me'+m.id+'" class="box"><summary><b>'+esc(m.nombre)+'</b> '+(m.activo?'🟢 visible':'🔴 oculto')+' ('+of.length+' ítems)</summary>'+
    '<input id="mn'+m.id+'" value="'+esc(m.nombre)+'" placeholder="Nombre"><input id="mt'+m.id+'" value="'+esc(m.titulo)+'" placeholder="Oficio"><input id="mi'+m.id+'" value="'+esc(m.imagen)+'" placeholder="URL de la foto">Subir foto: <input type="file" accept="image/*" onchange="subir(this,\'mi'+m.id+'\')">'+
    '<br><button onclick="gMer('+m.id+')">Guardar</button> <button onclick="actMer('+m.id+','+!m.activo+')">'+(m.activo?'Ocultar a los jugadores':'Mostrar a los jugadores')+'</button> <button onclick="borMer('+m.id+')">Eliminar</button>'+
-   '<h4>Ofrece:</h4>'+(of.map(i=>esc(i.nombre)+' ('+i.precio+' po) <button onclick="quitar('+m.id+','+i.id+')">Quitar</button>').join('<br>')||'<i>Nada todavía</i>')+
-   '<br><select id="ad'+m.id+'">'+libres.map(i=>'<option value="'+i.id+'">'+esc(i.nombre)+' ['+CAT[i.categoria]+' / '+i.rareza+']</option>').join('')+'</select> <button onclick="agregar('+m.id+')">Agregar a su tienda</button></details>'}).join('')||'<i>Sin mercaderes.</i>';
+   '<h4>Ofrece:</h4>'+(of.map(i=>{const o=OF.find(z=>z.mercader_id==m.id&&z.item_id==i.id);return '<div>'+esc(i.nombre)+' ('+i.precio+' po) Stock: <input type="number" min="0" style="width:70px" id="st'+m.id+'_'+i.id+'" value="'+(o.stock??'')+'" placeholder="∞"> <button onclick="gStock('+m.id+','+i.id+')">Guardar</button> <button onclick="quitar('+m.id+','+i.id+')">Quitar</button></div>'}).join('')||'<i>Nada todavía</i>')+
+   '<br><select id="ad'+m.id+'">'+libres.map(i=>'<option value="'+i.id+'">'+esc(i.nombre)+' ['+CAT[i.categoria]+' / '+i.rareza+']</option>').join('')+'</select> <input type="number" min="0" id="as'+m.id+'" placeholder="Stock (vacío = ilimitado)"> <button onclick="agregar('+m.id+')">Agregar a su tienda</button></details>'}).join('')||'<i>Sin mercaderes.</i>';
  catalogo.innerHTML=Object.keys(CAT).map(c=>'<details id="c'+c+'" class="box"><summary><b>'+CAT[c]+'</b> ('+IT.filter(i=>i.categoria==c).length+')</summary>'+
   Object.keys(RAR).map(r=>{const l=IT.filter(i=>i.categoria==c&&i.rareza==r);
    return '<div class="rg r-'+r+'"><b>'+RAR[r]+':</b> '+(l.map(i=>'<button onclick="editar('+i.id+')">'+esc(i.nombre)+'</button>').join(' ')||'<i>—</i>')+'</div>'}).join('')+'</details>').join('');
@@ -45,7 +45,9 @@ const nuevoM=()=>q(sb.from('mercaderes').insert({nombre:'Nuevo mercader',activo:
 const gMer=id=>q(sb.from('mercaderes').update({nombre:g('mn'+id).trim(),titulo:g('mt'+id).trim(),imagen:g('mi'+id).trim()}).eq('id',id));
 const actMer=(id,a)=>q(sb.from('mercaderes').update({activo:a}).eq('id',id));
 function borMer(id){if(confirm('¿Eliminar este mercader y su lista de ítems?'))q(sb.from('mercaderes').delete().eq('id',id))}
-const agregar=id=>q(sb.from('oferta').insert({mercader_id:id,item_id:parseInt(g('ad'+id))}));
+const num=v=>v.trim()===''?null:parseInt(v);
+const agregar=id=>q(sb.from('oferta').insert({mercader_id:id,item_id:parseInt(g('ad'+id)),stock:num(g('as'+id))}));
+const gStock=(m,i)=>q(sb.from('oferta').update({stock:num(g('st'+m+'_'+i))}).eq('mercader_id',m).eq('item_id',i));
 const quitar=(m,i)=>q(sb.from('oferta').delete().eq('mercader_id',m).eq('item_id',i));
 function editar(id){
  const i=id?IT.find(x=>x.id==id):{id:'',nombre:'',descripcion:'',precio:0,categoria:'armas',rareza:'comun',imagen:''};

@@ -33,7 +33,7 @@ function render(){
  const z=items.find(x=>x.id==zona);
  zonaEl.innerHTML=z?esc(z.nombre):'<span class="lab">Soltar acá</span>';
 }
-async function cargar(){const{data}=await sb.from('inventario').select('*');items=data||[];render()}
+async function cargar(){const{data}=await sb.from('inventario').select('*').eq('user_id',P.id);items=data||[];render()}
 function aviso(error,ok){msg.className=error?'err':'ok';msg.textContent=error?error.message:(ok||'Listo.')}
 async function clic(l,p){
  const x=en(l,p);
