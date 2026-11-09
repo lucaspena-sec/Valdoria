@@ -11,7 +11,7 @@
  <div class="box"><h3>Descartar o dar</h3>
   <div class="celda zona" id="zonaEl" onclick="aZona()"></div>
   <button onclick="descartar()">Descartar</button><br>
-  <input id="para" placeholder="Usuario que lo recibe"><button onclick="dar()">Dar</button></div>
+  <input id="para" placeholder="Usuario que lo recibe"><select id="dest"><option value="cofre">Enviar a su cofre</option><option value="mochila">Enviar a su mochila</option></select> <button onclick="dar()">Dar</button></div>
  <div class="box"><h3>Oro</h3>
   <input id="pj" placeholder="Usuario"><input id="monto" type="number" min="1" placeholder="Monto">
   <button onclick="oroDar()">Dar oro</button> <button onclick="oroTirar()">Tirar oro</button></div>
@@ -50,7 +50,7 @@ async function descartar(){const z=zi();if(!z)return aviso({message:'Primero pon
 async function dar(){const z=zi(),u=para.value.trim();
  if(!z||!u)return aviso({message:'Poné un objeto en la zona y escribí el usuario.'});
  if(!confirm('¿Dar '+z.nombre+' a '+u+'?'))return;
- const{error}=await sb.rpc('dar_item',{p_id:z.id,p_usuario:u});if(!error)zona=null;aviso(error);cargar()}
+ const{error}=await sb.rpc('dar_item',{p_id:z.id,p_usuario:u,p_lugar:dest.value});if(!error)zona=null;aviso(error);cargar()}
 async function oroOp(fn,args){const{data,error}=await sb.rpc(fn,args);if(!error)oro.textContent=data;aviso(error)}
 function oroDar(){const m=parseInt(monto.value);if(!(m>0)||!pj.value.trim())return aviso({message:'Poné usuario y un monto mayor a 0.'});
  oroOp('dar_oro',{p_usuario:pj.value.trim(),p_monto:m})}

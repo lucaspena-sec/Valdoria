@@ -28,7 +28,7 @@ async function comprar(j,b){
  const{data,error}=await sb.rpc('comprar',{p_nombre:it.n,p_desc:it.d,p_precio:it.p});
  b.disabled=false;
  if(error){msg.textContent=error.message.includes('insuficiente')?'No te alcanza el oro.':'Error: '+error.message;return}
- oro.textContent=data;msg.className='ok';msg.textContent='Compraste: '+it.n;
+ oro.textContent=data;msg.className='ok';msg.textContent='Compraste: '+it.n+' (está en tu mochila)';
 }
 cabecera('Tienda');dibujar();
 </script></body></html>

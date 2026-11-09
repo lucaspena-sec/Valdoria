@@ -17,7 +17,7 @@ async function cargar(){
    '<button onclick="oro(\''+x.id+'\',1)">Dar</button> <button onclick="oro(\''+x.id+'\',-1)">Quitar</button> <button onclick="fijar(\''+x.id+'\')">Fijar total</button>'+
    '<details><summary>Ítems ('+its.length+')</summary>'+(its.map(y=>y.nombre+' ('+y.lugar+')').join('<br>')||'<i>Vacío</i>')+'</details>'+
    '<input id="n'+x.id+'" placeholder="Nombre del ítem"><input id="d'+x.id+'" placeholder="Descripción">'+
-   '<button onclick="regalar(\''+x.id+'\')">Dar ítem (va al cofre)</button></div>';
+   '<select id="l'+x.id+'"><option value="cofre">Al cofre</option><option value="mochila">A la mochila</option></select> <button onclick="regalar(\''+x.id+'\')">Dar ítem</button></div>';
  }).join('');
 }
 function val(id){const v=parseInt(document.getElementById('m'+id).value);if(!(v>=0)){msg.textContent='Escribí una cantidad válida.';return null}msg.textContent='';return v}
@@ -26,7 +26,7 @@ async function oro(id,s){const v=val(id);if(v===null)return;
 async function fijar(id){const v=val(id);if(v===null)return;
  const{error}=await sb.rpc('dm_fijar_oro',{p_user:id,p_oro:v});if(error)msg.textContent=error.message;cargar()}
 async function regalar(id){const n=document.getElementById('n'+id).value.trim();if(!n){msg.textContent='Escribí el nombre del ítem.';return}
- const{error}=await sb.rpc('dm_dar_item',{p_user:id,p_nombre:n,p_desc:document.getElementById('d'+id).value.trim()});
+ const{error}=await sb.rpc('dm_dar_item',{p_user:id,p_nombre:n,p_desc:document.getElementById('d'+id).value.trim(),p_lugar:document.getElementById('l'+id).value});
  msg.textContent=error?error.message:'';cargar()}
 (async()=>{const p=await cabecera('Panel DM');if(!p)return;if(!p.is_dm){location.href='main.html';return}cargar()})();
 </script></body></html>
