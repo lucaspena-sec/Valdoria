@@ -1,6 +1,6 @@
 // 1) Pegá acá los datos de tu proyecto de Supabase (Project Settings > API)
 const SUPABASE_URL = 'https://ljvjkpdyczpltqnrpwam.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_gGf6x3H7-b0hqsm8YZ6f_g_ulNay1Sd';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxqdmprcGR5Y3pwbHRxbnJwd2FtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQxOTQxNTAsImV4cCI6MjEwOTc3MDE1MH0.emQau8wxkg86tCfEEbNJPZahi01HKxjorcbBkGSW5yc';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // El usuario escribe solo un nombre; internamente se usa como mail falso
