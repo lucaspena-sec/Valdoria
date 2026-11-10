@@ -1,4 +1,4 @@
-<!doctype html><html lang="es"><head><title>Valdoria - Equipamiento</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js"></script>
+<!doctype html><html lang="es"><head><title>Valdoria - Equipamiento</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=2"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=2"></script><script src="comun.js?v=2"></script>
 <style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
 <div class="win"><div id="cab"></div><div class="body">
 <div id="msg" class="err"></div>
@@ -19,7 +19,6 @@
 </div></div></div>
 <script>
 let items=[],sel=null,zona=null,P=null;
-const esc=s=>String(s??'').replace(/[&<>"]/g,c=>'&#'+c.charCodeAt(0)+';');
 const en=(l,p)=>items.find(x=>x.lugar==l&&x.pos==p);
 const NOM=['Cabeza','Cuerpo','Pies','Mano 1','Mano 2','Extra 1','Extra 2','Extra 3','Extra 4'];
 const AREA=['ca','cu','pi','m1','m2','e1','e2','e3','e4'];
@@ -37,7 +36,7 @@ async function cargar(){const{data}=await sb.from('inventario').select('*').eq('
 function aviso(error,ok){msg.className=error?'err':'ok';msg.textContent=error?error.message:(ok||'Listo.')}
 async function clic(l,p){
  const x=en(l,p);
- if(sel==null){if(!x)return;sel=x.id;desc.innerHTML='<b>'+esc(x.nombre)+'</b> <small>('+esc(x.rareza||'comun')+')</small><br>'+esc(x.descripcion||'Sin descripción.');render();return}
+ if(sel==null){if(!x)return;sel=x.id;desc.innerHTML='<b>'+esc(x.nombre)+'</b>'+tarjetaItem(x);render();return}
  if(x&&x.id==sel){sel=null;render();return}
  const id=sel;sel=null;
  const{error}=await sb.rpc('mover_item',{p_id:id,p_lugar:l,p_pos:p});

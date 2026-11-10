@@ -1,9 +1,10 @@
-<!doctype html><html lang="es"><head><title>Valdoria - Criaturas</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
+<!doctype html><html lang="es"><head><title>Valdoria - Criaturas</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=2"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=2"></script><script src="comun.js?v=2"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
 <div class="win"><div id="cab"></div><div class="body">
 <h2>Criaturas</h2>
 <a href="dm.html">← Volver al panel de jugadores</a>
 <div id="msg" class="err"></div>
-<button onclick="editar(0)">+ Nueva criatura</button>
+<button onclick="editar(0)">+ Nueva criatura</button> <button onclick="pf.style.display='block'">📋 Pegar ficha</button>
+<div id="pf" class="box" style="display:none"><textarea id="pf_t" rows="8" placeholder="Pegá acá el texto completo de la ficha de la criatura (en español o inglés)"></textarea><button onclick="leerFicha()">Leer ficha</button> <button onclick="pf.style.display='none'">Cancelar</button><br><small>Después de leerla se abre el editor con los datos cargados para que los revises antes de guardar.</small></div>
 <div id="ed" class="box" style="display:none">
  <input type="hidden" id="c_id">
  <input id="c_nombre" placeholder="Nombre">
@@ -33,12 +34,8 @@
 <div id="lista"></div>
 </div></div>
 <script>
-const esc=s=>String(s??'').replace(/[&<>"]/g,c=>'&#'+c.charCodeAt(0)+';');
 const g=id=>document.getElementById(id).value;
 const cl=(v,a,b)=>Math.max(a,Math.min(b,parseInt(v)||a));
-const md=s=>Math.floor((s-10)/2),sgn=n=>(n>=0?'+':'')+n;
-const AB=[['fue','Fuerza'],['des','Destreza'],['con','Constitución'],['int','Inteligencia'],['sab','Sabiduría'],['car','Carisma']];
-const HAB=[['Acrobacias','des'],['Arcanos','int'],['Atletismo','fue'],['Engaño','car'],['Historia','int'],['Interpretación','car'],['Intimidación','car'],['Investigación','int'],['Juego de manos','des'],['Medicina','sab'],['Naturaleza','int'],['Percepción','sab'],['Perspicacia','sab'],['Persuasión','car'],['Religión','int'],['Sigilo','des'],['Supervivencia','sab'],['Trato con animales','sab']];
 const SIM=['○','●','◆'];
 const TIPOS=['Aberración','Bestia','Celestial','Cieno','Constructo','Dragón','Elemental','Feérico','Gigante','Humanoide','Infernal','Monstruosidad','No muerto','Planta'];
 const TAM=['Diminuto','Pequeño','Mediano','Grande','Enorme','Gargantuesco'];
@@ -82,8 +79,8 @@ const hb=i=>{HB[i]=((HB[i]||0)+1)%3;pintarHB()};
 function pintarGr(k){document.getElementById('gr_'+k).innerHTML=LST[k].map((e,i)=>'<div class="box"><input value="'+esc(e.n)+'" placeholder="Nombre" oninput="LST[\''+k+'\']['+i+'].n=this.value"><textarea rows="3" placeholder="Descripción" oninput="LST[\''+k+'\']['+i+'].t=this.value">'+esc(e.t)+'</textarea><button onclick="quitarE(\''+k+'\','+i+')">Quitar</button></div>').join('')}
 const addE=k=>{LST[k].push({n:'',t:''});pintarGr(k)};
 const quitarE=(k,i)=>{LST[k].splice(i,1);pintarGr(k)};
-function editar(id){
- const c=id?CR.find(x=>x.id==id):{id:'',nombre:'',tipo:'Humanoide',rareza:'comun',imagen:'',datos:{}},D=DEFC(),d={...D,...c.datos,car:{...D.car,...(c.datos||{}).car}};
+function editar(id,pre){
+ const c=pre||(id?CR.find(x=>x.id==id):{id:'',nombre:'',tipo:'Humanoide',rareza:'comun',imagen:'',datos:{}}),D=DEFC(),d={...D,...c.datos,car:{...D.car,...(c.datos||{}).car}};
  ed.style.display='block';c_id.value=c.id;c_nombre.value=c.nombre;c_tipo.value=c.tipo;c_rz.value=c.rareza;c_img.value=c.imagen||'';
  c_desc.value=d.desc;c_tam.value=d.tamano;c_alin.value=d.alin;c_vd.value=d.vd;c_ca.value=d.ca;c_canota.value=d.caNota;c_pg.value=d.pg;c_dados.value=d.dados;c_ini.value=d.ini??'';c_vel.value=d.vel;
  c_vul.value=d.vul;c_res.value=d.res;c_inmd.value=d.inmD;c_inme.value=d.inmE;c_sent.value=d.sentidos;c_idi.value=d.idiomas;c_notas.value=d.notas;
@@ -91,6 +88,10 @@ function editar(id){
  HB=Array.from({length:18},(_,i)=>(d.hab||[])[i]||0);pintarHB();
  LST={};GR.forEach(([k])=>{LST[k]=(d[k]||[]).map(e=>({...e}));pintarGr(k)});
  ed.scrollIntoView()}
+function leerFicha(){const t=pf_t.value.trim();if(!t){msg.textContent='Pegá primero el texto de la ficha.';return}
+ const x=leerCriatura(t);pf.style.display='none';pf_t.value='';
+ editar(0,{id:'',nombre:x.nombre,tipo:x.tipo,rareza:x.rareza,imagen:'',datos:x.datos});
+ msg.textContent=x.falta.length?'Revisá estos datos, no pude leerlos: '+x.falta.join(', ')+'. Lo que no entendí quedó en las notas.':'Ficha leída. Revisá todo antes de guardar.'}
 async function guardar(){
  const n=g('c_nombre').trim();if(!n){msg.textContent='Falta el nombre.';return}
  const car={},salv={};AB.forEach(([k])=>{car[k]=cl(g('cc_'+k),1,30);salv[k]=document.getElementById('cs_'+k).checked});

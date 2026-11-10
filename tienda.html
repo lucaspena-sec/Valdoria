@@ -1,4 +1,4 @@
-<!doctype html><html lang="es"><head><title>Valdoria - Tienda</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
+<!doctype html><html lang="es"><head><title>Valdoria - Tienda</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=2"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=2"></script><script src="comun.js?v=2"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
 <div class="win"><div id="cab"></div><div class="body">
 <h2>Tienda</h2>
 <div class="tabs" id="tabs"></div>
@@ -7,7 +7,6 @@
 <div id="msg" class="err"></div>
 </div></div>
 <script>
-const esc=s=>String(s??'').replace(/[&<>"]/g,c=>'&#'+c.charCodeAt(0)+';');
 const url=u=>esc((u||'').replace(/'/g,'%27'));
 const RN={comun:'Común',infrecuente:'Infrecuente',rara:'Rara',epica:'Épica',legendaria:'Legendaria'};
 let ME=[],OF=[],actual=0;
@@ -22,7 +21,7 @@ function dibujar(){
  const m=ME[actual];
  info.innerHTML=(m.imagen?'<img src="'+esc(m.imagen)+'" width="64" height="64" style="object-fit:cover;vertical-align:middle;border:2px inset #fff" onerror="this.remove()"> ':'')+'<b>'+esc(m.nombre)+'</b> - '+esc(m.titulo)+'<br><small>Deslizá para ver más productos →</small>';
  const its=OF.filter(o=>o.mercader_id==m.id&&o.items).map(o=>({...o.items,stock:o.stock}));
- carr.innerHTML=its.map(it=>'<div class="item r-'+it.rareza+'"><div class="ifoto" style="background-image:url(\''+url(it.imagen)+'\')"></div><h3>'+esc(it.nombre)+'</h3><small>'+RN[it.rareza]+'</small><p>'+esc(it.descripcion)+'</p><p class="precio">'+it.precio+' po</p>'+(it.stock==null?'':'<p><small>'+(it.stock>0?'Quedan: '+it.stock:'Agotado')+'</small></p>')+'<button'+(it.stock===0?' disabled':'')+' onclick="comprar('+m.id+','+it.id+',this)">Comprar</button></div>').join('')||'<i>Este mercader no tiene nada para vender.</i>';
+ carr.innerHTML=its.map(it=>'<div class="item r-'+it.rareza+'"><div class="ifoto" style="background-image:url(\''+url(it.imagen)+'\')"></div><h3>'+esc(it.nombre)+'</h3><small>'+RN[it.rareza]+'</small><p>'+esc(it.descripcion)+'</p>'+(resumenItem(it.datos)?'<p><small>'+esc(resumenItem(it.datos))+'</small></p>':'')+'<details><summary>Detalles</summary>'+tarjetaItem({...it,descripcion:'',imagen:'',datos:{...it.datos,cat:it.categoria}})+'</details><p class="precio">'+it.precio+' po</p>'+(it.stock==null?'':'<p><small>'+(it.stock>0?'Quedan: '+it.stock:'Agotado')+'</small></p>')+'<button'+(it.stock===0?' disabled':'')+' onclick="comprar('+m.id+','+it.id+',this)">Comprar</button></div>').join('')||'<i>Este mercader no tiene nada para vender.</i>';
 }
 async function comprar(mid,iid,b){
  msg.className='err';msg.textContent='';b.disabled=true;

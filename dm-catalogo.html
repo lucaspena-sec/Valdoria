@@ -1,33 +1,58 @@
-<!doctype html><html lang="es"><head><title>Valdoria - Catálogo DM</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
+<!doctype html><html lang="es"><head><title>Valdoria - Catálogo DM</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=2"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=2"></script><script src="comun.js?v=2"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
 <div class="win"><div id="cab"></div><div class="body">
 <h2>Catálogo y mercaderes</h2>
 <a href="dm.html">← Volver al panel de jugadores</a>
 <div id="msg" class="err"></div>
 <h3>Mercaderes</h3><button onclick="nuevoM()">+ Nuevo mercader</button><div id="merc"></div>
-<h3>Catálogo de ítems</h3><button onclick="editar(0)">+ Nuevo ítem</button>
+<h3>Catálogo de ítems</h3><button onclick="editar(0)">+ Nuevo ítem</button> <input id="bq" placeholder="Buscar ítem por nombre" oninput="pintar()">
 <div id="ed" class="box" style="display:none">
  <input type="hidden" id="e_id">
- <input id="e_nombre" placeholder="Nombre"><input id="e_desc" placeholder="Descripción"><input id="e_precio" type="number" min="0" placeholder="Precio en oro">
- <select id="e_cat"></select> <select id="e_rar"></select>
- <input id="e_img" placeholder="URL de la foto (opcional)">Subir foto: <input type="file" accept="image/*" onchange="subir(this,'e_img')">
- <button onclick="guardar()">Guardar</button> <button onclick="borrar()">Eliminar</button> <button onclick="ed.style.display='none'">Cancelar</button>
+ <input id="e_nombre" placeholder="Nombre">
+ <textarea id="e_desc" rows="3" placeholder="Descripción"></textarea>
+ <div class="fg">
+  <label>Categoría<select id="e_cat" onchange="bloques()"></select></label><label>Rareza<select id="e_rar"></select></label>
+  <label>Precio (oro)<input type="number" min="0" id="e_precio"></label><label>Peso<input id="e_peso" placeholder="1,5 kg"></label>
+  <label><input type="checkbox" id="e_sint" style="width:auto"> Requiere sintonización</label>
+ </div>
+ <div id="b_arma" style="display:none"><h4>Arma</h4>
+  <div class="fg">
+   <label>Competencia<select id="e_comp"></select></label><label>Tipo<select id="e_ta"></select></label>
+   <label>Daño<input id="e_dano" placeholder="1d8"></label><label>Tipo de daño<select id="e_td"></select></label>
+   <label>Daño versátil<input id="e_vers" placeholder="1d10"></label><label>Alcance (munición, arrojadiza)<input id="e_alc" placeholder="24/96 m"></label>
+   <label>Maestría<select id="e_mae"></select></label>
+  </div>
+  <div class="chk" id="e_props"></div></div>
+ <div id="b_arm" style="display:none"><h4>Armadura o escudo</h4>
+  <div class="fg"><label>Tipo<select id="e_at"></select></label><label>CA<input id="e_aca" placeholder="11 + Des"></label><label>Requisito de Fuerza<input id="e_afu" placeholder="13"></label>
+   <label><input type="checkbox" id="e_sig" style="width:auto"> Desventaja en Sigilo</label></div></div>
+ <div id="grupos"></div>
+ <h4>Foto</h4><input id="e_img" placeholder="URL de la foto (opcional)">Subir foto: <input type="file" accept="image/*" onchange="subir(this,'e_img')">
+ <br><button onclick="guardar()">Guardar</button> <button onclick="ed.style.display='none'">Cancelar</button>
 </div>
 <div id="catalogo"></div>
 </div></div>
 <script>
-const esc=s=>String(s??'').replace(/[&<>"]/g,c=>'&#'+c.charCodeAt(0)+';');
 const g=id=>document.getElementById(id).value;
-const CAT={armas:'Armas',armaduras:'Armaduras',escudos:'Escudos',consumibles:'Consumibles',accesorios:'Accesorios',pergaminos:'Pergaminos',valiosos:'Objetos valiosos'};
-const RAR={comun:'Comunes',infrecuente:'Infrecuentes',rara:'Raras',epica:'Épicas',legendaria:'Legendarias'};
-let IT=[],ME=[],OF=[];
-e_cat.innerHTML=Object.keys(CAT).map(k=>'<option value="'+k+'">'+CAT[k]+'</option>').join('');
-e_rar.innerHTML=Object.keys(RAR).map(k=>'<option value="'+k+'">'+RAR[k]+'</option>').join('');
+const RARP={comun:'Comunes',infrecuente:'Infrecuentes',rara:'Raras',epica:'Épicas',legendaria:'Legendarias'};
+const GR=[['pasivas','Habilidades pasivas'],['accion','Acciones'],['adicional','Acciones adicionales'],['reaccion','Reacciones'],['multi','Multiataque']];
+const PROPS=['Ligera','Sutil','Pesada','Alcance','Arrojadiza','Carga','Distancia','Dos manos','Munición','Versátil'];
+const opts=a=>a.map(v=>'<option>'+v+'</option>').join('');
+let IT=[],ME=[],OF=[],LST={};
+e_cat.innerHTML=Object.keys(CATN).map(k=>'<option value="'+k+'">'+CATN[k]+'</option>').join('');
+e_rar.innerHTML=Object.keys(RARN).map(k=>'<option value="'+k+'">'+RARN[k]+'</option>').join('');
+e_comp.innerHTML=opts(['','Simple','Marcial']);e_ta.innerHTML=opts(['Cuerpo a cuerpo','A distancia']);
+e_td.innerHTML=opts(['contundente','cortante','perforante','ácido','frío','fuego','fuerza','necrótico','psíquico','radiante','relámpago','trueno','veneno']);
+e_mae.innerHTML=opts(['','Hendir','Rozar','Mella','Empujar','Debilitar','Ralentizar','Derribar','Hostigar']);
+e_at.innerHTML=opts(['Ligera','Media','Pesada','Escudo']);
+e_props.innerHTML=PROPS.map(p=>'<label><input type="checkbox" style="width:auto" value="'+p+'"> '+p+'</label>').join('');
+grupos.innerHTML=GR.map(([k,t])=>'<h4>'+t+'</h4><div id="gr_'+k+'"></div><button onclick="addE(\''+k+'\')">+ Agregar</button>').join('');
+function bloques(){const c=g('e_cat');b_arma.style.display=c=='armas'?'block':'none';b_arm.style.display=(c=='armaduras'||c=='escudos')?'block':'none'}
 async function cargar(){
  const[a,b,c]=await Promise.all([sb.from('items').select('*').order('nombre'),sb.from('mercaderes').select('*').order('id'),sb.from('oferta').select('*')]);
  IT=a.data||[];ME=b.data||[];OF=c.data||[];pintar()}
 async function q(p){const{error}=await p;msg.textContent=error?error.message:'';await cargar()}
 function pintar(){
- const abiertos=[...document.querySelectorAll('details[open]')].map(d=>d.id);
+ const abiertos=[...document.querySelectorAll('details[open]')].map(d=>d.id),bq_=bq.value.trim().toLowerCase();
  merc.innerHTML=ME.map(m=>{
   const of=OF.filter(o=>o.mercader_id==m.id).map(o=>IT.find(i=>i.id==o.item_id)).filter(Boolean);
   const libres=IT.filter(i=>!of.includes(i));
@@ -35,10 +60,12 @@ function pintar(){
    '<input id="mn'+m.id+'" value="'+esc(m.nombre)+'" placeholder="Nombre"><input id="mt'+m.id+'" value="'+esc(m.titulo)+'" placeholder="Oficio"><input id="mi'+m.id+'" value="'+esc(m.imagen)+'" placeholder="URL de la foto">Subir foto: <input type="file" accept="image/*" onchange="subir(this,\'mi'+m.id+'\')">'+
    '<br><button onclick="gMer('+m.id+')">Guardar</button> <button onclick="actMer('+m.id+','+!m.activo+')">'+(m.activo?'Ocultar a los jugadores':'Mostrar a los jugadores')+'</button> <button onclick="borMer('+m.id+')">Eliminar</button>'+
    '<h4>Ofrece:</h4>'+(of.map(i=>{const o=OF.find(z=>z.mercader_id==m.id&&z.item_id==i.id);return '<div>'+esc(i.nombre)+' ('+i.precio+' po) Stock: <input type="number" min="0" style="width:70px" id="st'+m.id+'_'+i.id+'" value="'+(o.stock??'')+'" placeholder="∞"> <button onclick="gStock('+m.id+','+i.id+')">Guardar</button> <button onclick="quitar('+m.id+','+i.id+')">Quitar</button></div>'}).join('')||'<i>Nada todavía</i>')+
-   '<br><select id="ad'+m.id+'">'+libres.map(i=>'<option value="'+i.id+'">'+esc(i.nombre)+' ['+CAT[i.categoria]+' / '+i.rareza+']</option>').join('')+'</select> <input type="number" min="0" id="as'+m.id+'" placeholder="Stock (vacío = ilimitado)"> <button onclick="agregar('+m.id+')">Agregar a su tienda</button></details>'}).join('')||'<i>Sin mercaderes.</i>';
- catalogo.innerHTML=Object.keys(CAT).map(c=>'<details id="c'+c+'" class="box"><summary><b>'+CAT[c]+'</b> ('+IT.filter(i=>i.categoria==c).length+')</summary>'+
-  Object.keys(RAR).map(r=>{const l=IT.filter(i=>i.categoria==c&&i.rareza==r);
-   return '<div class="rg r-'+r+'"><b>'+RAR[r]+':</b> '+(l.map(i=>'<button onclick="editar('+i.id+')">'+esc(i.nombre)+'</button>').join(' ')||'<i>—</i>')+'</div>'}).join('')+'</details>').join('');
+   '<br><select id="ad'+m.id+'">'+libres.map(i=>'<option value="'+i.id+'">'+esc(i.nombre)+' ['+CATN[i.categoria]+' / '+i.rareza+']</option>').join('')+'</select> <input type="number" min="0" id="as'+m.id+'" placeholder="Stock (vacío = ilimitado)"> <button onclick="agregar('+m.id+')">Agregar a su tienda</button></details>'}).join('')||'<i>Sin mercaderes.</i>';
+ catalogo.innerHTML=Object.keys(CATN).map(c=>{const del=IT.filter(i=>i.categoria==c&&(!bq_||i.nombre.toLowerCase().includes(bq_)));
+  return '<details id="c'+c+'" class="box"><summary><b>'+CATN[c]+'</b> ('+IT.filter(i=>i.categoria==c).length+')</summary>'+
+  Object.keys(RARP).map(r=>{const l=del.filter(i=>i.rareza==r);
+   return '<div class="rg r-'+r+'"><b>'+RARP[r]+':</b> '+(l.map(i=>'<details id="i'+i.id+'" class="box r-'+r+'" style="border-left:8px solid var(--rc)"><summary>'+(i.imagen?'<img class="mini" src="'+esc(i.imagen)+'" alt="">':'')+esc(i.nombre)+' · '+i.precio+' po</summary>'+
+    tarjetaItem({...i,datos:{...i.datos,cat:i.categoria}})+'<button onclick="editar('+i.id+')">Editar</button> <button onclick="dup('+i.id+')">Duplicar</button> <button onclick="borrar('+i.id+')">Eliminar</button></details>').join('')||'<i>—</i>')+'</div>'}).join('')+'</details>'}).join('');
  abiertos.forEach(id=>{const d=document.getElementById(id);if(d)d.open=true});
 }
 const nuevoM=()=>q(sb.from('mercaderes').insert({nombre:'Nuevo mercader',activo:false}));
@@ -49,16 +76,29 @@ const num=v=>v.trim()===''?null:parseInt(v);
 const agregar=id=>q(sb.from('oferta').insert({mercader_id:id,item_id:parseInt(g('ad'+id)),stock:num(g('as'+id))}));
 const gStock=(m,i)=>q(sb.from('oferta').update({stock:num(g('st'+m+'_'+i))}).eq('mercader_id',m).eq('item_id',i));
 const quitar=(m,i)=>q(sb.from('oferta').delete().eq('mercader_id',m).eq('item_id',i));
+function pintarGr(k){document.getElementById('gr_'+k).innerHTML=LST[k].map((e,i)=>'<div class="box"><input value="'+esc(e.n)+'" placeholder="Nombre" oninput="LST[\''+k+'\']['+i+'].n=this.value"><textarea rows="3" placeholder="Descripción" oninput="LST[\''+k+'\']['+i+'].t=this.value">'+esc(e.t)+'</textarea><button onclick="quitarE(\''+k+'\','+i+')">Quitar</button></div>').join('')}
+const addE=k=>{LST[k].push({n:'',t:''});pintarGr(k)};
+const quitarE=(k,i)=>{LST[k].splice(i,1);pintarGr(k)};
 function editar(id){
- const i=id?IT.find(x=>x.id==id):{id:'',nombre:'',descripcion:'',precio:0,categoria:'armas',rareza:'comun',imagen:''};
- ed.style.display='block';e_id.value=i.id;e_nombre.value=i.nombre;e_desc.value=i.descripcion||'';e_precio.value=i.precio;e_cat.value=i.categoria;e_rar.value=i.rareza;e_img.value=i.imagen||'';
- ed.scrollIntoView()}
+ const i=id?IT.find(x=>x.id==id):{id:'',nombre:'',descripcion:'',precio:0,categoria:'armas',rareza:'comun',imagen:'',datos:{}},d=i.datos||{};
+ ed.style.display='block';e_id.value=i.id;e_nombre.value=i.nombre;e_desc.value=i.descripcion||'';e_cat.value=i.categoria;e_rar.value=i.rareza;e_precio.value=i.precio;e_img.value=i.imagen||'';
+ e_peso.value=d.peso||'';e_sint.checked=!!d.sint;
+ e_comp.value=d.comp||'';e_ta.value=d.tipoArma||'Cuerpo a cuerpo';e_dano.value=d.dano||'';e_td.value=d.tipoDano||'cortante';e_vers.value=d.versatil||'';e_alc.value=d.alcance||'';e_mae.value=d.maestria||'';
+ document.querySelectorAll('#e_props input').forEach(x=>x.checked=(d.props||[]).includes(x.value));
+ e_at.value=d.armTipo||'Ligera';e_aca.value=d.armCA||'';e_afu.value=d.armFue||'';e_sig.checked=!!d.armSig;
+ LST={};GR.forEach(([k])=>{LST[k]=(d[k]||[]).map(e=>({...e}));pintarGr(k)});
+ bloques();ed.scrollIntoView()}
 async function guardar(){
- const d={nombre:g('e_nombre').trim(),descripcion:g('e_desc'),precio:parseInt(g('e_precio'))||0,categoria:g('e_cat'),rareza:g('e_rar'),imagen:g('e_img').trim()};
- if(!d.nombre){msg.textContent='Falta el nombre.';return}
- const{error}=g('e_id')?await sb.from('items').update(d).eq('id',g('e_id')):await sb.from('items').insert(d);
+ const n=g('e_nombre').trim();if(!n){msg.textContent='Falta el nombre.';return}
+ const cat=g('e_cat'),d={peso:g('e_peso').trim(),sint:e_sint.checked};
+ if(cat=='armas'){d.comp=g('e_comp');d.tipoArma=g('e_ta');d.dano=g('e_dano').trim();d.tipoDano=g('e_td');d.versatil=g('e_vers').trim();d.alcance=g('e_alc').trim();d.maestria=g('e_mae');d.props=[...document.querySelectorAll('#e_props input:checked')].map(x=>x.value)}
+ if(cat=='armaduras'||cat=='escudos'){d.armTipo=g('e_at');d.armCA=g('e_aca').trim();d.armFue=g('e_afu').trim();d.armSig=e_sig.checked}
+ GR.forEach(([k])=>d[k]=LST[k].filter(e=>e.n.trim()||e.t.trim()));
+ const fila={nombre:n,descripcion:g('e_desc'),precio:parseInt(g('e_precio'))||0,categoria:cat,rareza:g('e_rar'),imagen:g('e_img').trim(),datos:d};
+ const{error}=g('e_id')?await sb.from('items').update(fila).eq('id',g('e_id')):await sb.from('items').insert(fila);
  msg.textContent=error?error.message:'Guardado.';if(!error)ed.style.display='none';cargar()}
-function borrar(){if(!g('e_id'))return;if(confirm('¿Eliminar este ítem del catálogo? Lo que ya tienen los jugadores no se borra.')){q(sb.from('items').delete().eq('id',g('e_id')));ed.style.display='none'}}
+async function dup(id){const i=IT.find(x=>x.id==id);const{error}=await sb.from('items').insert({nombre:i.nombre+' (copia)',descripcion:i.descripcion,precio:i.precio,categoria:i.categoria,rareza:i.rareza,imagen:i.imagen,datos:i.datos});msg.textContent=error?error.message:'';cargar()}
+function borrar(id){if(confirm('¿Eliminar este ítem del catálogo? Lo que ya tienen los jugadores no se borra.'))q(sb.from('items').delete().eq('id',id))}
 async function subir(inp,dest){const a=inp.files[0];if(!a)return;if(a.size>2e6){msg.textContent='La foto pesa más de 2 MB.';return}
  const n=Date.now()+'-'+a.name.toLowerCase().replace(/[^a-z0-9.]/g,'_'),b=sb.storage.from('items');
  const{error}=await b.upload(n,a,{contentType:a.type});
