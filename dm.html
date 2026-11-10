@@ -6,24 +6,29 @@
 <div id="lista"></div>
 </div></div>
 <script>
+let FI=[];
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>'&#'+c.charCodeAt(0)+';');
 async function cargar(){
  const{data:u}=await sb.from('profiles').select('*').order('username');
  const{data:i}=await sb.from('inventario').select('*').order('nombre');
  const{data:t}=await sb.from('items').select('id,nombre').order('nombre');
+ const{data:fi}=await sb.from('fichas').select('user_id,hp,hp_max,hp_temp');FI=fi||[];
  const inv=i||[],opts=(t||[]).map(y=>'<option value="'+y.id+'">'+esc(y.nombre)+'</option>').join('');
  lista.innerHTML=(u||[]).map(x=>{
   const its=inv.filter(y=>y.user_id==x.id);
   return '<div class="box"><b>'+esc(x.username)+(x.is_dm?' (DM)':'')+'</b> · 💰 '+x.gold+' po<br>'+
    '<input type="number" id="m'+x.id+'" placeholder="Cantidad de oro" min="0">'+
    '<button onclick="oro(\''+x.id+'\',1)">Dar</button> <button onclick="oro(\''+x.id+'\',-1)">Quitar</button> <button onclick="fijar(\''+x.id+'\')">Fijar total</button>'+
-   '<details><summary>Ítems ('+its.length+')</summary>'+(its.map(y=>esc(y.nombre)+' ('+y.lugar+')').join('<br>')||'<i>Vacío</i>')+'</details>'+
+   fichaHtml(x)+'<details><summary>Ítems ('+its.length+')</summary>'+(its.map(y=>esc(y.nombre)+' ('+y.lugar+')').join('<br>')||'<i>Vacío</i>')+'</details>'+
    '<select id="l'+x.id+'"><option value="cofre">Al cofre</option><option value="mochila">A la mochila</option></select><br>'+
    '<select id="c'+x.id+'">'+opts+'</select> <button onclick="regalarCat(\''+x.id+'\')">Dar del catálogo</button><br>'+
    '<input id="n'+x.id+'" placeholder="O un ítem suelto: nombre"><input id="d'+x.id+'" placeholder="Descripción">'+
    '<button onclick="regalar(\''+x.id+'\')">Dar ítem suelto</button></div>';
  }).join('');
 }
+function fichaHtml(x){const f=FI.find(z=>z.user_id==x.id);
+ return '<div>'+(f?'❤ HP '+f.hp+'/'+f.hp_max+(f.hp_temp?' (+'+f.hp_temp+' temp)':''):'<i>Sin ficha todavía</i>')+' · ✦ Inspiración: <b>'+(x.inspiracion||0)+'</b> <button onclick="insp(\''+x.id+'\',-1)">−</button><button onclick="insp(\''+x.id+'\',1)">+</button><br>'+
+  '<input type="number" id="h'+x.id+'" min="1" placeholder="Puntos de vida"><button onclick="hp(\''+x.id+'\',-1)">Daño</button> <button onclick="hp(\''+x.id+'\',1)">Curar</button> <a href="ficha.html?u='+x.id+'">Ver ficha</a></div>'}
 const g=id=>document.getElementById(id).value;
 function val(id){const v=parseInt(g('m'+id));if(!(v>=0)){msg.textContent='Escribí una cantidad válida.';return null}msg.textContent='';return v}
 async function fin(error){msg.textContent=error?error.message:'';cargar()}
@@ -32,5 +37,7 @@ async function fijar(id){const v=val(id);if(v===null)return;fin((await sb.rpc('d
 async function regalar(id){const n=g('n'+id).trim();if(!n){msg.textContent='Escribí el nombre del ítem.';return}
  fin((await sb.rpc('dm_dar_item',{p_user:id,p_nombre:n,p_desc:g('d'+id).trim(),p_lugar:g('l'+id)})).error)}
 async function regalarCat(id){fin((await sb.rpc('dm_dar_catalogo',{p_user:id,p_item:parseInt(g('c'+id)),p_lugar:g('l'+id)})).error)}
+async function hp(id,s){const v=parseInt(g('h'+id));if(!(v>0)){msg.textContent='Escribí un número mayor a 0.';return}fin((await sb.rpc('dm_hp',{p_user:id,p_delta:s*v})).error)}
+async function insp(id,d){fin((await sb.rpc('dm_inspiracion',{p_user:id,p_delta:d})).error)}
 (async()=>{const p=await cabecera('Panel DM');if(!p)return;if(!p.is_dm){location.href='main.html';return}cargar()})();
 </script></body></html>

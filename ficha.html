@@ -1,0 +1,127 @@
+<!doctype html><html lang="es"><head><title>Valdoria - Ficha PJ</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js"></script>
+<style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
+<div class="win"><div id="cab"></div><div class="body">
+<div id="msg" class="err"></div><div id="banner"></div>
+<div class="pj1">
+ <div class="pfoto" id="pfoto"><div class="ph">🧙</div><img id="ret" alt="" onerror="this.style.display='none'"><svg id="sangreEl" viewBox="0 0 100 120" preserveAspectRatio="none"></svg></div>
+ <div class="pbars">
+  <div class="hprow"><div class="bar"><div class="fill rojo" id="fh"></div><span id="th"></span></div>
+   <div class="ctl"><input type="number" id="hn" min="1" value="1"><button onclick="cambiar('hp',-1)">−</button><button onclick="cambiar('hp',1)">+</button></div></div>
+  <div class="hprow"><div class="bar"><div class="fill azul" id="ft"></div><span id="tt"></span></div>
+   <div class="ctl"><input type="number" id="tn" min="1" value="1"><button onclick="cambiar('tmp',-1)">−</button><button onclick="cambiar('tmp',1)">+</button></div></div>
+  <div class="muerte">Salvaciones contra muerte — Éxitos: <span id="ms"></span> Fallos: <span id="mf"></span></div>
+  <small><a href="equipo.html">Cambiar la foto en Equipamiento</a></small>
+ </div>
+</div>
+<div class="box"><h3>⚔ Combate</h3><div id="cmb"></div><small>Poné nombre y máximo en cada fila; los botones suben o bajan lo que te queda.</small></div>
+<button onclick="descanso()">🌙 Descanso largo</button>
+<div class="insp"><div class="t">✦ INSPIRACIÓN SAGRADA ✦</div><div id="ins"></div><small>Solo el DM puede otorgarla.</small></div>
+<div class="box"><h3>📜 Ficha de personaje</h3>
+ <div class="fg">
+  <label>Nombre<input data-k="nombre"></label><label>Clase<input data-k="clase"></label><label>Subclase<input data-k="sub"></label><label>Especie<input data-k="esp"></label>
+  <label>Trasfondo<input data-k="tras"></label><label>Alineamiento<input data-k="ali"></label><label>Nivel (1-20)<input type="number" min="1" max="20" data-k="nivel"></label><label>Experiencia<input type="number" min="0" data-k="xp"></label>
+ </div>
+ <div class="fg">
+  <label>Vida máxima<input type="number" min="1" id="fhm"></label><label>Clase de armadura<input data-k="ca"></label><label>Velocidad<input data-k="vel" placeholder="9 m"></label>
+  <div class="calc">Bonif. competencia<b id="c_pb"></b></div><div class="calc">Iniciativa<b id="c_ini"></b></div><div class="calc">Percepción pasiva<b id="c_pp"></b></div>
+ </div>
+ <h4>Características</h4><div class="car" id="car"></div>
+ <h4>Tiradas de salvación <small>(tildá en las que es competente)</small></h4><div id="sal"></div>
+ <h4>Habilidades <small>(○ sin competencia · ● competente · ◆ maestría)</small></h4><div id="hab"></div>
+ <h4>Lanzamiento de conjuros</h4>
+ <div class="fg"><label>Característica<select data-k="conj"><option value="">Sin lanzamiento</option><option value="int">Inteligencia</option><option value="sab">Sabiduría</option><option value="car">Carisma</option></select></label>
+  <div class="calc">CD de salvación<b id="c_cd">—</b></div><div class="calc">Bonif. de ataque<b id="c_atk">—</b></div></div>
+ <h4>Idiomas y competencias</h4><textarea rows="3" data-k="idiomas" placeholder="Idiomas, armas, armaduras, herramientas"></textarea>
+ <h4>Rasgos y talentos</h4><textarea rows="5" data-k="rasgos"></textarea>
+ <h4>Trasfondo y notas</h4><textarea rows="5" data-k="notas"></textarea>
+</div>
+</div></div>
+<script>
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>'&#'+c.charCodeAt(0)+';');
+const AB=[['fue','Fuerza'],['des','Destreza'],['con','Constitución'],['int','Inteligencia'],['sab','Sabiduría'],['car','Carisma']];
+const HAB=[['Acrobacias','des'],['Arcanos','int'],['Atletismo','fue'],['Engaño','car'],['Historia','int'],['Interpretación','car'],['Intimidación','car'],['Investigación','int'],['Juego de manos','des'],['Medicina','sab'],['Naturaleza','int'],['Percepción','sab'],['Perspicacia','sab'],['Persuasión','car'],['Religión','int'],['Sigilo','des'],['Supervivencia','sab'],['Trato con animales','sab']];
+const PERC=11,SIM=['○','●','◆'];
+const DEF=()=>({nombre:'',clase:'',sub:'',esp:'',tras:'',ali:'',nivel:1,xp:0,ca:'',vel:'',car:{fue:10,des:10,con:10,int:10,sab:10,car:10},salv:{},hab:Array(18).fill(0),conj:'',cmb:Array.from({length:5},()=>({n:'',max:0,act:0})),muerte:{ok:0,fail:0},idiomas:'',rasgos:'',notas:''});
+let S={hp:10,hpmax:10,tmp:0,insp:0,datos:DEF()},RO=false,UID=null;
+const md=s=>Math.floor((s-10)/2),sgn=n=>(n>=0?'+':'')+n,set=(id,t)=>{const e=document.getElementById(id);if(e)e.textContent=t};
+const cl=(v,a,b)=>Math.max(a,Math.min(b,parseInt(v)||a));
+function aviso(error){msg.textContent=error?error.message:''}
+let tmr;function guardarD(){if(RO)return;clearTimeout(tmr);tmr=setTimeout(async()=>{aviso((await sb.from('fichas').update({datos:S.datos}).eq('user_id',UID)).error)},600)}
+async function guardarH(){if(RO)return;aviso((await sb.from('fichas').update({hp:S.hp,hp_max:S.hpmax,hp_temp:S.tmp}).eq('user_id',UID)).error)}
+
+function sangre(s){if(!s)return'';const R='#a30f17',D='#7a0a10';let o='';
+ if(s>=1)o+=[[22,30,3.2],[70,22,2.4],[48,68,3.6],[80,88,2.6]].map(a=>'<circle cx="'+a[0]+'" cy="'+a[1]+'" r="'+a[2]+'" fill="'+R+'" opacity=".85"/>').join('');
+ if(s>=2)o+=[[12,50],[35,16],[60,45],[86,60],[28,90],[64,100],[90,15]].map(a=>'<path d="M'+a[0]+' '+a[1]+' q-3 7 0 11 q3 -4 0 -11z" fill="'+R+'"/><circle cx="'+a[0]+'" cy="'+(a[1]+13)+'" r="2.6" fill="'+R+'"/>').join('');
+ if(s>=3){o+='<rect x="0" y="0" width="100" height="12" fill="'+D+'" opacity=".92"/>';
+  o+=[[4,60,7],[16,95,6],[28,42,8],[43,80,6],[56,52,8],[70,105,6],[82,68,8],[94,45,6]].map(a=>'<rect x="'+a[0]+'" y="0" width="'+a[2]+'" height="'+a[1]+'" rx="'+a[2]/2+'" fill="'+D+'" opacity=".92"/><circle cx="'+(a[0]+a[2]/2)+'" cy="'+a[1]+'" r="'+a[2]*.75+'" fill="'+D+'" opacity=".92"/>').join('')}
+ if(s>=4)o+='<rect width="100" height="120" fill="#000" opacity=".25"/><path d="M12 14 L88 106 M88 14 L12 106" stroke="#8b0000" stroke-width="10" stroke-linecap="round"/><path d="M12 14 L88 106 M88 14 L12 106" stroke="#d11a24" stroke-width="5" stroke-linecap="round"/>';
+ return o}
+function pintarHp(){
+ const p=S.hpmax>0?S.hp/S.hpmax*100:100;
+ fh.style.width=cl(p,0,100)+'%';th.textContent='HP '+S.hp+' / '+S.hpmax;
+ ft.style.width=Math.min(100,S.tmp/Math.max(1,S.hpmax)*100)+'%';tt.textContent='HP temporales: '+S.tmp;
+ sangreEl.innerHTML=sangre(S.hp<=0?4:p<=25?3:p<=50?2:p<=75?1:0);
+ pfoto.classList.toggle('muerto',S.hp<=0)}
+function cambiar(t,s){const n=parseInt(document.getElementById(t=='hp'?'hn':'tn').value);if(!(n>0))return;
+ if(t=='hp'){if(s>0)S.hp=Math.min(S.hpmax,S.hp+n);else{const a=Math.min(S.tmp,n);S.tmp-=a;S.hp=Math.max(0,S.hp-(n-a))}}
+ else S.tmp=Math.max(0,S.tmp+s*n);
+ pintarHp();guardarH()}
+function pintarMuerte(){const m=S.datos.muerte;
+ ms.innerHTML=[0,1,2].map(i=>'<span onclick="mu(\'ok\','+i+')">'+(i<m.ok?'☑':'☐')+'</span>').join('');
+ mf.innerHTML=[0,1,2].map(i=>'<span onclick="mu(\'fail\','+i+')">'+(i<m.fail?'☒':'☐')+'</span>').join('')}
+function mu(k,i){if(RO)return;const m=S.datos.muerte;m[k]=m[k]==i+1?i:i+1;pintarMuerte();guardarD()}
+function pintarCmb(){cmb.innerHTML=S.datos.cmb.map((c,i)=>'<div class="cmbrow"><input value="'+esc(c.n)+'" placeholder="Nombre (conjuro, habilidad…)" oninput="cn('+i+',this.value)"><span><b id="ca'+i+'">'+c.act+'</b> / <input type="number" min="0" value="'+c.max+'" style="width:56px" onchange="cm('+i+',this.value)"></span><span><button onclick="cc('+i+',-1)">−</button><button onclick="cc('+i+',1)">+</button></span></div>').join('');
+ if(RO)cmb.querySelectorAll('input,button').forEach(e=>e.disabled=true)}
+const cn=(i,v)=>{S.datos.cmb[i].n=v;guardarD()};
+function cm(i,v){const c=S.datos.cmb[i],m=Math.max(0,parseInt(v)||0);if(c.act==c.max)c.act=m;c.max=m;c.act=Math.min(c.act,m);pintarCmb();guardarD()}
+function cc(i,s){const c=S.datos.cmb[i];c.act=cl(c.act+s,0,c.max);document.getElementById('ca'+i).textContent=c.act;guardarD()}
+function descanso(){if(!confirm('¿Descanso largo? Recuperás toda la vida y todos los usos, y se pierden los HP temporales.'))return;
+ S.hp=S.hpmax;S.tmp=0;S.datos.cmb.forEach(c=>c.act=c.max);S.datos.muerte={ok:0,fail:0};
+ pintarHp();pintarCmb();pintarMuerte();guardarH();guardarD()}
+function pintarIns(){ins.innerHTML=S.insp>0?'<span class="stars">'+'✦'.repeat(Math.min(S.insp,12))+'</span> <b>'+S.insp+'</b>':'<span class="stars" style="opacity:.4">✦</span> <b>0</b>'}
+
+function calc(){const d=S.datos,pb=Math.ceil(cl(d.nivel,1,20)/4)+1;
+ AB.forEach(([k])=>{set('m_'+k,sgn(md(d.car[k])));set('sv_'+k,sgn(md(d.car[k])+(d.salv[k]?pb:0)))});
+ HAB.forEach(([n,a],i)=>{const v=d.hab[i]||0;set('hb'+i,SIM[v]);set('hv'+i,sgn(md(d.car[a])+pb*v))});
+ set('c_pb','+'+pb);set('c_ini',sgn(md(d.car.des)));set('c_pp',10+md(d.car.sab)+pb*(d.hab[PERC]||0));
+ set('c_cd',d.conj?8+pb+md(d.car[d.conj]):'—');set('c_atk',d.conj?sgn(pb+md(d.car[d.conj])):'—')}
+const ab=(k,v)=>{S.datos.car[k]=cl(v,1,30);calc();guardarD()};
+const sv=(k,v)=>{S.datos.salv[k]=v;calc();guardarD()};
+const hs=i=>{if(RO)return;S.datos.hab[i]=((S.datos.hab[i]||0)+1)%3;calc();guardarD()};
+
+function armar(){
+ car.innerHTML=AB.map(([k,n])=>'<div class="cb"><small>'+n+'</small><input type="number" min="1" max="30" value="'+S.datos.car[k]+'" oninput="ab(\''+k+'\',this.value)"><div class="m" id="m_'+k+'"></div></div>').join('');
+ sal.innerHTML=AB.map(([k,n])=>'<div class="fila"><input type="checkbox" style="width:auto;margin:0" '+(S.datos.salv[k]?'checked':'')+' onchange="sv(\''+k+'\',this.checked)"> '+n+'<b id="sv_'+k+'"></b></div>').join('');
+ hab.innerHTML=HAB.map(([n,a],i)=>'<div class="fila"><button id="hb'+i+'" onclick="hs('+i+')"></button> '+n+' <small>('+a.toUpperCase()+')</small><b id="hv'+i+'"></b></div>').join('');
+ document.querySelectorAll('[data-k]').forEach(el=>{const k=el.dataset.k;el.value=S.datos[k]??'';
+  el.oninput=()=>{S.datos[k]=el.type=='number'?(parseInt(el.value)||0):el.value;calc();guardarD()}});
+ fhm.value=S.hpmax;
+ fhm.oninput=()=>{S.hpmax=Math.max(1,parseInt(fhm.value)||1);S.hp=Math.min(S.hp,S.hpmax);pintarHp();guardarH()};
+ calc();pintarHp();pintarMuerte();pintarCmb();pintarIns();
+ if(RO)document.querySelectorAll('.win input,.win textarea,.win select,.win button').forEach(e=>e.disabled=true)}
+
+function cargarFila(f){S.hp=f.hp;S.hpmax=f.hp_max;S.tmp=f.hp_temp;const x=f.datos||{},d=DEF();
+ S.datos={...d,...x,car:{...d.car,...x.car},salv:{...x.salv},hab:Array.from({length:18},(_,i)=>(x.hab||[])[i]||0),muerte:{...d.muerte,...x.muerte},cmb:d.cmb.map((c,i)=>({...c,...((x.cmb||[])[i]||{})}))}}
+async function refrescar(){if(!UID)return;
+ const{data:f}=await sb.from('fichas').select('hp,hp_max,hp_temp').eq('user_id',UID).maybeSingle();
+ if(f&&(f.hp!=S.hp||f.hp_max!=S.hpmax||f.hp_temp!=S.tmp)){S.hp=f.hp;S.hpmax=f.hp_max;S.tmp=f.hp_temp;fhm.value=S.hpmax;pintarHp()}
+ const{data:p}=await sb.from('profiles').select('inspiracion').eq('id',UID).maybeSingle();
+ if(p&&p.inspiracion!=S.insp){S.insp=p.inspiracion;pintarIns()}}
+
+(async()=>{
+ const me=await cabecera('Ficha PJ');if(!me)return;
+ const u=new URLSearchParams(location.search).get('u');
+ RO=!!(u&&me.is_dm&&u!=me.id);UID=RO?u:me.id;
+ let{data:f}=await sb.from('fichas').select('*').eq('user_id',UID).maybeSingle();
+ if(!f){
+  if(RO){msg.textContent='Ese jugador todavía no abrió su ficha.';return}
+  const r=await sb.from('fichas').insert({user_id:UID,datos:DEF()}).select().single();
+  if(r.error){aviso(r.error);return}f=r.data}
+ cargarFila(f);
+ if(RO){const{data:p}=await sb.from('profiles').select('username,inspiracion').eq('id',UID).single();
+  S.insp=p?p.inspiracion:0;banner.innerHTML='<div class="box">👁 Viendo la ficha de <b>'+esc(p?p.username:'')+'</b> (solo lectura). <a href="dm.html">Volver al panel</a></div>'}
+ else S.insp=me.inspiracion||0;
+ ret.style.display='block';ret.src=sb.storage.from('retratos').getPublicUrl(UID+'.jpg').data.publicUrl+'?t='+Date.now();
+ armar();setInterval(refrescar,15000);
+})();
+</script></body></html>
