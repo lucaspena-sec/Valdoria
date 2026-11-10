@@ -110,3 +110,17 @@ button:disabled{opacity:.5}
 .fila button{padding:0 8px;margin:0}
 textarea{width:100%;font:inherit;padding:8px}
 @media(min-width:700px){.fg{grid-template-columns:repeat(4,1fr)}.car{grid-template-columns:repeat(6,1fr)}}
+/* panel dm y criaturas */
+.navdm{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
+.pcard{border:3px solid var(--pc);border-left-width:10px;background:#fffdf4;margin:12px 0;padding:6px;box-shadow:2px 2px 0 #0004}
+.pcard.ocu{background:#ece5cf}
+.pcab{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:4px}
+.pname{color:#fff;font-weight:bold;padding:3px 10px;font-size:15px;text-shadow:1px 1px 0 #0006}
+.eye{padding:2px 6px;margin:0;line-height:0}
+.chk label{display:inline-block;margin:2px 8px 2px 0;white-space:nowrap}
+.sb{padding:4px 2px}.sb p{margin:4px 0}
+.sb h4{margin:8px 0 2px;border-bottom:1px solid #9a8f6a;color:#7a1f1f;font-family:Georgia,serif}
+.tb2{border-collapse:collapse;width:100%;text-align:center;margin:6px 0;background:#f6f0dc}
+.tb2 th,.tb2 td{border:1px solid #9a8f6a;padding:3px;font-size:13px}
+.foto-cr{float:right;max-width:130px;border:2px ridge #c9a227;margin:0 0 6px 8px}
+.mini{width:36px;height:36px;object-fit:cover;vertical-align:middle;margin-right:6px;border:1px solid #0006}

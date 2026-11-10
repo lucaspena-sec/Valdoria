@@ -1,0 +1,111 @@
+<!doctype html><html lang="es"><head><title>Valdoria - Criaturas</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
+<div class="win"><div id="cab"></div><div class="body">
+<h2>Criaturas</h2>
+<a href="dm.html">← Volver al panel de jugadores</a>
+<div id="msg" class="err"></div>
+<button onclick="editar(0)">+ Nueva criatura</button>
+<div id="ed" class="box" style="display:none">
+ <input type="hidden" id="c_id">
+ <input id="c_nombre" placeholder="Nombre">
+ <textarea id="c_desc" rows="3" placeholder="Descripción"></textarea>
+ <div class="fg">
+  <label>Especie<select id="c_tipo"></select></label><label>Tamaño<select id="c_tam"></select></label>
+  <label>Alineamiento<input id="c_alin"></label><label>Rareza<select id="c_rz"></select></label>
+  <label>Valor de desafío<select id="c_vd"></select></label><label>CA<input type="number" id="c_ca"></label>
+  <label>Nota de CA<input id="c_canota" placeholder="armadura natural"></label><label>PG<input type="number" id="c_pg"></label>
+  <label>Dados de golpe<input id="c_dados" placeholder="2d8 + 2"></label><label>Iniciativa (vacío = automática)<input type="number" id="c_ini"></label>
+  <label>Velocidad<input id="c_vel" placeholder="12 m, volar 18 m"></label>
+ </div>
+ <h4>Características</h4><div class="car" id="c_car"></div>
+ <h4>Salvaciones con competencia</h4><div class="chk" id="c_salv"></div>
+ <h4>Habilidades <small>(○ sin competencia · ● competente · ◆ maestría)</small></h4><div id="c_hab"></div>
+ <div class="fg">
+  <label>Vulnerabilidades<input id="c_vul"></label><label>Resistencias<input id="c_res"></label>
+  <label>Inmunidades a daño<input id="c_inmd"></label><label>Inmunidades a estados<input id="c_inme"></label>
+  <label>Sentidos<input id="c_sent" placeholder="Visión en la oscuridad 18 m; Percepción pasiva 12"></label><label>Idiomas<input id="c_idi"></label>
+ </div>
+ <div id="grupos"></div>
+ <h4>Notas privadas del DM</h4><textarea id="c_notas" rows="3"></textarea>
+ <h4>Foto</h4><input id="c_img" placeholder="URL de la foto (opcional)">Subir foto: <input type="file" accept="image/*" onchange="subir(this,'c_img')">
+ <br><button onclick="guardar()">Guardar</button> <button onclick="ed.style.display='none'">Cancelar</button>
+</div>
+<div class="box"><input id="fb" placeholder="Buscar por nombre" oninput="pintar()"><select id="ftp" onchange="pintar()"></select> <select id="frz" onchange="pintar()"></select></div>
+<div id="lista"></div>
+</div></div>
+<script>
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>'&#'+c.charCodeAt(0)+';');
+const g=id=>document.getElementById(id).value;
+const cl=(v,a,b)=>Math.max(a,Math.min(b,parseInt(v)||a));
+const md=s=>Math.floor((s-10)/2),sgn=n=>(n>=0?'+':'')+n;
+const AB=[['fue','Fuerza'],['des','Destreza'],['con','Constitución'],['int','Inteligencia'],['sab','Sabiduría'],['car','Carisma']];
+const HAB=[['Acrobacias','des'],['Arcanos','int'],['Atletismo','fue'],['Engaño','car'],['Historia','int'],['Interpretación','car'],['Intimidación','car'],['Investigación','int'],['Juego de manos','des'],['Medicina','sab'],['Naturaleza','int'],['Percepción','sab'],['Perspicacia','sab'],['Persuasión','car'],['Religión','int'],['Sigilo','des'],['Supervivencia','sab'],['Trato con animales','sab']];
+const SIM=['○','●','◆'];
+const TIPOS=['Aberración','Bestia','Celestial','Cieno','Constructo','Dragón','Elemental','Feérico','Gigante','Humanoide','Infernal','Monstruosidad','No muerto','Planta'];
+const TAM=['Diminuto','Pequeño','Mediano','Grande','Enorme','Gargantuesco'];
+const RZ={comun:'Común',infrecuente:'Infrecuente',rara:'Rara',epica:'Épica',legendaria:'Legendaria'};
+const VDS=['0','1/8','1/4','1/2'].concat(Array.from({length:30},(_,i)=>String(i+1)));
+const GR=[['rasgos','Rasgos'],['acciones','Acciones'],['adicionales','Acciones adicionales'],['reacciones','Reacciones'],['legendarias','Acciones legendarias']];
+const DEFC=()=>({desc:'',tamano:'Mediano',alin:'',vd:'1/4',ca:10,caNota:'',pg:10,dados:'',ini:null,vel:'9 m',car:{fue:10,des:10,con:10,int:10,sab:10,car:10},salv:{},hab:Array(18).fill(0),res:'',vul:'',inmD:'',inmE:'',sentidos:'',idiomas:'',rasgos:[],acciones:[],adicionales:[],reacciones:[],legendarias:[],notas:''});
+const pbVD=v=>{const p=String(v||'0').split('/'),n=p.length>1?p[0]/p[1]:+p[0];return n<5?2:n<9?3:n<13?4:n<17?5:n<21?6:n<25?7:n<29?8:9};
+let CR=[],LST={},HB=[];
+const opts=a=>a.map(v=>'<option>'+v+'</option>').join('');
+c_tipo.innerHTML=opts(TIPOS);c_tam.innerHTML=opts(TAM);c_vd.innerHTML=opts(VDS);
+c_rz.innerHTML=Object.keys(RZ).map(k=>'<option value="'+k+'">'+RZ[k]+'</option>').join('');
+ftp.innerHTML='<option value="">Todas las especies</option>'+opts(TIPOS);
+frz.innerHTML='<option value="">Todas las rarezas</option>'+Object.keys(RZ).map(k=>'<option value="'+k+'">'+RZ[k]+'</option>').join('');
+c_car.innerHTML=AB.map(([k,n])=>'<div class="cb"><small>'+n+'</small><input type="number" min="1" max="30" id="cc_'+k+'"></div>').join('');
+c_salv.innerHTML=AB.map(([k,n])=>'<label><input type="checkbox" style="width:auto" id="cs_'+k+'"> '+n+'</label>').join('');
+grupos.innerHTML=GR.map(([k,t])=>'<h4>'+t+'</h4><div id="gr_'+k+'"></div><button onclick="addE(\''+k+'\')">+ Agregar</button>').join('');
+
+function bloque(c){const d=c.datos||{},car=d.car||{},pb=pbVD(d.vd),m=k=>md(car[k]??10);
+ const ini=d.ini!=null&&d.ini!==''?+d.ini:m('des');
+ const tabla='<table class="tb2"><tr>'+AB.map(([k])=>'<th>'+k.toUpperCase()+'</th>').join('')+'</tr><tr>'+AB.map(([k])=>'<td>'+(car[k]??10)+'<br>'+sgn(m(k))+'</td>').join('')+'</tr><tr>'+AB.map(([k])=>'<td><small>Salv.</small><br>'+sgn(m(k)+((d.salv||{})[k]?pb:0))+'</td>').join('')+'</tr></table>';
+ const habs=HAB.map(([n,a],i)=>[n,a,(d.hab||[])[i]||0]).filter(x=>x[2]).map(x=>x[0]+' '+sgn(m(x[1])+pb*x[2])).join(', ');
+ const ln=(t,v)=>v?'<p><b>'+t+'</b> '+esc(v)+'</p>':'';
+ const gr=(t,a)=>(a&&a.length)?'<h4>'+t+'</h4>'+a.map(e=>'<p><b><i>'+esc(e.n)+'.</i></b> '+esc(e.t)+'</p>').join(''):'';
+ return '<div class="sb">'+(c.imagen?'<img class="foto-cr" src="'+esc(c.imagen)+'" alt="">':'')+
+  '<p><i>'+esc(d.tamano||'')+' '+esc(c.tipo)+(d.alin?', '+esc(d.alin):'')+'</i></p>'+(d.desc?'<p style="white-space:pre-wrap">'+esc(d.desc)+'</p>':'')+
+  '<p><b>CA</b> '+esc(d.ca)+(d.caNota?' ('+esc(d.caNota)+')':'')+' &nbsp; <b>Iniciativa</b> '+sgn(ini)+' ('+(10+ini)+')</p><p><b>PG</b> '+esc(d.pg)+(d.dados?' ('+esc(d.dados)+')':'')+'</p>'+
+  ln('Velocidad',d.vel)+tabla+ln('Habilidades',habs)+ln('Vulnerabilidades',d.vul)+ln('Resistencias',d.res)+ln('Inmunidades a daño',d.inmD)+ln('Inmunidades a estados',d.inmE)+ln('Sentidos',d.sentidos)+ln('Idiomas',d.idiomas)+
+  '<p><b>VD</b> '+esc(d.vd)+' (bonificador de competencia +'+pb+')</p>'+
+  gr('Rasgos',d.rasgos)+gr('Acciones',d.acciones)+gr('Acciones adicionales',d.adicionales)+gr('Reacciones',d.reacciones)+gr('Acciones legendarias',d.legendarias)+
+  (d.notas?'<h4>Notas del DM</h4><p style="white-space:pre-wrap">'+esc(d.notas)+'</p>':'')+'<div style="clear:both"></div></div>'}
+async function cargar(){const{data,error}=await sb.from('criaturas').select('*');if(error){msg.textContent=error.message;return}CR=data||[];pintar()}
+function pintar(){
+ const ab=[...document.querySelectorAll('#lista details[open]')].map(d=>d.id),b=fb.value.trim().toLowerCase();
+ const l=CR.filter(c=>(!b||c.nombre.toLowerCase().includes(b))&&(!ftp.value||c.tipo==ftp.value)&&(!frz.value||c.rareza==frz.value)).sort((x,y)=>x.nombre.localeCompare(y.nombre,'es'));
+ lista.innerHTML=l.map(c=>'<details id="cr'+c.id+'" class="box r-'+c.rareza+'" style="border-left:8px solid var(--rc)"><summary>'+(c.imagen?'<img class="mini" src="'+esc(c.imagen)+'" alt="">':'')+'<b>'+esc(c.nombre)+'</b> · '+esc(c.tipo)+' · '+RZ[c.rareza]+' · VD '+esc((c.datos||{}).vd||'?')+'</summary>'+bloque(c)+
+  '<button onclick="editar('+c.id+')">Editar</button> <button onclick="dup('+c.id+')">Duplicar</button> <button onclick="borrar('+c.id+')">Eliminar</button></details>').join('')||'<i>No hay criaturas con esos filtros.</i>';
+ ab.forEach(k=>{const e=document.getElementById(k);if(e)e.open=true})}
+function pintarHB(){c_hab.innerHTML=HAB.map(([n,a],i)=>'<div class="fila"><button onclick="hb('+i+')">'+SIM[HB[i]||0]+'</button> '+n+' <small>('+a.toUpperCase()+')</small></div>').join('')}
+const hb=i=>{HB[i]=((HB[i]||0)+1)%3;pintarHB()};
+function pintarGr(k){document.getElementById('gr_'+k).innerHTML=LST[k].map((e,i)=>'<div class="box"><input value="'+esc(e.n)+'" placeholder="Nombre" oninput="LST[\''+k+'\']['+i+'].n=this.value"><textarea rows="3" placeholder="Descripción" oninput="LST[\''+k+'\']['+i+'].t=this.value">'+esc(e.t)+'</textarea><button onclick="quitarE(\''+k+'\','+i+')">Quitar</button></div>').join('')}
+const addE=k=>{LST[k].push({n:'',t:''});pintarGr(k)};
+const quitarE=(k,i)=>{LST[k].splice(i,1);pintarGr(k)};
+function editar(id){
+ const c=id?CR.find(x=>x.id==id):{id:'',nombre:'',tipo:'Humanoide',rareza:'comun',imagen:'',datos:{}},D=DEFC(),d={...D,...c.datos,car:{...D.car,...(c.datos||{}).car}};
+ ed.style.display='block';c_id.value=c.id;c_nombre.value=c.nombre;c_tipo.value=c.tipo;c_rz.value=c.rareza;c_img.value=c.imagen||'';
+ c_desc.value=d.desc;c_tam.value=d.tamano;c_alin.value=d.alin;c_vd.value=d.vd;c_ca.value=d.ca;c_canota.value=d.caNota;c_pg.value=d.pg;c_dados.value=d.dados;c_ini.value=d.ini??'';c_vel.value=d.vel;
+ c_vul.value=d.vul;c_res.value=d.res;c_inmd.value=d.inmD;c_inme.value=d.inmE;c_sent.value=d.sentidos;c_idi.value=d.idiomas;c_notas.value=d.notas;
+ AB.forEach(([k])=>{document.getElementById('cc_'+k).value=d.car[k];document.getElementById('cs_'+k).checked=!!(d.salv||{})[k]});
+ HB=Array.from({length:18},(_,i)=>(d.hab||[])[i]||0);pintarHB();
+ LST={};GR.forEach(([k])=>{LST[k]=(d[k]||[]).map(e=>({...e}));pintarGr(k)});
+ ed.scrollIntoView()}
+async function guardar(){
+ const n=g('c_nombre').trim();if(!n){msg.textContent='Falta el nombre.';return}
+ const car={},salv={};AB.forEach(([k])=>{car[k]=cl(g('cc_'+k),1,30);salv[k]=document.getElementById('cs_'+k).checked});
+ const d={desc:g('c_desc'),tamano:g('c_tam'),alin:g('c_alin').trim(),vd:g('c_vd'),ca:parseInt(g('c_ca'))||0,caNota:g('c_canota').trim(),pg:parseInt(g('c_pg'))||0,dados:g('c_dados').trim(),ini:g('c_ini')===''?null:parseInt(g('c_ini')),vel:g('c_vel').trim(),car,salv,hab:HB.slice(),
+  vul:g('c_vul').trim(),res:g('c_res').trim(),inmD:g('c_inmd').trim(),inmE:g('c_inme').trim(),sentidos:g('c_sent').trim(),idiomas:g('c_idi').trim(),notas:g('c_notas')};
+ GR.forEach(([k])=>d[k]=LST[k].filter(e=>e.n.trim()||e.t.trim()));
+ const fila={nombre:n,tipo:g('c_tipo'),rareza:g('c_rz'),imagen:g('c_img').trim(),datos:d};
+ const{error}=g('c_id')?await sb.from('criaturas').update(fila).eq('id',g('c_id')):await sb.from('criaturas').insert(fila);
+ msg.textContent=error?error.message:'Guardado.';if(!error)ed.style.display='none';cargar()}
+async function dup(id){const c=CR.find(x=>x.id==id);const{error}=await sb.from('criaturas').insert({nombre:c.nombre+' (copia)',tipo:c.tipo,rareza:c.rareza,imagen:c.imagen,datos:c.datos});msg.textContent=error?error.message:'';cargar()}
+async function borrar(id){if(!confirm('¿Eliminar esta criatura?'))return;const{error}=await sb.from('criaturas').delete().eq('id',id);msg.textContent=error?error.message:'';cargar()}
+async function subir(inp,dest){const a=inp.files[0];if(!a)return;if(a.size>2e6){msg.textContent='La foto pesa más de 2 MB.';return}
+ const n='cr-'+Date.now()+'-'+a.name.toLowerCase().replace(/[^a-z0-9.]/g,'_'),b=sb.storage.from('items');
+ const{error}=await b.upload(n,a,{contentType:a.type});
+ if(error){msg.textContent=error.message;return}
+ document.getElementById(dest).value=b.getPublicUrl(n).data.publicUrl;msg.textContent='Foto subida. Tocá Guardar para aplicarla.'}
+(async()=>{const p=await cabecera('Criaturas');if(!p)return;if(!p.is_dm){location.href='main.html';return}cargar()})();
+</script></body></html>

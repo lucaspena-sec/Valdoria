@@ -13,7 +13,7 @@
   <small><a href="equipo.html">Cambiar la foto en Equipamiento</a></small>
  </div>
 </div>
-<div class="box"><h3>⚔ Combate</h3><div id="cmb"></div><small>Poné nombre y máximo en cada fila; los botones suben o bajan lo que te queda.</small></div>
+<div class="box"><h3>⚔ Combate</h3><label><input type="checkbox" id="ocv" style="width:auto" onchange="ocultarV(this.checked)"> Ocultar filas vacías</label><div id="cmb"></div><small>Poné nombre y máximo en cada fila; los botones suben o bajan lo que te queda.</small></div>
 <button onclick="descanso()">🌙 Descanso largo</button>
 <div class="insp"><div class="t">✦ INSPIRACIÓN SAGRADA ✦</div><div id="ins"></div><small>Solo el DM puede otorgarla.</small></div>
 <div class="box"><h3>📜 Ficha de personaje</h3>
@@ -41,7 +41,7 @@ const esc=s=>String(s??'').replace(/[&<>"]/g,c=>'&#'+c.charCodeAt(0)+';');
 const AB=[['fue','Fuerza'],['des','Destreza'],['con','Constitución'],['int','Inteligencia'],['sab','Sabiduría'],['car','Carisma']];
 const HAB=[['Acrobacias','des'],['Arcanos','int'],['Atletismo','fue'],['Engaño','car'],['Historia','int'],['Interpretación','car'],['Intimidación','car'],['Investigación','int'],['Juego de manos','des'],['Medicina','sab'],['Naturaleza','int'],['Percepción','sab'],['Perspicacia','sab'],['Persuasión','car'],['Religión','int'],['Sigilo','des'],['Supervivencia','sab'],['Trato con animales','sab']];
 const PERC=11,SIM=['○','●','◆'];
-const DEF=()=>({nombre:'',clase:'',sub:'',esp:'',tras:'',ali:'',nivel:1,xp:0,ca:'',vel:'',car:{fue:10,des:10,con:10,int:10,sab:10,car:10},salv:{},hab:Array(18).fill(0),conj:'',cmb:Array.from({length:5},()=>({n:'',max:0,act:0})),muerte:{ok:0,fail:0},idiomas:'',rasgos:'',notas:''});
+const DEF=()=>({ocultarVacias:false,nombre:'',clase:'',sub:'',esp:'',tras:'',ali:'',nivel:1,xp:0,ca:'',vel:'',car:{fue:10,des:10,con:10,int:10,sab:10,car:10},salv:{},hab:Array(18).fill(0),conj:'',cmb:Array.from({length:15},()=>({n:'',max:0,act:0})),muerte:{ok:0,fail:0},idiomas:'',rasgos:'',notas:''});
 let S={hp:10,hpmax:10,tmp:0,insp:0,datos:DEF()},RO=false,UID=null;
 const md=s=>Math.floor((s-10)/2),sgn=n=>(n>=0?'+':'')+n,set=(id,t)=>{const e=document.getElementById(id);if(e)e.textContent=t};
 const cl=(v,a,b)=>Math.max(a,Math.min(b,parseInt(v)||a));
@@ -70,8 +70,11 @@ function pintarMuerte(){const m=S.datos.muerte;
  ms.innerHTML=[0,1,2].map(i=>'<span onclick="mu(\'ok\','+i+')">'+(i<m.ok?'☑':'☐')+'</span>').join('');
  mf.innerHTML=[0,1,2].map(i=>'<span onclick="mu(\'fail\','+i+')">'+(i<m.fail?'☒':'☐')+'</span>').join('')}
 function mu(k,i){if(RO)return;const m=S.datos.muerte;m[k]=m[k]==i+1?i:i+1;pintarMuerte();guardarD()}
-function pintarCmb(){cmb.innerHTML=S.datos.cmb.map((c,i)=>'<div class="cmbrow"><input value="'+esc(c.n)+'" placeholder="Nombre (conjuro, habilidad…)" oninput="cn('+i+',this.value)"><span><b id="ca'+i+'">'+c.act+'</b> / <input type="number" min="0" value="'+c.max+'" style="width:56px" onchange="cm('+i+',this.value)"></span><span><button onclick="cc('+i+',-1)">−</button><button onclick="cc('+i+',1)">+</button></span></div>').join('');
+function pintarCmb(){cmb.innerHTML=cmbVis().map(([c,i])=>'<div class="cmbrow"><input value="'+esc(c.n)+'" placeholder="Nombre (conjuro, habilidad…)" oninput="cn('+i+',this.value)"><span><b id="ca'+i+'">'+c.act+'</b> / <input type="number" min="0" value="'+c.max+'" style="width:56px" onchange="cm('+i+',this.value)"></span><span><button onclick="cc('+i+',-1)">−</button><button onclick="cc('+i+',1)">+</button></span></div>').join('');
  if(RO)cmb.querySelectorAll('input,button').forEach(e=>e.disabled=true)}
+function cmbVis(){const v=S.datos.ocultarVacias;let vacia=false;
+ return S.datos.cmb.map((c,i)=>[c,i]).filter(([c])=>{if(!v||c.n.trim())return true;if(!vacia){vacia=true;return true}return false})}
+const ocultarV=v=>{S.datos.ocultarVacias=v;pintarCmb();guardarD()};
 const cn=(i,v)=>{S.datos.cmb[i].n=v;guardarD()};
 function cm(i,v){const c=S.datos.cmb[i],m=Math.max(0,parseInt(v)||0);if(c.act==c.max)c.act=m;c.max=m;c.act=Math.min(c.act,m);pintarCmb();guardarD()}
 function cc(i,s){const c=S.datos.cmb[i];c.act=cl(c.act+s,0,c.max);document.getElementById('ca'+i).textContent=c.act;guardarD()}
@@ -97,7 +100,7 @@ function armar(){
   el.oninput=()=>{S.datos[k]=el.type=='number'?(parseInt(el.value)||0):el.value;calc();guardarD()}});
  fhm.value=S.hpmax;
  fhm.oninput=()=>{S.hpmax=Math.max(1,parseInt(fhm.value)||1);S.hp=Math.min(S.hp,S.hpmax);pintarHp();guardarH()};
- calc();pintarHp();pintarMuerte();pintarCmb();pintarIns();
+ ocv.checked=!!S.datos.ocultarVacias;calc();pintarHp();pintarMuerte();pintarCmb();pintarIns();
  if(RO)document.querySelectorAll('.win input,.win textarea,.win select,.win button').forEach(e=>e.disabled=true)}
 
 function cargarFila(f){S.hp=f.hp;S.hpmax=f.hp_max;S.tmp=f.hp_temp;const x=f.datos||{},d=DEF();

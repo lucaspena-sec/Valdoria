@@ -1,4 +1,4 @@
-// 1) Pegá acá los datos de tu proyecto de Supabase (Project Settings > API)
+// Datos de tu proyecto de Supabase (Project Settings > API)
 const SUPABASE_URL = 'https://ljvjkpdyczpltqnrpwam.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_gGf6x3H7-b0hqsm8YZ6f_g_ulNay1Sd';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -19,6 +19,6 @@ async function cabecera(titulo) {
   const p = await perfil(); if (!p) return null;
   document.getElementById('cab').innerHTML =
    `<div class="tb"><span>⚔ ${titulo}</span><span>👤 ${p.username} · 💰 <span id="oro">${p.gold}</span> po</span></div>
-    <div class="nav"><a href="main.html">Inicio</a><a href="tienda.html">Tienda</a><a href="equipo.html">Equipamiento</a><a href="novedades.html">Novedades</a><a href="torre.html">Torre</a>${p.is_dm?'<a href="dm.html">Panel DM</a>':''}<a href="#" onclick="salir();return false">Salir</a></div>`;
+    <div class="nav"><a href="main.html">Inicio</a><a href="tienda.html">Tienda</a><a href="equipo.html">Equipamiento</a><a href="ficha.html">Ficha PJ</a><a href="novedades.html">Novedades</a><a href="torre.html">Torre</a>${p.is_dm?'<a href="dm.html">Panel DM</a>':''}<a href="#" onclick="salir();return false">Salir</a></div>`;
   return p;
 }
