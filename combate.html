@@ -1,4 +1,4 @@
-<!doctype html><html lang="es"><head><title>Valdoria - Combate</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=3"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=4"></script><script src="comun.js?v=4"></script>
+<!doctype html><html lang="es"><head><title>Valdoria - Combate</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=3"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=5"></script><script src="comun.js?v=4"></script>
 <style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
 <div class="win"><div id="cab"></div><div class="body">
 <div id="msg" class="err"></div>
@@ -20,7 +20,7 @@
 <script>
 const OJOA='<svg width="18" height="18" viewBox="0 0 24 24"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" fill="#fff" stroke="#222" stroke-width="2"/><circle cx="12" cy="12" r="3.5" fill="#222"/></svg>';
 const OJOC='<svg width="18" height="18" viewBox="0 0 24 24"><path d="M2 11c3 5 7 7 10 7s7-2 10-7" fill="none" stroke="#fff" stroke-width="2"/><path d="M5 16l-2 3M12 18v3M19 16l2 3" stroke="#fff" stroke-width="2"/></svg>';
-let ME=null,DM=false,ES={activo:false,ronda:1,turno:null},LISTA=[],CB=[],PF={},PERF=[],CR=[],F=null,ultTurno=null,pend=false;
+let ME=null,DM=false,ES={activo:false,ronda:1,turno:null},LISTA=[],CB=[],PF={},PERF=[],CR=[],F=null,ultTurno=null,pend=false,VC=true,VR=true;
 const gv=id=>document.getElementById(id).value;
 const cl=(v,a,b)=>Math.max(a,Math.min(b,parseFloat(v)||a));
 const aviso=e=>{msg.textContent=e?e.message:''};
@@ -143,10 +143,15 @@ function pintarMio(){
   '<div class="muerte">Salvaciones contra muerte — Éxitos: '+[0,1,2].map(i=>'<span onclick="mMu(\'ok\','+i+')">'+(i<m.ok?'☑':'☐')+'</span>').join('')+' Fallos: '+[0,1,2].map(i=>'<span onclick="mMu(\'fail\','+i+')">'+(i<m.fail?'☒':'☐')+'</span>').join('')+'</div>'+
   '<p><b>Tiradas de salvación:</b> '+AB.map(([k])=>k.toUpperCase()+' '+sgn(md(car[k]??10)+(salv[k]?pb:0))+(salv[k]?'●':'')).join(' · ')+'</p>';
  const filas=(d.cmb||[]).map((c,i)=>[c,i]).filter(([c])=>(c.n||'').trim());
- h+='<h4>Usos y espacios</h4>'+(filas.map(([c,i])=>'<div class="cmbrow"><b style="flex:1 1 120px">'+esc(c.n)+'</b><span><b>'+c.act+'</b> / '+c.max+'</span><span><button onclick="mCmb('+i+',-1)">−</button><button onclick="mCmb('+i+',1)">+</button></span></div>').join('')||'<small><i>Cargá tus usos en la ficha, sección Combate.</i></small>');
+ if(filas.length)h+='<h4>Usos y espacios</h4>'+filas.map(([c,i])=>'<div class="cmbrow"><b style="flex:1 1 120px">'+esc(c.n)+'</b><span><b>'+c.act+'</b> / '+c.max+'</span><span><button onclick="mCmb('+i+',-1)">−</button><button onclick="mCmb('+i+',1)">+</button></span></div>').join('');
  const pre=(d.conjuros||[]).filter(c=>c.prep).sort((x,y)=>x.nv-y.nv||x.n.localeCompare(y.n,'es'));
- h+='<h4>Conjuros preparados</h4>'+(pre.length?[...new Set(pre.map(c=>c.nv))].map(n=>'<h5 style="margin:6px 0 2px">'+(n==0?'Trucos':'Nivel '+n)+'</h5>'+pre.filter(c=>c.nv==n).map(c=>'<details id="mc'+c.id+'"><summary><b>'+esc(c.n)+'</b> <small>'+esc(c.esc||'')+'</small></summary>'+cartaCj(c)+'</details>').join('')).join(''):'<small><i>Sin conjuros preparados.</i></small>');
+ const grs=RG.map(([k,t])=>[k,t,(d[k]||[]).filter(e=>(e.n||'').trim()||(e.t||'').trim())]).filter(g=>g[2].length);
+ if(pre.length||grs.length)h+='<div class="chk" style="margin-top:8px"><b>Mostrar:</b> '+(pre.length?'<label><input type="checkbox" style="width:auto" '+(VC?'checked':'')+' onchange="verSec(\'miConj\',this.checked)"> Conjuros</label>':'')+(grs.length?'<label><input type="checkbox" style="width:auto" '+(VR?'checked':'')+' onchange="verSec(\'miRasgos\',this.checked)"> Rasgos y talentos</label>':'')+'</div>';
+ if(VC&&pre.length)h+='<h4>Conjuros preparados</h4>'+[...new Set(pre.map(c=>c.nv))].map(n=>'<h5 style="margin:6px 0 2px">'+(n==0?'Trucos':'Nivel '+n)+'</h5>'+pre.filter(c=>c.nv==n).map(c=>'<details id="mc'+c.id+'"><summary><b>'+esc(c.n)+'</b> <small>'+esc(c.esc||'')+'</small></summary>'+cartaCj(c)+'</details>').join('')).join('');
+ if(VR&&grs.length)h+='<h4>Rasgos y talentos</h4>'+grs.map(([k,t,a])=>'<details id="mr_'+k+'" class="box"><summary><b>'+t+'</b> ('+a.length+')</summary>'+a.map((e,i)=>'<details id="mrf_'+k+i+'"><summary><b>'+esc(e.n||'(sin nombre)')+'</b></summary><p style="white-space:pre-wrap">'+esc(uni(e.t||''))+'</p></details>').join('')+'</details>').join('');
  miBody.innerHTML=h;ab.forEach(id=>{const e=document.getElementById(id);if(e)e.open=true})}
+const RG=[['rasgosEsp','Rasgos de especie'],['dotes','Dotes'],['rasgosClase','Rasgos de clase'],['rasgosSub','Rasgos de subclase']];
+function verSec(k,v){if(k=='miConj')VC=v;else VR=v;try{localStorage.setItem(k,v?'1':'0')}catch(e){}if(document.activeElement)document.activeElement.blur();pintarMio()}
 function mCambiar(t,s){const n=parseInt(gv(t=='hp'?'mh':'mt'));if(!(n>0)||!F)return;
  if(t=='hp'){if(s>0)F.hp=Math.min(F.hp_max,F.hp+n);else{const a=Math.min(F.hp_temp,n);F.hp_temp-=a;F.hp=Math.max(0,F.hp-(n-a))}}else F.hp_temp=Math.max(0,F.hp_temp+s*n);
  pintarMio();guardarHp()}
@@ -161,7 +166,7 @@ mi.addEventListener('toggle',()=>{try{localStorage.setItem('miCombate',mi.open?'
 
 (async()=>{
  ME=await cabecera('Combate');if(!ME)return;DM=!!ME.is_dm;
- try{mi.open=localStorage.getItem('miCombate')!=='0'}catch(e){}
+ try{mi.open=localStorage.getItem('miCombate')!=='0';VC=localStorage.getItem('miConj')!=='0';VR=localStorage.getItem('miRasgos')!=='0'}catch(e){}
  if(DM){prep.style.display='block';const{data}=await sb.from('criaturas').select('id,nombre,tipo,imagen,datos');CR=(data||[]).sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));opcionesCR()}
  await cargar();setInterval(()=>{if(!document.hidden)cargar()},4000)})();
 </script></body></html>
