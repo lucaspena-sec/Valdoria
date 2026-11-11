@@ -120,3 +120,25 @@ function leerConjuro(txt){
  ['tc','al','cm','du'].forEach(k=>c[k]=aPies(c[k]).replace(/\.$/,''));c.desc=aPies(c.desc);c.sup=aPies(c.sup);
  const falta=[];if(!c.tc)falta.push('tiempo de lanzamiento');if(!c.al)falta.push('alcance');if(!c.cm)falta.push('componentes');if(!c.du)falta.push('duración');if(!c.desc)falta.push('descripción');
  return{...c,falta}}
+
+// ---- Combate: sangre sobre las fotos y ficha de conjuro ----
+const etapaSangre=p=>p<=0?4:p<=25?3:p<=50?2:p<=75?1:0;
+function sangreSvg(s){if(!s)return'';const R='#a30f17',D='#7a0a10';let o='';
+ if(s>=1)o+=[[22,30,3.2],[70,22,2.4],[48,68,3.6],[80,88,2.6]].map(a=>'<circle cx="'+a[0]+'" cy="'+a[1]+'" r="'+a[2]+'" fill="'+R+'" opacity=".85"/>').join('');
+ if(s>=2)o+=[[12,50],[35,16],[60,45],[86,60],[28,90],[64,100],[90,15]].map(a=>'<path d="M'+a[0]+' '+a[1]+' q-3 7 0 11 q3 -4 0 -11z" fill="'+R+'"/><circle cx="'+a[0]+'" cy="'+(a[1]+13)+'" r="2.6" fill="'+R+'"/>').join('');
+ if(s>=3){o+='<rect x="0" y="0" width="100" height="12" fill="'+D+'" opacity=".92"/>';
+  o+=[[4,60,7],[16,95,6],[28,42,8],[43,80,6],[56,52,8],[70,105,6],[82,68,8],[94,45,6]].map(a=>'<rect x="'+a[0]+'" y="0" width="'+a[2]+'" height="'+a[1]+'" rx="'+a[2]/2+'" fill="'+D+'" opacity=".92"/><circle cx="'+(a[0]+a[2]/2)+'" cy="'+a[1]+'" r="'+a[2]*.75+'" fill="'+D+'" opacity=".92"/>').join('')}
+ if(s>=4)o+='<rect width="100" height="120" fill="#000" opacity=".25"/><path d="M12 14 L88 106 M88 14 L12 106" stroke="#8b0000" stroke-width="10" stroke-linecap="round"/><path d="M12 14 L88 106 M88 14 L12 106" stroke="#d11a24" stroke-width="5" stroke-linecap="round"/>';
+ return o}
+function cartaConjuro(c){const ln=(t,v)=>v?'<p><b>'+t+':</b> '+esc(uni(v))+'</p>':'';
+ return '<div class="sb"><p><i>'+(c.nv==0?'Truco':'Nivel '+c.nv)+(c.esc?' · '+esc(c.esc):'')+(c.conc?' · Concentración':'')+(c.rit?' · Ritual':'')+'</i></p>'+ln('Tiempo de lanzamiento',c.tc)+ln('Alcance',c.al)+ln('Componentes',c.cm)+ln('Duración',c.du)+
+  (c.desc?'<p style="white-space:pre-wrap">'+esc(uni(c.desc))+'</p>':'')+(c.sup?'<p><b>A niveles superiores:</b> '+esc(uni(c.sup))+'</p>':'')+ln('Clases',c.cl)+'</div>'}
+
+// Manchas de sangre sobre una foto (0 = limpia ... 4 = tachada). Se dibuja dentro de un <svg viewBox="0 0 100 120" preserveAspectRatio="none">
+function sangreSvg(s){if(!s)return'';const R='#a30f17',D='#7a0a10';let o='';
+ if(s>=1)o+=[[22,30,3.2],[70,22,2.4],[48,68,3.6],[80,88,2.6]].map(a=>'<circle cx="'+a[0]+'" cy="'+a[1]+'" r="'+a[2]+'" fill="'+R+'" opacity=".85"/>').join('');
+ if(s>=2)o+=[[12,50],[35,16],[60,45],[86,60],[28,90],[64,100],[90,15]].map(a=>'<path d="M'+a[0]+' '+a[1]+' q-3 7 0 11 q3 -4 0 -11z" fill="'+R+'"/><circle cx="'+a[0]+'" cy="'+(a[1]+13)+'" r="2.6" fill="'+R+'"/>').join('');
+ if(s>=3){o+='<rect x="0" y="0" width="100" height="12" fill="'+D+'" opacity=".92"/>';
+  o+=[[4,60,7],[16,95,6],[28,42,8],[43,80,6],[56,52,8],[70,105,6],[82,68,8],[94,45,6]].map(a=>'<rect x="'+a[0]+'" y="0" width="'+a[2]+'" height="'+a[1]+'" rx="'+a[2]/2+'" fill="'+D+'" opacity=".92"/><circle cx="'+(a[0]+a[2]/2)+'" cy="'+a[1]+'" r="'+a[2]*.75+'" fill="'+D+'" opacity=".92"/>').join('')}
+ if(s>=4)o+='<rect width="100" height="120" fill="#000" opacity=".25"/><path d="M12 14 L88 106 M88 14 L12 106" stroke="#8b0000" stroke-width="10" stroke-linecap="round"/><path d="M12 14 L88 106 M88 14 L12 106" stroke="#d11a24" stroke-width="5" stroke-linecap="round"/>';
+ return o}

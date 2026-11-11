@@ -1,0 +1,167 @@
+<!doctype html><html lang="es"><head><title>Valdoria - Combate</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=3"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=4"></script><script src="comun.js?v=4"></script>
+<style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
+<div class="win"><div id="cab"></div><div class="body">
+<div id="msg" class="err"></div>
+<div id="turnoEl" class="box"></div>
+<details id="mi" class="box" style="display:none"><summary id="miRes"></summary><div id="miBody"></div></details>
+<div id="dmBar" style="display:none;text-align:center;margin:6px 0"></div>
+<details id="prep" class="box" open style="display:none"><summary><b>⚙ Preparación del combate</b></summary>
+ <div class="prep2">
+  <div><h4>Jugadores</h4><div id="pjs"></div></div>
+  <div><h4>Criaturas</h4>
+   <input id="crq" placeholder="Buscar criatura" oninput="opcionesCR()"><select id="crs"></select>
+   <label>Cantidad <input type="number" id="cant" min="1" max="20" value="1" style="width:60px"></label>
+   <label>Iniciativa <input type="number" id="cini" placeholder="auto" style="width:70px"></label><br>
+   <label><input type="checkbox" id="tpg" style="width:auto"> Tirar los PG con los dados</label><br>
+   <button onclick="agregarC()">+ Agregar criatura</button></div>
+ </div></details>
+<div id="grid" class="cgrid"></div>
+</div></div>
+<script>
+const OJOA='<svg width="18" height="18" viewBox="0 0 24 24"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" fill="#fff" stroke="#222" stroke-width="2"/><circle cx="12" cy="12" r="3.5" fill="#222"/></svg>';
+const OJOC='<svg width="18" height="18" viewBox="0 0 24 24"><path d="M2 11c3 5 7 7 10 7s7-2 10-7" fill="none" stroke="#fff" stroke-width="2"/><path d="M5 16l-2 3M12 18v3M19 16l2 3" stroke="#fff" stroke-width="2"/></svg>';
+let ME=null,DM=false,ES={activo:false,ronda:1,turno:null},LISTA=[],CB=[],PF={},PERF=[],CR=[],F=null,ultTurno=null,pend=false;
+const gv=id=>document.getElementById(id).value;
+const cl=(v,a,b)=>Math.max(a,Math.min(b,parseFloat(v)||a));
+const aviso=e=>{msg.textContent=e?e.message:''};
+const urlRet=id=>sb.storage.from('retratos').getPublicUrl(id+'.jpg').data.publicUrl;
+const ord=(a,b)=>b.ini-a.ini||(b.dex||0)-(a.dex||0)||(a.tipo==b.tipo?0:a.tipo=='pj'?-1:1)||a.id-b.id;
+const tirar20=m=>Math.floor(Math.random()*20)+1+m;
+function rollDados(s){const r=String(s||'').match(/(\d+)\s*d\s*(\d+)\s*([+\-]\s*\d+)?/i);if(!r)return 0;let t=0;for(let i=0;i<+r[1];i++)t+=1+Math.floor(Math.random()*+r[2]);return Math.max(1,t+(r[3]?parseInt(r[3].replace(/\s/g,'')):0))}
+
+/* ---------- datos ---------- */
+function cDM(c){const pj=c.tipo=='pj',f=pj?PF[c.jugador]:null,p=pj?PERF.find(x=>x.id==c.jugador):null;
+ return{id:c.id,tipo:c.tipo,ini:c.ini,dex:c.dex,jugador:c.jugador,alias:c.alias,real:c.nombre,
+  nombre:pj?((f&&f.datos&&f.datos.nombre)||(p&&p.username)||'?'):(c.alias||c.nombre),
+  imagen:pj?null:c.imagen,hp:pj?(f?f.hp:0):c.hp,hpmax:pj?(f?f.hp_max:1):c.hp_max,tmp:pj&&f?f.hp_temp:0,oculto:!c.visible}}
+async function cargarDM(){
+ const[e,c,f,p]=await Promise.all([sb.from('combate_estado').select('*').eq('id',1).maybeSingle(),sb.from('combatientes').select('*'),sb.from('fichas').select('user_id,hp,hp_max,hp_temp,datos'),sb.from('profiles').select('id,username,is_dm').order('username')]);
+ if(e.error||c.error){aviso(e.error||c.error);return false}
+ ES=e.data||{activo:false,ronda:1,turno:null};CB=c.data||[];PF={};(f.data||[]).forEach(x=>PF[x.user_id]=x);PERF=p.data||[];
+ LISTA=CB.map(cDM).sort(ord);return true}
+async function cargarJug(){
+ const{data,error}=await sb.rpc('combate_ver');if(error){aviso(error);return false}
+ ES={activo:!!data.activo,ronda:data.ronda||1,turno:data.turno};LISTA=data.lista||[];return true}
+async function cargar(){
+ const ok=DM?await cargarDM():await cargarJug();if(!ok)return;
+ pintar();if(!DM)await cargarMio()}
+
+/* ---------- pantalla ---------- */
+function pintar(){pintarTurno();pintarBar();pintarGrid();if(DM)pintarPrep()}
+function pintarTurno(){
+ if(!ES.activo){turnoEl.innerHTML=DM?'Combate sin iniciar. Armalo en la preparación y tocá "Iniciar combate".':'No hay un combate en curso.';return}
+ const t=LISTA.find(x=>x.id==ES.turno),mio=!DM&&t&&t.jugador==ME.id;
+ turnoEl.innerHTML='<b>Ronda '+ES.ronda+'</b> · Turno de: <b>'+esc(t?t.nombre:'—')+'</b>'+(mio?' <span class="miturno">¡ES TU TURNO!</span>':'');
+ if(mio&&ES.turno!=ultTurno&&navigator.vibrate)navigator.vibrate([200,100,200]);
+ ultTurno=ES.turno}
+function pintarBar(){if(!DM)return;
+ dmBar.style.display='block';
+ dmBar.innerHTML=ES.activo?'<button onclick="siguiente()">➡ Siguiente turno</button> <button onclick="terminar()">🏁 Terminar combate</button>':'<button onclick="iniciar()" style="font-size:16px;padding:10px 22px">⚔ Iniciar combate</button>'}
+function carta(it,dm){
+ const pj=it.tipo=='pj',hay=pj||dm||!it.oculto;
+ const pct=(pj||dm)?(it.hpmax>0?it.hp/it.hpmax*100:100):(it.pct==null?null:it.pct);
+ const st=(hay&&pct!=null)?(pct<=0?4:pct<=25?3:pct<=50?2:pct<=75?1:0):0;
+ const turno=ES.activo&&ES.turno==it.id,img=pj?urlRet(it.jugador):it.imagen;
+ let bar;
+ if(pj)bar='<div class="cbar"><div class="fill rojo" style="width:'+cl(pct,0,100)+'%"></div><span>'+it.hp+'/'+it.hpmax+(it.tmp?' +'+it.tmp:'')+'</span></div>'+(it.tmp>0?'<div class="cbar t"><div class="fill azul" style="width:'+Math.min(100,it.tmp/Math.max(1,it.hpmax)*100)+'%"></div></div>':'');
+ else if(dm||!it.oculto)bar='<div class="cbar"><div class="fill rojo" style="width:'+cl(pct,0,100)+'%"></div>'+(dm?'<span>'+it.hp+'/'+it.hpmax+'</span>':'')+'</div>';
+ else bar='<div class="cbar"><span>?</span></div>';
+ return '<div class="ccard '+(pj?'cpj':'ccr')+(turno?' turno':'')+(dm&&it.oculto?' ocultoDM':'')+'"><div class="cfoto"><div class="ph">'+(pj?'🧙':'👹')+'</div>'+
+  (img?'<img src="'+esc(img)+'" alt="" onerror="this.style.display=\'none\'">':'')+
+  '<svg viewBox="0 0 100 120" preserveAspectRatio="none">'+sangreSvg(st)+'</svg><span class="cini">'+it.ini+'</span>'+
+  (dm&&!pj?'<button class="ojoC" title="Mostrar u ocultar su vida a los jugadores" onclick="verC('+it.id+')">'+(it.oculto?OJOC:OJOA)+'</button>':'')+
+  '</div><div class="cnombre">'+(turno?'▶ ':'')+esc(it.nombre)+'</div>'+bar+(dm?ctlDM(it):'')+'</div>'}
+function ctlDM(it){const id=it.id,pj=it.tipo=='pj';
+ return '<details class="cdm" id="d'+id+'"><summary>⚙ Controles</summary>'+
+  'Iniciativa <input type="number" id="in'+id+'" value="'+it.ini+'" style="width:60px" onchange="setIni('+id+',this.value)"><br>'+
+  '<input type="number" id="hn'+id+'" min="1" placeholder="PV" style="width:60px"><button onclick="hpC('+id+',-1)">−</button><button onclick="hpC('+id+',1)">+</button>'+
+  (pj?'':'<br>Nombre visible <input id="al'+id+'" value="'+esc(it.alias||'')+'" placeholder="'+esc(it.real)+'" onchange="setAlias('+id+',this.value)">')+
+  '<br><button onclick="quitarC('+id+')">✖ Quitar</button></details>'}
+function pintarGrid(){
+ if(!ES.activo&&!DM){grid.innerHTML='';return}
+ const a=document.activeElement;if(a&&grid.contains(a)&&a.tagName=='INPUT')return;
+ const ab=[...grid.querySelectorAll('details[open]')].map(d=>d.id);
+ grid.innerHTML=LISTA.map(it=>carta(it,DM)).join('')||'<i>No hay combatientes todavía.</i>';
+ ab.forEach(id=>{const e=document.getElementById(id);if(e)e.open=true})}
+
+/* ---------- acciones del DM ---------- */
+async function q(p){const{error}=await p;aviso(error);await cargar()}
+const upd=(id,o)=>q(sb.from('combatientes').update(o).eq('id',id));
+const setIni=(id,v)=>upd(id,{ini:parseInt(v)||0});
+const setAlias=(id,v)=>upd(id,{alias:v.trim()});
+function verC(id){const c=CB.find(x=>x.id==id);if(c)upd(id,{visible:!c.visible})}
+function quitarC(id){if(confirm('¿Quitar del combate?'))q(sb.from('combatientes').delete().eq('id',id))}
+function hpC(id,s){const n=parseInt(gv('hn'+id));if(!(n>0)){aviso({message:'Escribí un número mayor a 0.'});return}
+ const c=CB.find(x=>x.id==id);if(!c)return;
+ if(c.tipo=='pj')return q(sb.rpc('dm_hp',{p_user:c.jugador,p_delta:s*n}));
+ upd(id,{hp:cl(c.hp+s*n,0,c.hp_max)})}
+const nomPJ=p=>(PF[p.id]&&PF[p.id].datos&&PF[p.id].datos.nombre)?PF[p.id].datos.nombre+' ('+p.username+')':p.username;
+const dexPJ=id=>md(((PF[id]&&PF[id].datos&&PF[id].datos.car)||{}).des??10);
+function pintarPrep(){
+ const a=document.activeElement;if(a&&prep.contains(a)&&a.tagName=='INPUT'&&a.type!='checkbox')return;
+ const gd={};document.querySelectorAll('#pjs input[type=number]').forEach(e=>gd[e.id]=e.value);
+ pjs.innerHTML=PERF.filter(p=>!p.is_dm).map(p=>{const c=CB.find(x=>x.tipo=='pj'&&x.jugador==p.id);
+  return '<div class="fila"><input type="checkbox" style="width:auto;margin:0" '+(c?'checked':'')+' onchange="togglePJ(\''+p.id+'\',this.checked)"> '+esc(nomPJ(p))+'<span style="margin-left:auto">Ini <input type="number" id="pi'+p.id+'" value="'+(c?c.ini:'')+'" style="width:56px;margin:0" onchange="iniPJ(\''+p.id+'\',this.value)"> <button style="padding:0 6px" onclick="tirarPJ(\''+p.id+'\')">🎲</button></span></div>'}).join('')||'<i>No hay jugadores.</i>';
+ Object.keys(gd).forEach(k=>{const e=document.getElementById(k);if(e&&!e.value)e.value=gd[k]})}
+async function togglePJ(id,on){
+ if(on){const p=PERF.find(x=>x.id==id);await q(sb.from('combatientes').insert({tipo:'pj',jugador:id,nombre:p?p.username:'pj',ini:parseInt(gv('pi'+id))||0,dex:dexPJ(id)}))}
+ else{const c=CB.find(x=>x.tipo=='pj'&&x.jugador==id);if(c)await q(sb.from('combatientes').delete().eq('id',c.id))}}
+function iniPJ(id,v){const c=CB.find(x=>x.tipo=='pj'&&x.jugador==id);if(c)upd(c.id,{ini:parseInt(v)||0})}
+function tirarPJ(id){const r=tirar20(dexPJ(id));document.getElementById('pi'+id).value=r;iniPJ(id,r)}
+function opcionesCR(){const b=crq.value.trim().toLowerCase(),v=crs.value;
+ crs.innerHTML=CR.filter(c=>!b||c.nombre.toLowerCase().includes(b)).map(c=>'<option value="'+c.id+'">'+esc(c.nombre)+' · '+esc(c.tipo)+' · VD '+esc((c.datos||{}).vd||'?')+'</option>').join('')||'<option value="">(sin resultados)</option>';
+ if([...crs.options].some(o=>o.value==v))crs.value=v}
+async function agregarC(){const c=CR.find(x=>x.id==parseInt(crs.value));if(!c){aviso({message:'Elegí una criatura de la lista.'});return}
+ const n=cl(cant.value,1,20),d=c.datos||{},dex=md((d.car||{}).des??10),filas=[];
+ for(let i=1;i<=n;i++){const hp=Math.max(1,tpg.checked?(rollDados(d.dados)||d.pg||1):(d.pg||1)),ini=cini.value.trim()===''?tirar20(dex):(parseInt(cini.value)||0);
+  filas.push({tipo:'criatura',criatura_id:c.id,nombre:n>1?c.nombre+' '+i:c.nombre,imagen:c.imagen||'',hp,hp_max:hp,ini,dex,visible:true})}
+ await q(sb.from('combatientes').insert(filas))}
+const ahora=()=>new Date().toISOString();
+function iniciar(){const vivos=LISTA.filter(x=>!(x.tipo=='criatura'&&x.hp<=0));if(!vivos.length){aviso({message:'Agregá combatientes primero.'});return}
+ q(sb.from('combate_estado').update({activo:true,ronda:1,turno:vivos[0].id,actualizado:ahora()}).eq('id',1))}
+function siguiente(){const l=LISTA;if(!l.length)return;let i=l.findIndex(x=>x.id==ES.turno),ronda=ES.ronda,n=0;
+ do{i++;if(i>=l.length){i=0;ronda++}n++}while(n<=l.length&&l[i].tipo=='criatura'&&l[i].hp<=0);
+ q(sb.from('combate_estado').update({turno:l[i].id,ronda,actualizado:ahora()}).eq('id',1))}
+async function terminar(){if(!confirm('¿Terminar el combate? Se quitan todos los combatientes.'))return;
+ await sb.from('combatientes').delete().gte('id',0);
+ q(sb.from('combate_estado').update({activo:false,ronda:1,turno:null,actualizado:ahora()}).eq('id',1))}
+
+/* ---------- mi personaje (jugadores) ---------- */
+function cartaCj(c){const ln=(t,v)=>v?'<p><b>'+t+':</b> '+esc(uni(v))+'</p>':'';
+ return '<div class="sb"><p><i>'+(c.nv==0?'Truco':'Nivel '+c.nv)+(c.esc?' · '+esc(c.esc):'')+(c.conc?' · Concentración':'')+(c.rit?' · Ritual':'')+'</i></p>'+ln('Tiempo de lanzamiento',c.tc)+ln('Alcance',c.al)+ln('Componentes',c.cm)+ln('Duración',c.du)+
+  (c.desc?'<p style="white-space:pre-wrap">'+esc(uni(c.desc))+'</p>':'')+(c.sup?'<p><b>A niveles superiores:</b> '+esc(uni(c.sup))+'</p>':'')+'</div>'}
+async function cargarMio(){if(pend)return;const{data}=await sb.from('fichas').select('*').eq('user_id',ME.id).maybeSingle();F=data;pintarMio()}
+function pintarMio(){
+ mi.style.display='block';
+ if(!F){miRes.textContent='🛡 Mi personaje';miBody.innerHTML='<i>Abrí tu ficha una vez para crearla.</i>';return}
+ miRes.innerHTML='🛡 Mi personaje · ❤ '+F.hp+'/'+F.hp_max+(F.hp_temp?' (+'+F.hp_temp+')':'');
+ const a=document.activeElement;if(a&&miBody.contains(a)&&a.tagName=='INPUT')return;
+ const ab=[...miBody.querySelectorAll('details[open]')].map(d=>d.id);
+ const d=F.datos||{},car=d.car||{},salv=d.salv||{},pb=Math.ceil(cl(d.nivel||1,1,20)/4)+1,m=d.muerte||{ok:0,fail:0},pct=F.hp_max>0?F.hp/F.hp_max*100:100;
+ let h='<div class="hprow"><div class="bar"><div class="fill rojo" style="width:'+cl(pct,0,100)+'%"></div><span>HP '+F.hp+' / '+F.hp_max+'</span></div><div class="ctl"><input type="number" id="mh" min="1" value="1"><button onclick="mCambiar(\'hp\',-1)">−</button><button onclick="mCambiar(\'hp\',1)">+</button></div></div>'+
+  '<div class="hprow"><div class="bar"><div class="fill azul" style="width:'+Math.min(100,F.hp_temp/Math.max(1,F.hp_max)*100)+'%"></div><span>HP temporales: '+F.hp_temp+'</span></div><div class="ctl"><input type="number" id="mt" min="1" value="1"><button onclick="mCambiar(\'tmp\',-1)">−</button><button onclick="mCambiar(\'tmp\',1)">+</button></div></div>'+
+  '<div class="muerte">Salvaciones contra muerte — Éxitos: '+[0,1,2].map(i=>'<span onclick="mMu(\'ok\','+i+')">'+(i<m.ok?'☑':'☐')+'</span>').join('')+' Fallos: '+[0,1,2].map(i=>'<span onclick="mMu(\'fail\','+i+')">'+(i<m.fail?'☒':'☐')+'</span>').join('')+'</div>'+
+  '<p><b>Tiradas de salvación:</b> '+AB.map(([k])=>k.toUpperCase()+' '+sgn(md(car[k]??10)+(salv[k]?pb:0))+(salv[k]?'●':'')).join(' · ')+'</p>';
+ const filas=(d.cmb||[]).map((c,i)=>[c,i]).filter(([c])=>(c.n||'').trim());
+ h+='<h4>Usos y espacios</h4>'+(filas.map(([c,i])=>'<div class="cmbrow"><b style="flex:1 1 120px">'+esc(c.n)+'</b><span><b>'+c.act+'</b> / '+c.max+'</span><span><button onclick="mCmb('+i+',-1)">−</button><button onclick="mCmb('+i+',1)">+</button></span></div>').join('')||'<small><i>Cargá tus usos en la ficha, sección Combate.</i></small>');
+ const pre=(d.conjuros||[]).filter(c=>c.prep).sort((x,y)=>x.nv-y.nv||x.n.localeCompare(y.n,'es'));
+ h+='<h4>Conjuros preparados</h4>'+(pre.length?[...new Set(pre.map(c=>c.nv))].map(n=>'<h5 style="margin:6px 0 2px">'+(n==0?'Trucos':'Nivel '+n)+'</h5>'+pre.filter(c=>c.nv==n).map(c=>'<details id="mc'+c.id+'"><summary><b>'+esc(c.n)+'</b> <small>'+esc(c.esc||'')+'</small></summary>'+cartaCj(c)+'</details>').join('')).join(''):'<small><i>Sin conjuros preparados.</i></small>');
+ miBody.innerHTML=h;ab.forEach(id=>{const e=document.getElementById(id);if(e)e.open=true})}
+function mCambiar(t,s){const n=parseInt(gv(t=='hp'?'mh':'mt'));if(!(n>0)||!F)return;
+ if(t=='hp'){if(s>0)F.hp=Math.min(F.hp_max,F.hp+n);else{const a=Math.min(F.hp_temp,n);F.hp_temp-=a;F.hp=Math.max(0,F.hp-(n-a))}}else F.hp_temp=Math.max(0,F.hp_temp+s*n);
+ pintarMio();guardarHp()}
+async function guardarHp(){aviso((await sb.from('fichas').update({hp:F.hp,hp_temp:F.hp_temp}).eq('user_id',ME.id)).error)}
+function mMu(k,i){F.datos=F.datos||{};const m=F.datos.muerte=F.datos.muerte||{ok:0,fail:0};m[k]=m[k]==i+1?i:i+1;pintarMio();guardarParcial()}
+function mCmb(i,s){const c=F.datos.cmb[i];c.act=cl(c.act+s,0,c.max);pintarMio();guardarParcial()}
+let tm;function guardarParcial(){pend=true;clearTimeout(tm);tm=setTimeout(async()=>{
+ const{data}=await sb.from('fichas').select('datos').eq('user_id',ME.id).single();
+ const d={...(data?data.datos:{}),muerte:F.datos.muerte,cmb:F.datos.cmb};
+ aviso((await sb.from('fichas').update({datos:d}).eq('user_id',ME.id)).error);pend=false},500)}
+mi.addEventListener('toggle',()=>{try{localStorage.setItem('miCombate',mi.open?'1':'0')}catch(e){}});
+
+(async()=>{
+ ME=await cabecera('Combate');if(!ME)return;DM=!!ME.is_dm;
+ try{mi.open=localStorage.getItem('miCombate')!=='0'}catch(e){}
+ if(DM){prep.style.display='block';const{data}=await sb.from('criaturas').select('id,nombre,tipo,imagen,datos');CR=(data||[]).sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));opcionesCR()}
+ await cargar();setInterval(()=>{if(!document.hidden)cargar()},4000)})();
+</script></body></html>
