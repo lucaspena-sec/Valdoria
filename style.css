@@ -124,3 +124,6 @@ textarea{width:100%;font:inherit;padding:8px}
 .tb2 th,.tb2 td{border:1px solid #9a8f6a;padding:3px;font-size:13px}
 .foto-cr{float:right;max-width:130px;border:2px ridge #c9a227;margin:0 0 6px 8px}
 .mini{width:36px;height:36px;object-fit:cover;vertical-align:middle;margin-right:6px;border:1px solid #0006}
+
+.uni{margin-left:auto;font-size:12px;white-space:nowrap}
+.uni label{margin-left:4px}

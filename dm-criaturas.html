@@ -1,4 +1,4 @@
-<!doctype html><html lang="es"><head><title>Valdoria - Criaturas</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=2"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=2"></script><script src="comun.js?v=2"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
+<!doctype html><html lang="es"><head><title>Valdoria - Criaturas</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=2"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=3"></script><script src="comun.js?v=3"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
 <div class="win"><div id="cab"></div><div class="body">
 <h2>Criaturas</h2>
 <a href="dm.html">← Volver al panel de jugadores</a>
@@ -15,7 +15,7 @@
   <label>Valor de desafío<select id="c_vd"></select></label><label>CA<input type="number" id="c_ca"></label>
   <label>Nota de CA<input id="c_canota" placeholder="armadura natural"></label><label>PG<input type="number" id="c_pg"></label>
   <label>Dados de golpe<input id="c_dados" placeholder="2d8 + 2"></label><label>Iniciativa (vacío = automática)<input type="number" id="c_ini"></label>
-  <label>Velocidad<input id="c_vel" placeholder="12 m, volar 18 m"></label>
+  <label>Velocidad<input id="c_vel" placeholder="40 pies, volar 60 pies"></label>
  </div>
  <h4>Características</h4><div class="car" id="c_car"></div>
  <h4>Salvaciones con competencia</h4><div class="chk" id="c_salv"></div>
@@ -23,7 +23,7 @@
  <div class="fg">
   <label>Vulnerabilidades<input id="c_vul"></label><label>Resistencias<input id="c_res"></label>
   <label>Inmunidades a daño<input id="c_inmd"></label><label>Inmunidades a estados<input id="c_inme"></label>
-  <label>Sentidos<input id="c_sent" placeholder="Visión en la oscuridad 18 m; Percepción pasiva 12"></label><label>Idiomas<input id="c_idi"></label>
+  <label>Sentidos<input id="c_sent" placeholder="Visión en la oscuridad 60 pies; Percepción pasiva 12"></label><label>Idiomas<input id="c_idi"></label>
  </div>
  <div id="grupos"></div>
  <h4>Notas privadas del DM</h4><textarea id="c_notas" rows="3"></textarea>
@@ -58,15 +58,15 @@ function bloque(c){const d=c.datos||{},car=d.car||{},pb=pbVD(d.vd),m=k=>md(car[k
  const ini=d.ini!=null&&d.ini!==''?+d.ini:m('des');
  const tabla='<table class="tb2"><tr>'+AB.map(([k])=>'<th>'+k.toUpperCase()+'</th>').join('')+'</tr><tr>'+AB.map(([k])=>'<td>'+(car[k]??10)+'<br>'+sgn(m(k))+'</td>').join('')+'</tr><tr>'+AB.map(([k])=>'<td><small>Salv.</small><br>'+sgn(m(k)+((d.salv||{})[k]?pb:0))+'</td>').join('')+'</tr></table>';
  const habs=HAB.map(([n,a],i)=>[n,a,(d.hab||[])[i]||0]).filter(x=>x[2]).map(x=>x[0]+' '+sgn(m(x[1])+pb*x[2])).join(', ');
- const ln=(t,v)=>v?'<p><b>'+t+'</b> '+esc(v)+'</p>':'';
- const gr=(t,a)=>(a&&a.length)?'<h4>'+t+'</h4>'+a.map(e=>'<p><b><i>'+esc(e.n)+'.</i></b> '+esc(e.t)+'</p>').join(''):'';
+ const ln=(t,v)=>v?'<p><b>'+t+'</b> '+esc(uni(v))+'</p>':'';
+ const gr=(t,a)=>(a&&a.length)?'<h4>'+t+'</h4>'+a.map(e=>'<p><b><i>'+esc(e.n)+'.</i></b> '+esc(uni(e.t))+'</p>').join(''):'';
  return '<div class="sb">'+(c.imagen?'<img class="foto-cr" src="'+esc(c.imagen)+'" alt="">':'')+
-  '<p><i>'+esc(d.tamano||'')+' '+esc(c.tipo)+(d.alin?', '+esc(d.alin):'')+'</i></p>'+(d.desc?'<p style="white-space:pre-wrap">'+esc(d.desc)+'</p>':'')+
+  '<p><i>'+esc(d.tamano||'')+' '+esc(c.tipo)+(d.alin?', '+esc(d.alin):'')+'</i></p>'+(d.desc?'<p style="white-space:pre-wrap">'+esc(uni(d.desc))+'</p>':'')+
   '<p><b>CA</b> '+esc(d.ca)+(d.caNota?' ('+esc(d.caNota)+')':'')+' &nbsp; <b>Iniciativa</b> '+sgn(ini)+' ('+(10+ini)+')</p><p><b>PG</b> '+esc(d.pg)+(d.dados?' ('+esc(d.dados)+')':'')+'</p>'+
   ln('Velocidad',d.vel)+tabla+ln('Habilidades',habs)+ln('Vulnerabilidades',d.vul)+ln('Resistencias',d.res)+ln('Inmunidades a daño',d.inmD)+ln('Inmunidades a estados',d.inmE)+ln('Sentidos',d.sentidos)+ln('Idiomas',d.idiomas)+
   '<p><b>VD</b> '+esc(d.vd)+' (bonificador de competencia +'+pb+')</p>'+
   gr('Rasgos',d.rasgos)+gr('Acciones',d.acciones)+gr('Acciones adicionales',d.adicionales)+gr('Reacciones',d.reacciones)+gr('Acciones legendarias',d.legendarias)+
-  (d.notas?'<h4>Notas del DM</h4><p style="white-space:pre-wrap">'+esc(d.notas)+'</p>':'')+'<div style="clear:both"></div></div>'}
+  (d.notas?'<h4>Notas del DM</h4><p style="white-space:pre-wrap">'+esc(uni(d.notas))+'</p>':'')+'<div style="clear:both"></div></div>'}
 async function cargar(){const{data,error}=await sb.from('criaturas').select('*');if(error){msg.textContent=error.message;return}CR=data||[];pintar()}
 function pintar(){
  const ab=[...document.querySelectorAll('#lista details[open]')].map(d=>d.id),b=fb.value.trim().toLowerCase();

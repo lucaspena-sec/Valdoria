@@ -1,4 +1,11 @@
 // Funciones compartidas por varias páginas (no tocar los nombres)
+// Las distancias se guardan en pies ("30 ft") y se muestran en la unidad elegida arriba (pies o metros).
+function convUni(t,dest){return String(t??'').replace(/(\d+(?:[.,]\d+)?(?:\s*\/\s*\d+(?:[.,]\d+)?)?)\s*(metros?|m|ft|feet|foot|pies)(\.?)(?![A-Za-zÀ-ÿ])/gi,(a,nums,u,pt,off,s)=>{
+ const origen=/^m/i.test(u)?'m':'ft';if(origen==dest&&dest=='m')return a;
+ const c=nums.split('/').map(x=>{if(origen==dest)return x.trim();const n=parseFloat(x.replace(',','.'));return dest=='ft'?String(Math.round(n/0.3)):String(Math.round(n*3)/10).replace('.',',')});
+ const sig=s.slice(off+a.length).trimStart()[0],punto=(/^ft$/i.test(u)&&pt)?((!sig||/[A-ZÁÉÍÓÚÑ]/.test(sig))?'.':''):pt;
+ return c.join('/')+' '+(dest=='ft'?'pies':'m')+punto})}
+const uni=t=>convUni(t,getU()),aPies=t=>convUni(t,'ft');
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>'&#'+c.charCodeAt(0)+';');
 const md=s=>Math.floor((s-10)/2),sgn=n=>(n>=0?'+':'')+n;
 const AB=[['fue','Fuerza'],['des','Destreza'],['con','Constitución'],['int','Inteligencia'],['sab','Sabiduría'],['car','Carisma']];
@@ -13,8 +20,8 @@ function resumenItem(d){d=d||{};const p=[];
  return p.join(' · ')}
 
 function tarjetaItem(i){const d=i.datos||{};
- const ln=(t,v)=>v?'<p><b>'+t+':</b> '+esc(v)+'</p>':'';
- const gr=(t,a)=>(a&&a.length)?'<h4>'+t+'</h4>'+a.map(e=>'<p><b><i>'+esc(e.n)+'.</i></b> '+esc(e.t)+'</p>').join(''):'';
+ const ln=(t,v)=>v?'<p><b>'+t+':</b> '+esc(uni(v))+'</p>':'';
+ const gr=(t,a)=>(a&&a.length)?'<h4>'+t+'</h4>'+a.map(e=>'<p><b><i>'+esc(e.n)+'.</i></b> '+esc(uni(e.t))+'</p>').join(''):'';
  let x='';
  if(d.dano)x+=ln('Daño',d.dano+' '+(d.tipoDano||'')+(d.versatil?' (versátil: '+d.versatil+')':''));
  x+=ln('Competencia',[d.comp,d.tipoArma].filter(Boolean).join(' · '))+ln('Propiedades',(d.props||[]).join(', '))+ln('Alcance',d.alcance)+ln('Maestría',d.maestria);
@@ -22,7 +29,7 @@ function tarjetaItem(i){const d=i.datos||{};
  x+=ln('Peso',d.peso)+(i.precio!=null&&i.precio!==''?ln('Valor',i.precio+' po'):'');
  return '<div class="sb">'+(i.imagen?'<img class="foto-cr" src="'+esc(i.imagen)+'" alt="">':'')+
   '<p><i>'+esc(CATN[d.cat]||'')+(d.cat?' · ':'')+esc(RARN[i.rareza]||'')+(d.sint?' · requiere sintonización':'')+'</i></p>'+
-  (i.descripcion?'<p style="white-space:pre-wrap">'+esc(i.descripcion)+'</p>':'')+x+
+  (i.descripcion?'<p style="white-space:pre-wrap">'+esc(uni(i.descripcion))+'</p>':'')+x+
   gr('Pasivas',d.pasivas)+gr('Acción',d.accion)+gr('Acción adicional',d.adicional)+gr('Reacción',d.reaccion)+gr('Multiataque',d.multi)+'<div style="clear:both"></div></div>'}
 
 // Lee el texto de una ficha de criatura pegado (español o inglés) y devuelve {nombre,tipo,rareza,datos,falta}
@@ -31,7 +38,7 @@ function leerCriatura(txt){
  const SK=[['Acrobacias|Acrobatics',0],['Arcanos|Arcana',1],['Atletismo|Athletics',2],['Enga[ñn]o|Deception',3],['Historia|History',4],['Interpretaci[oó]n|Performance',5],['Intimidaci[oó]n|Intimidation',6],['Investigaci[oó]n|Investigation',7],['Juego de manos|Sleight of Hand',8],['Medicina|Medicine',9],['Naturaleza|Nature',10],['Percepci[oó]n|Perception',11],['Perspicacia|Insight',12],['Persuasi[oó]n|Persuasion',13],['Religi[oó]n|Religion',14],['Sigilo|Stealth',15],['Supervivencia|Survival',16],['Trato con animales|Animal Handling',17]];
  const TP=[['aberraci|aberration','Aberración'],['bestia|beast','Bestia'],['celestial','Celestial'],['cieno|ooze','Cieno'],['constructo|construct','Constructo'],['drag[oó]n|dragon','Dragón'],['elemental','Elemental'],['fe[eé]rico|fey|hada','Feérico'],['gigante|giant','Gigante'],['humanoide|humanoid','Humanoide'],['infernal|fiend','Infernal'],['monstruosidad|monstrosity','Monstruosidad'],['no muerto|undead','No muerto'],['planta|plant','Planta']];
  const TM={tiny:'Diminuto',diminut:'Diminuto',small:'Pequeño',peque:'Pequeño',medium:'Mediano',median:'Mediano',large:'Grande',grande:'Grande',huge:'Enorme',enorme:'Enorme',gargantuan:'Gargantuesco',gargantuesc:'Gargantuesco'};
- const m=t=>t.replace(/(\d+(?:[.,]\d+)?)\s*(?:ft\.?|feet|foot|pies)/gi,(a,n)=>{const v=Math.round(parseFloat(n.replace(',','.'))*0.3*10)/10;return String(v).replace('.',',')+' m'});
+ const m=aPies;
  const L=txt.replace(/\r/g,'').split('\n').map(s=>s.trim()).filter(Boolean);
  const d={desc:'',tamano:'Mediano',alin:'',vd:'0',ca:0,caNota:'',pg:0,dados:'',ini:null,vel:'',car:{fue:10,des:10,con:10,int:10,sab:10,car:10},salv:{},hab:Array(18).fill(0),res:'',vul:'',inmD:'',inmE:'',sentidos:'',idiomas:'',rasgos:[],acciones:[],adicionales:[],reacciones:[],legendarias:[],notas:''};
  const nombre=(L.shift()||'Criatura sin nombre').replace(/^#+\s*/,'');let tipo='Humanoide';
@@ -85,7 +92,7 @@ function leerCriatura(txt){
  if(!d.pg){const r=T.match(/\b(?:PG|HP)\s*:?\s*(\d+)\s*(?:\(([^)]*)\))?/i);if(r){d.pg=+r[1];d.dados=(r[2]||'').trim()}}
  if(d.ini==null){const r=T.match(/(?:Iniciativa|Initiative)\s*:?\s*([+\-−]\d+)/i);if(r){const v=+r[1].replace('−','-');if(v!=md(d.car.des))d.ini=v}}
  else if(d.ini==md(d.car.des))d.ini=null;
- ['vel','sentidos','res','vul','inmD','inmE','idiomas','notas'].forEach(k=>d[k]=m(d[k]));
+ ['vel','sentidos','res','vul','inmD','inmE','idiomas','notas'].forEach(k=>d[k]=k=='notas'?m(d[k]):m(d[k]).replace(/\.$/,''));
  ['rasgos','acciones','adicionales','reacciones','legendarias'].forEach(k=>d[k].forEach(e=>e.t=m(e.t)));
  const rareza=nv<=2?'comun':nv<=6?'infrecuente':nv<=11?'rara':nv<=17?'epica':'legendaria';
  const falta=[];if(!d.ca)falta.push('CA');if(!d.pg)falta.push('PG');if(n<6)falta.push('características');if(d.vd==='0'&&!/\b(?:VD|CR)\s*:?\s*0\b/i.test(T))falta.push('valor de desafío');
