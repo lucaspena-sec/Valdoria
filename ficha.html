@@ -1,4 +1,4 @@
-<!doctype html><html lang="es"><head><title>Valdoria - Ficha PJ</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js"></script>
+<!doctype html><html lang="es"><head><title>Valdoria - Ficha PJ</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=3"></script><script src="comun.js?v=3"></script>
 <style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
 <div class="win"><div id="cab"></div><div class="body">
 <div id="msg" class="err"></div><div id="banner"></div>
@@ -31,19 +31,33 @@
  <h4>Lanzamiento de conjuros</h4>
  <div class="fg"><label>Característica<select data-k="conj"><option value="">Sin lanzamiento</option><option value="int">Inteligencia</option><option value="sab">Sabiduría</option><option value="car">Carisma</option></select></label>
   <div class="calc">CD de salvación<b id="c_cd">—</b></div><div class="calc">Bonif. de ataque<b id="c_atk">—</b></div></div>
+ <h4>Conjuros preparados</h4><div id="cj_prep"></div>
+ <h4>Listado de conjuros <button class="eye" id="cj_eye" onclick="verLista()" title="Mostrar u ocultar la lista"></button> <small id="cj_cnt"></small></h4>
+ <button onclick="cjEd('')">+ Nuevo conjuro</button> <button onclick="cj_pg.style.display='block'">📋 Pegar conjuro</button>
+ <div id="cj_pg" class="box" style="display:none"><textarea id="cj_pgt" rows="7" placeholder="Pegá acá el texto del conjuro (en español o inglés)"></textarea><button onclick="cjLeer()">Leer conjuro</button> <button onclick="cj_pg.style.display='none'">Cancelar</button></div>
+ <div id="ce" class="box" style="display:none">
+  <input type="hidden" id="ce_id"><input id="ce_n" placeholder="Nombre del conjuro">
+  <div class="fg"><label>Nivel<select id="ce_nv"></select></label><label>Escuela<select id="ce_esc"></select></label>
+   <label>Tiempo de lanzamiento<input id="ce_tc" placeholder="Acción"></label><label>Alcance<input id="ce_al" placeholder="60 pies"></label>
+   <label>Componentes<input id="ce_cm" placeholder="V, S, M (...)"></label><label>Duración<input id="ce_du" placeholder="Instantánea"></label>
+   <label>Clases<input id="ce_cl"></label>
+   <label><input type="checkbox" id="ce_conc" style="width:auto"> Concentración</label><label><input type="checkbox" id="ce_rit" style="width:auto"> Ritual</label><label><input type="checkbox" id="ce_prep" style="width:auto"> Preparado</label></div>
+  <textarea id="ce_desc" rows="6" placeholder="Descripción"></textarea><textarea id="ce_sup" rows="3" placeholder="A niveles superiores (opcional)"></textarea>
+  <button onclick="cjGuardar()">Guardar</button> <button onclick="ce.style.display='none'">Cancelar</button></div>
+ <div id="cj_box"><input id="cj_q" placeholder="Buscar conjuro" oninput="pintarCj()"> <select id="cj_nv" onchange="pintarCj()"></select><div id="cj_lista"></div></div>
  <h4>Idiomas y competencias</h4><textarea rows="3" data-k="idiomas" placeholder="Idiomas, armas, armaduras, herramientas"></textarea>
- <h4>Rasgos y talentos</h4><textarea rows="5" data-k="rasgos"></textarea>
+ <h4>Rasgos de especie</h4><div id="ft_rasgosEsp"></div><button onclick="fa('rasgosEsp')">+ Agregar</button>
+ <h4>Dotes</h4><div id="ft_dotes"></div><button onclick="fa('dotes')">+ Agregar</button>
+ <h4>Rasgos de clase</h4><div id="ft_rasgosClase"></div><button onclick="fa('rasgosClase')">+ Agregar</button>
+ <h4>Rasgos de subclase</h4><div id="ft_rasgosSub"></div><button onclick="fa('rasgosSub')">+ Agregar</button>
  <h4>Trasfondo y notas</h4><textarea rows="5" data-k="notas"></textarea>
 </div>
 </div></div>
 <script>
-const esc=s=>String(s??'').replace(/[&<>"]/g,c=>'&#'+c.charCodeAt(0)+';');
-const AB=[['fue','Fuerza'],['des','Destreza'],['con','Constitución'],['int','Inteligencia'],['sab','Sabiduría'],['car','Carisma']];
-const HAB=[['Acrobacias','des'],['Arcanos','int'],['Atletismo','fue'],['Engaño','car'],['Historia','int'],['Interpretación','car'],['Intimidación','car'],['Investigación','int'],['Juego de manos','des'],['Medicina','sab'],['Naturaleza','int'],['Percepción','sab'],['Perspicacia','sab'],['Persuasión','car'],['Religión','int'],['Sigilo','des'],['Supervivencia','sab'],['Trato con animales','sab']];
 const PERC=11,SIM=['○','●','◆'];
-const DEF=()=>({ocultarVacias:false,nombre:'',clase:'',sub:'',esp:'',tras:'',ali:'',nivel:1,xp:0,ca:'',vel:'',car:{fue:10,des:10,con:10,int:10,sab:10,car:10},salv:{},hab:Array(18).fill(0),conj:'',cmb:Array.from({length:15},()=>({n:'',max:0,act:0})),muerte:{ok:0,fail:0},idiomas:'',rasgos:'',notas:''});
+const DEF=()=>({ocultarVacias:false,rasgosEsp:[],dotes:[],rasgosClase:[],rasgosSub:[],conjuros:[],verLista:true,nombre:'',clase:'',sub:'',esp:'',tras:'',ali:'',nivel:1,xp:0,ca:'',vel:'',car:{fue:10,des:10,con:10,int:10,sab:10,car:10},salv:{},hab:Array(18).fill(0),conj:'',cmb:Array.from({length:15},()=>({n:'',max:0,act:0})),muerte:{ok:0,fail:0},idiomas:'',rasgos:'',notas:''});
 let S={hp:10,hpmax:10,tmp:0,insp:0,datos:DEF()},RO=false,UID=null;
-const md=s=>Math.floor((s-10)/2),sgn=n=>(n>=0?'+':'')+n,set=(id,t)=>{const e=document.getElementById(id);if(e)e.textContent=t};
+const set=(id,t)=>{const e=document.getElementById(id);if(e)e.textContent=t};
 const cl=(v,a,b)=>Math.max(a,Math.min(b,parseInt(v)||a));
 function aviso(error){msg.textContent=error?error.message:''}
 let tmr;function guardarD(){if(RO)return;clearTimeout(tmr);tmr=setTimeout(async()=>{aviso((await sb.from('fichas').update({datos:S.datos}).eq('user_id',UID)).error)},600)}
@@ -100,10 +114,58 @@ function armar(){
   el.oninput=()=>{S.datos[k]=el.type=='number'?(parseInt(el.value)||0):el.value;calc();guardarD()}});
  fhm.value=S.hpmax;
  fhm.oninput=()=>{S.hpmax=Math.max(1,parseInt(fhm.value)||1);S.hp=Math.min(S.hp,S.hpmax);pintarHp();guardarH()};
- ocv.checked=!!S.datos.ocultarVacias;calc();pintarHp();pintarMuerte();pintarCmb();pintarIns();
- if(RO)document.querySelectorAll('.win input,.win textarea,.win select,.win button').forEach(e=>e.disabled=true)}
+ ocv.checked=!!S.datos.ocultarVacias;calc();pintarHp();pintarMuerte();pintarCmb();pintarIns();FEAT.forEach(k=>pintarFeat(k));pintarCj();
+ if(RO){document.querySelectorAll('.win input,.win textarea,.win select,.win button').forEach(e=>e.disabled=true);cj_eye.disabled=false}}
+
+const OJOA='<svg width="22" height="22" viewBox="0 0 24 24"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" fill="#fff" stroke="#222" stroke-width="2"/><circle cx="12" cy="12" r="3.5" fill="#222"/></svg>';
+const OJOC='<svg width="22" height="22" viewBox="0 0 24 24"><path d="M2 11c3 5 7 7 10 7s7-2 10-7" fill="none" stroke="#222" stroke-width="2"/><path d="M5 16l-2 3M12 18v3M19 16l2 3" stroke="#222" stroke-width="2"/></svg>';
+// rasgos de especie, dotes, clase y subclase
+const lockRO=el=>{if(RO)el.querySelectorAll('input,textarea,select,button').forEach(x=>x.disabled=true)};
+const FEAT=['rasgosEsp','dotes','rasgosClase','rasgosSub'];
+function pintarFeat(k,abrir){const a=S.datos[k];document.getElementById('ft_'+k).innerHTML=a.map((e,i)=>'<details'+(i===abrir?' open':'')+'><summary><b id="fn_'+k+i+'">'+esc(e.n||'(sin nombre)')+'</b></summary><input value="'+esc(e.n)+'" placeholder="Nombre" oninput="fe(\''+k+'\','+i+',\'n\',this.value)"><textarea rows="4" placeholder="Descripción" oninput="fe(\''+k+'\','+i+',\'t\',this.value)">'+esc(e.t)+'</textarea><button onclick="fq(\''+k+'\','+i+')">Quitar</button></details>').join('')||'<small><i>Sin entradas.</i></small>';lockRO(document.getElementById('ft_'+k))}
+function fe(k,i,f,v){S.datos[k][i][f]=v;if(f=='n')document.getElementById('fn_'+k+i).textContent=v||'(sin nombre)';guardarD()}
+const fa=k=>{S.datos[k].push({n:'',t:''});pintarFeat(k,S.datos[k].length-1);guardarD()};
+const fq=(k,i)=>{if(!confirm('¿Quitar esta entrada?'))return;S.datos[k].splice(i,1);pintarFeat(k);guardarD()};
+// conjuros
+const ESCUELAS=['Abjuración','Conjuración','Adivinación','Encantamiento','Evocación','Ilusión','Nigromancia','Transmutación'];
+const NVN=n=>n==0?'Truco':'Nivel '+n;
+const cjs=()=>S.datos.conjuros;
+ce_nv.innerHTML=[0,1,2,3,4,5,6,7,8,9].map(n=>'<option value="'+n+'">'+NVN(n)+'</option>').join('');
+ce_esc.innerHTML='<option value=""></option>'+ESCUELAS.map(e=>'<option>'+e+'</option>').join('');
+cj_nv.innerHTML='<option value="">Todos los niveles</option>'+[0,1,2,3,4,5,6,7,8,9].map(n=>'<option value="'+n+'">'+(n==0?'Trucos':'Nivel '+n)+'</option>').join('');
+function cartaCj(c){const ln=(t,v)=>v?'<p><b>'+t+':</b> '+esc(uni(v))+'</p>':'';
+ return '<div class="sb"><p><i>'+NVN(c.nv)+(c.esc?' · '+esc(c.esc):'')+(c.conc?' · Concentración':'')+(c.rit?' · Ritual':'')+'</i></p>'+ln('Tiempo de lanzamiento',c.tc)+ln('Alcance',c.al)+ln('Componentes',c.cm)+ln('Duración',c.du)+
+  (c.desc?'<p style="white-space:pre-wrap">'+esc(uni(c.desc))+'</p>':'')+(c.sup?'<p><b>A niveles superiores:</b> '+esc(uni(c.sup))+'</p>':'')+ln('Clases',c.cl)+'</div>'}
+function filaCj(c,p){return '<details id="cj'+p+c.id+'"><summary><input type="checkbox" style="width:auto" title="Preparado" '+(c.prep?'checked':'')+' onchange="cjPrep(\''+c.id+'\',this.checked)"> <b>'+esc(c.n)+'</b> <small>'+NVN(c.nv)+(c.esc?' · '+esc(c.esc):'')+'</small></summary>'+cartaCj(c)+'<button onclick="cjEd(\''+c.id+'\')">Editar</button> <button onclick="cjDel(\''+c.id+'\')">Eliminar</button></details>'}
+function pintarCj(){
+ const ab=[...document.querySelectorAll('#cj_prep details[open],#cj_lista details[open]')].map(d=>d.id);
+ const todos=cjs().slice().sort((a,b)=>a.nv-b.nv||a.n.localeCompare(b.n,'es')),pre=todos.filter(c=>c.prep);
+ let h='';[...new Set(pre.map(c=>c.nv))].forEach(n=>{h+='<h5 style="margin:6px 0 2px">'+(n==0?'Trucos':'Nivel '+n)+'</h5>'+pre.filter(c=>c.nv==n).map(c=>filaCj(c,'p')).join('')});
+ cj_prep.innerHTML=h||'<small><i>No hay conjuros preparados. Marcá la casilla de un conjuro en el listado.</i></small>';
+ const q=cj_q.value.trim().toLowerCase(),nv=cj_nv.value;
+ cj_lista.innerHTML=todos.filter(c=>(!q||c.n.toLowerCase().includes(q))&&(nv===''||c.nv==nv)).map(c=>filaCj(c,'l')).join('')||'<small><i>No hay conjuros.</i></small>';
+ cj_cnt.textContent='('+todos.length+' en total, '+pre.length+' preparados)';
+ const ver=S.datos.verLista!==false;cj_box.style.display=ver?'block':'none';cj_eye.innerHTML=ver?OJOA:OJOC;
+ ab.forEach(id=>{const e=document.getElementById(id);if(e)e.open=true});lockRO(cj_prep);lockRO(cj_lista)}
+function verLista(){S.datos.verLista=S.datos.verLista===false;pintarCj();guardarD()}
+function cjPrep(id,v){const c=cjs().find(x=>x.id==id);if(!c)return;c.prep=v;pintarCj();guardarD()}
+function cjDel(id){const c=cjs().find(x=>x.id==id);if(!c||!confirm('¿Eliminar el conjuro '+c.n+'?'))return;S.datos.conjuros=cjs().filter(x=>x.id!=id);pintarCj();guardarD()}
+function cjEd(id,pre){
+ const c=pre||(id?cjs().find(x=>x.id==id):{id:'',n:'',nv:1,esc:'',tc:'',al:'',cm:'',du:'',conc:false,rit:false,desc:'',sup:'',cl:'',prep:false});
+ ce.style.display='block';ce_id.value=c.id||'';ce_n.value=c.n;ce_nv.value=c.nv;ce_esc.value=c.esc||'';ce_tc.value=c.tc;ce_al.value=c.al;ce_cm.value=c.cm;ce_du.value=c.du;ce_cl.value=c.cl||'';
+ ce_conc.checked=!!c.conc;ce_rit.checked=!!c.rit;ce_prep.checked=!!c.prep;ce_desc.value=c.desc;ce_sup.value=c.sup||'';ce.scrollIntoView()}
+function cjGuardar(){const n=ce_n.value.trim();if(!n)return aviso({message:'Falta el nombre del conjuro.'});
+ const o={id:ce_id.value||('c'+Date.now().toString(36)+Math.random().toString(36).slice(2,5)),n,nv:+ce_nv.value,esc:ce_esc.value,tc:ce_tc.value.trim(),al:ce_al.value.trim(),cm:ce_cm.value.trim(),du:ce_du.value.trim(),conc:ce_conc.checked,rit:ce_rit.checked,desc:ce_desc.value,sup:ce_sup.value,cl:ce_cl.value.trim(),prep:ce_prep.checked};
+ const i=cjs().findIndex(x=>x.id==o.id);if(i>=0)cjs()[i]=o;else cjs().push(o);
+ ce.style.display='none';aviso(null);pintarCj();guardarD()}
+function cjLeer(){const t=cj_pgt.value.trim();if(!t)return aviso({message:'Pegá primero el texto del conjuro.'});
+ const x=leerConjuro(t);cj_pg.style.display='none';cj_pgt.value='';
+ cjEd('',{...x,id:'',prep:false});
+ aviso({message:x.falta.length?'Revisá estos datos, no pude leerlos: '+x.falta.join(', ')+'.':'Conjuro leído. Revisá todo antes de guardar.'})}
 
 function cargarFila(f){S.hp=f.hp;S.hpmax=f.hp_max;S.tmp=f.hp_temp;const x=f.datos||{},d=DEF();
+ FEAT.forEach(k=>{if(!Array.isArray(x[k]))x[k]=[]});if(!Array.isArray(x.conjuros))x.conjuros=[];
+ const migra=typeof x.rasgos=='string'&&x.rasgos.trim();if(migra){x.rasgosClase=[...x.rasgosClase,{n:'Rasgos y talentos (texto anterior)',t:x.rasgos}];x.rasgos=''}
  S.datos={...d,...x,car:{...d.car,...x.car},salv:{...x.salv},hab:Array.from({length:18},(_,i)=>(x.hab||[])[i]||0),muerte:{...d.muerte,...x.muerte},cmb:d.cmb.map((c,i)=>({...c,...((x.cmb||[])[i]||{})}))}}
 async function refrescar(){if(!UID)return;
  const{data:f}=await sb.from('fichas').select('hp,hp_max,hp_temp').eq('user_id',UID).maybeSingle();

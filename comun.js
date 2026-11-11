@@ -1,6 +1,6 @@
 // Funciones compartidas por varias páginas (no tocar los nombres)
 // Las distancias se guardan en pies ("30 ft") y se muestran en la unidad elegida arriba (pies o metros).
-function convUni(t,dest){return String(t??'').replace(/(\d+(?:[.,]\d+)?(?:\s*\/\s*\d+(?:[.,]\d+)?)?)\s*(metros?|m|ft|feet|foot|pies)(\.?)(?![A-Za-zÀ-ÿ])/gi,(a,nums,u,pt,off,s)=>{
+function convUni(t,dest){return String(t??'').replace(/(\d+(?:[.,]\d+)?(?:\s*\/\s*\d+(?:[.,]\d+)?)?)[\s-]*(metros?|m|ft|feet|foot|pies)(\.?)(?![A-Za-zÀ-ÿ])/gi,(a,nums,u,pt,off,s)=>{
  const origen=/^m/i.test(u)?'m':'ft';if(origen==dest&&dest=='m')return a;
  const c=nums.split('/').map(x=>{if(origen==dest)return x.trim();const n=parseFloat(x.replace(',','.'));return dest=='ft'?String(Math.round(n/0.3)):String(Math.round(n*3)/10).replace('.',',')});
  const sig=s.slice(off+a.length).trimStart()[0],punto=(/^ft$/i.test(u)&&pt)?((!sig||/[A-ZÁÉÍÓÚÑ]/.test(sig))?'.':''):pt;
@@ -97,3 +97,26 @@ function leerCriatura(txt){
  const rareza=nv<=2?'comun':nv<=6?'infrecuente':nv<=11?'rara':nv<=17?'epica':'legendaria';
  const falta=[];if(!d.ca)falta.push('CA');if(!d.pg)falta.push('PG');if(n<6)falta.push('características');if(d.vd==='0'&&!/\b(?:VD|CR)\s*:?\s*0\b/i.test(T))falta.push('valor de desafío');
  return{nombre,tipo,rareza,datos:d,falta}}
+
+// Lee el texto de un conjuro pegado (español o inglés) y devuelve el conjuro y una lista de lo que no pudo leer
+function leerConjuro(txt){
+ const L=txt.replace(/\r/g,'').split('\n').map(s=>s.trim()).filter(Boolean);
+ const ES=[['abjuraci|abjuration','Abjuración'],['conjuraci|conjuration','Conjuración'],['adivinaci|divination','Adivinación'],['encantamiento|enchantment','Encantamiento'],['evocaci|evocation','Evocación'],['ilusi|illusion','Ilusión'],['nigromanc|necromanc|necromancy','Nigromancia'],['transmutaci|transmutation','Transmutación']];
+ const c={n:(L.shift()||'Conjuro sin nombre').replace(/^#+\s*/,''),nv:1,esc:'',tc:'',al:'',cm:'',du:'',conc:false,rit:false,desc:'',sup:'',cl:''};
+ const KEY=[['tc',/^(?:Tiempo de lanzamiento|Casting Time)\s*:?\s*(.+)/i],['al',/^(?:Alcance|Range)\s*:?\s*(.+)/i],['cm',/^(?:Componentes|Components)\s*:?\s*(.+)/i],['du',/^(?:Duraci[oó]n|Duration)\s*:?\s*(.+)/i]];
+ const SUP=/^(?:A niveles superiores|At Higher Levels|Using a Higher[- ]Level Spell Slot|Usar un espacio de conjuro de nivel superior|Cantrip Upgrade|Mejora de truco|Con espacios de nivel superior)\b[.:]?\s*(.*)$/i;
+ let mode='desc',lvl=false;
+ L.forEach((l,i)=>{
+  const k=KEY.find(([,re])=>re.test(l));if(k){c[k[0]]=l.match(k[1])[1].trim();mode='desc';return}
+  if(!lvl&&!c.tc&&i<3&&(/\b(level|nivel|cantrip|truco)\b/i.test(l)||ES.some(([re])=>new RegExp(re,'i').test(l)))){
+   lvl=true;
+   if(/cantrip|truco/i.test(l))c.nv=0;else{const r=l.match(/(\d+)(?:st|nd|rd|th|\.?º|\.?°)?[- ]?(?:level|nivel)|(?:level|nivel)\s*(\d+)/i);if(r)c.nv=+(r[1]||r[2])}
+   const e=ES.find(([re])=>new RegExp(re,'i').test(l));if(e)c.esc=e[1];
+   (l.match(/\(([^)]*)\)/g)||[]).forEach(x=>{const t=x.slice(1,-1);if(/^\s*ritual\s*$/i.test(t))c.rit=true;else c.cl=(c.cl?c.cl+', ':'')+t});
+   if(/\britual\b/i.test(l))c.rit=true;return}
+  const s=l.match(SUP);if(s){mode='sup';c.sup=s[1];return}
+  c[mode]+=(c[mode]?'\n':'')+l});
+ c.conc=/concentraci[oó]n|concentration/i.test(c.du);if(/ritual/i.test(c.tc))c.rit=true;
+ ['tc','al','cm','du'].forEach(k=>c[k]=aPies(c[k]).replace(/\.$/,''));c.desc=aPies(c.desc);c.sup=aPies(c.sup);
+ const falta=[];if(!c.tc)falta.push('tiempo de lanzamiento');if(!c.al)falta.push('alcance');if(!c.cm)falta.push('componentes');if(!c.du)falta.push('duración');if(!c.desc)falta.push('descripción');
+ return{...c,falta}}
