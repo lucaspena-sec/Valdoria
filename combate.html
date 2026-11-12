@@ -6,6 +6,12 @@
 <details id="mi" class="box" style="display:none"><summary id="miRes"></summary><div id="miBody"></div></details>
 <div id="dmBar" style="display:none;text-align:center;margin:6px 0"></div>
 <details id="prep" class="box" open style="display:none"><summary><b>⚙ Preparación del combate</b></summary>
+<div class="box"><h4>📁 Encuentros guardados</h4>
+  <label><input type="checkbox" id="encPJ" style="width:auto" checked> Incluir a todos los jugadores con ficha</label>
+  <label><input type="checkbox" id="encIni" style="width:auto" checked> Iniciar al activar</label>
+  <div id="encEl"></div>
+  <button onclick="guardarEnc()">💾 Guardar lo armado como encuentro</button>
+  <br><small>Se guardan las criaturas que tenés cargadas ahora (con su cantidad, nombre visible y ojo). Al activarlo, la iniciativa se tira de nuevo y los PG se tiran o se promedian según la casilla de Criaturas.</small></div>
  <div class="prep2">
   <div><h4>Jugadores</h4><div id="pjs"></div></div>
   <div><h4>Criaturas</h4>
@@ -126,6 +132,45 @@ async function terminar(){if(!confirm('¿Terminar el combate? Se quitan todos lo
  await sb.from('combatientes').delete().gte('id',0);
  q(sb.from('combate_estado').update({activo:false,ronda:1,turno:null,actualizado:ahora()}).eq('id',1))}
 
+/* ---------- encuentros guardados ---------- */
+let ENC=[];
+async function cargarEnc(){const{data,error}=await sb.from('encuentros').select('*').order('nombre');if(error){aviso(error);return}ENC=data||[];pintarEnc()}
+const nomCR=x=>{const c=CR.find(y=>y.id==x.cid);return c?c.nombre:x.nombre};
+function pintarEnc(){encEl.innerHTML=ENC.map(e=>'<div class="box"><b>'+esc(e.nombre)+'</b><br><small>'+((e.datos.criaturas||[]).map(x=>esc(nomCR(x))+(x.cant>1?' ×'+x.cant:'')).join(', ')||'<i>vacío</i>')+'</small><br>'+
+  '<button onclick="activarEnc('+e.id+')">▶ Activar</button> <button onclick="activarEnc('+e.id+',true)" title="Agrega sus criaturas al combate en curso">➕ Sumar</button> <button onclick="reemplazarEnc('+e.id+')" title="Reemplaza su contenido con lo que tenés armado ahora">⟳ Actualizar</button> <button onclick="renombrarEnc('+e.id+')">✎</button> <button onclick="borrarEnc('+e.id+')">🗑</button></div>').join('')||'<i>Todavía no guardaste encuentros.</i>'}
+function entradasActuales(){const m={};
+ CB.filter(c=>c.tipo=='criatura'&&c.criatura_id).forEach(c=>{const k=c.criatura_id+'|'+(c.alias||'')+'|'+c.visible;
+  (m[k]=m[k]||{cid:c.criatura_id,nombre:nomCR({cid:c.criatura_id,nombre:c.nombre.replace(/ \d+$/,'')}),alias:c.alias||'',visible:c.visible,cant:0}).cant++});
+ return Object.values(m)}
+async function guardarEnc(){const ent=entradasActuales();if(!ent.length){aviso({message:'Armá primero el combate con al menos una criatura.'});return}
+ const n=prompt('Nombre del encuentro (por ejemplo: Emboscada en el camino)');if(!n||!n.trim())return;
+ const{error}=await sb.from('encuentros').insert({nombre:n.trim(),datos:{criaturas:ent}});aviso(error);cargarEnc()}
+async function reemplazarEnc(id){const ent=entradasActuales();if(!ent.length){aviso({message:'No hay criaturas armadas para guardar.'});return}
+ const e=ENC.find(x=>x.id==id);if(!confirm('¿Reemplazar el contenido de «'+e.nombre+'» con lo que tenés armado ahora?'))return;
+ const{error}=await sb.from('encuentros').update({datos:{criaturas:ent}}).eq('id',id);aviso(error);cargarEnc()}
+async function renombrarEnc(id){const e=ENC.find(x=>x.id==id),n=prompt('Nuevo nombre',e.nombre);if(!n||!n.trim())return;
+ const{error}=await sb.from('encuentros').update({nombre:n.trim()}).eq('id',id);aviso(error);cargarEnc()}
+async function borrarEnc(id){const e=ENC.find(x=>x.id==id);if(!confirm('¿Eliminar el encuentro «'+e.nombre+'»?'))return;
+ const{error}=await sb.from('encuentros').delete().eq('id',id);aviso(error);cargarEnc()}
+function filasEnc(e,existentes){const filas=[],falt=[];
+ (e.datos.criaturas||[]).forEach(x=>{const c=CR.find(y=>y.id==x.cid);if(!c){falt.push(x.nombre);return}
+  const d=c.datos||{},dex=md((d.car||{}).des??10),ya=existentes.filter(z=>z.criatura_id==c.id).length;
+  for(let i=1;i<=x.cant;i++){const hp=Math.max(1,tpg.checked?(rollDados(d.dados)||d.pg||1):(d.pg||1));
+   filas.push({tipo:'criatura',jugador:null,criatura_id:c.id,nombre:(x.cant>1||ya>0)?c.nombre+' '+(ya+i):c.nombre,alias:x.alias||'',imagen:c.imagen||'',hp,hp_max:hp,ini:tirar20(dex),dex,visible:x.visible!==false})}});
+ return{filas,falt}}
+async function activarEnc(id,sumar){const e=ENC.find(x=>x.id==id);if(!e)return;
+ if(!sumar&&CB.length&&!confirm('Esto reemplaza el combate actual por «'+e.nombre+'». ¿Seguir?'))return;
+ const{filas,falt}=filasEnc(e,sumar?CB:[]);
+ if(!filas.length){aviso({message:'Ese encuentro no tiene criaturas disponibles en el bestiario.'});return}
+ if(!sumar){
+  await sb.from('combatientes').delete().gte('id',0);
+  await sb.from('combate_estado').update({activo:false,ronda:1,turno:null,actualizado:ahora()}).eq('id',1);
+  if(encPJ.checked)PERF.filter(p=>!p.is_dm&&PF[p.id]).forEach(p=>filas.push({tipo:'pj',jugador:p.id,criatura_id:null,nombre:p.username,alias:'',imagen:'',hp:1,hp_max:1,ini:tirar20(dexPJ(p.id)),dex:dexPJ(p.id),visible:true}))}
+ const{error}=await sb.from('combatientes').insert(filas);if(error){aviso(error);return}
+ await cargar();
+ if(falt.length)aviso({message:'Estas criaturas ya no están en el bestiario y se omitieron: '+falt.join(', ')});
+ if(!sumar&&encIni.checked)iniciar()}
+
 /* ---------- mi personaje (jugadores) ---------- */
 function cartaCj(c){const ln=(t,v)=>v?'<p><b>'+t+':</b> '+esc(uni(v))+'</p>':'';
  return '<div class="sb"><p><i>'+(c.nv==0?'Truco':'Nivel '+c.nv)+(c.esc?' · '+esc(c.esc):'')+(c.conc?' · Concentración':'')+(c.rit?' · Ritual':'')+'</i></p>'+ln('Tiempo de lanzamiento',c.tc)+ln('Alcance',c.al)+ln('Componentes',c.cm)+ln('Duración',c.du)+
@@ -167,6 +212,6 @@ mi.addEventListener('toggle',()=>{try{localStorage.setItem('miCombate',mi.open?'
 (async()=>{
  ME=await cabecera('Combate');if(!ME)return;DM=!!ME.is_dm;
  try{mi.open=localStorage.getItem('miCombate')!=='0';VC=localStorage.getItem('miConj')!=='0';VR=localStorage.getItem('miRasgos')!=='0'}catch(e){}
- if(DM){prep.style.display='block';const{data}=await sb.from('criaturas').select('id,nombre,tipo,imagen,datos');CR=(data||[]).sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));opcionesCR()}
+ if(DM){prep.style.display='block';const{data}=await sb.from('criaturas').select('id,nombre,tipo,imagen,datos');CR=(data||[]).sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));opcionesCR();await cargarEnc()}
  await cargar();setInterval(()=>{if(!document.hidden)cargar()},4000)})();
 </script></body></html>
