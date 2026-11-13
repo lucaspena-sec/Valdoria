@@ -1,4 +1,4 @@
-<!doctype html><html lang="es"><head><title>Valdoria - Combate</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=9"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=6"></script><script src="comun.js?v=7"></script>
+<!doctype html><html lang="es"><head><title>Valdoria - Combate</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=10"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=6"></script><script src="comun.js?v=7"></script>
 <style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
 <div class="win"><div id="cab"></div><div class="body">
 <div id="msg" class="err"></div>
@@ -109,7 +109,7 @@ function pintarPrep(){
  const a=document.activeElement;if(a&&prep.contains(a)&&a.tagName=='INPUT'&&a.type!='checkbox')return;
  const gd={};document.querySelectorAll('#pjs input[type=number]').forEach(e=>gd[e.id]=e.value);
  pjs.innerHTML=PERF.filter(p=>!p.is_dm).map(p=>{const c=CB.find(x=>x.tipo=='pj'&&x.jugador==p.id);
-  return '<div class="fila"><input type="checkbox" style="width:auto;margin:0" '+(c?'checked':'')+' onchange="togglePJ(\''+p.id+'\',this.checked)"> '+esc(nomPJ(p))+'<span style="margin-left:auto">Ini <input type="number" id="pi'+p.id+'" value="'+(c?c.ini:'')+'" style="width:56px;margin:0" onchange="iniPJ(\''+p.id+'\',this.value)"> <button style="padding:0 6px" onclick="tirarPJ(\''+p.id+'\')">🎲</button></span></div>'}).join('')||'<i>No hay jugadores.</i>';
+  return '<div class="fila"><input type="checkbox" style="width:auto;margin:0" '+(c?'checked':'')+' onchange="togglePJ(\''+p.id+'\',this.checked)"> <span class=\"pn\">'+esc(nomPJ(p))+'</span><span style="margin-left:auto">Ini <input type="number" id="pi'+p.id+'" value="'+(c?c.ini:'')+'" style="width:56px;margin:0" onchange="iniPJ(\''+p.id+'\',this.value)"> <button style="padding:0 6px" onclick="tirarPJ(\''+p.id+'\')">🎲</button></span></div>'}).join('')||'<i>No hay jugadores.</i>';
  Object.keys(gd).forEach(k=>{const e=document.getElementById(k);if(e&&!e.value)e.value=gd[k]})}
 async function togglePJ(id,on){
  if(on){const p=PERF.find(x=>x.id==id);await q(sb.from('combatientes').insert({tipo:'pj',jugador:id,nombre:p?p.username:'pj',ini:parseInt(gv('pi'+id))||0,dex:dexPJ(id)}))}
