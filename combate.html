@@ -124,11 +124,13 @@ async function agregarC(){const c=CR.find(x=>x.id==parseInt(crs.value));if(!c){a
   filas.push({tipo:'criatura',criatura_id:c.id,nombre:n>1?c.nombre+' '+i:c.nombre,imagen:c.imagen||'',hp,hp_max:hp,ini,dex,visible:true})}
  await q(sb.from('combatientes').insert(filas))}
 const ahora=()=>new Date().toISOString();
-function iniciar(){const vivos=LISTA.filter(x=>!(x.tipo=='criatura'&&x.hp<=0));if(!vivos.length){aviso({message:'Agregá combatientes primero.'});return}
- q(sb.from('combate_estado').update({activo:true,ronda:1,turno:vivos[0].id,actualizado:ahora()}).eq('id',1))}
-function siguiente(){const l=LISTA;if(!l.length)return;let i=l.findIndex(x=>x.id==ES.turno),ronda=ES.ronda,n=0;
+async function iniciar(){const vivos=LISTA.filter(x=>!(x.tipo=='criatura'&&x.hp<=0));if(!vivos.length){aviso({message:'Agregá combatientes primero.'});return}
+ await sb.rpc('tiradas_limpiar');
+ await q(sb.from('combate_estado').update({activo:true,ronda:1,turno:vivos[0].id,actualizado:ahora()}).eq('id',1))}
+async function siguiente(){const l=LISTA;if(!l.length)return;let i=l.findIndex(x=>x.id==ES.turno),ronda=ES.ronda,n=0;
  do{i++;if(i>=l.length){i=0;ronda++}n++}while(n<=l.length&&l[i].tipo=='criatura'&&l[i].hp<=0);
- q(sb.from('combate_estado').update({turno:l[i].id,ronda,actualizado:ahora()}).eq('id',1))}
+ await sb.rpc('tiradas_limpiar');
+ await q(sb.from('combate_estado').update({turno:l[i].id,ronda,actualizado:ahora()}).eq('id',1))}
 async function terminar(){if(!confirm('¿Terminar el combate? Se quitan todos los combatientes.'))return;
  await sb.from('combatientes').delete().gte('id',0);await sb.rpc('tiradas_limpiar');
  q(sb.from('combate_estado').update({activo:false,ronda:1,turno:null,actualizado:ahora()}).eq('id',1))}
@@ -218,7 +220,7 @@ function dadoSvg(c,v,s,solo){
  let fill='#1d1830';if(c==20&&solo){if(v==20)fill='#1e7b34';else if(v==1)fill='#8b1a1a'}
  const f=c==100?'<circle cx="12" cy="12" r="11" fill="'+fill+'" stroke="#ffd54a" stroke-width="1.5"/>':'<polygon points="'+FORMA[c]+'" fill="'+fill+'" stroke="#ffd54a" stroke-width="1.5" stroke-linejoin="round"/>';
  const fs=v>=100?8:v>=10?10:12,y=(c==4?15:12)+fs*0.35;
- return '<svg width="'+s+'" height="'+s+'" viewBox="0 0 24 24">'+f+(v==null?'':'<text x="12" y="'+y.toFixed(1)+'" text-anchor="middle" font-size="'+fs+'" font-weight="bold" fill="#fff" font-family="Arial,sans-serif">'+v+'</text>')+'</svg>'}
+ return '<svg width="'+s+'" height="'+s+'" viewBox="0 0 24 24" style="position:static;width:'+s+'px;height:'+s+'px;flex:none">'+f+(v==null?'':'<text x="12" y="'+y.toFixed(1)+'" text-anchor="middle" font-size="'+fs+'" font-weight="bold" fill="#fff" font-family="Arial,sans-serif">'+v+'</text>')+'</svg>'}
 function dadoHtml(t,s){
  const todos=[];(t.d||[]).forEach(g=>(g.v||[]).forEach(v=>todos.push([g.c,v])));
  const solo=todos.length==1,mx=12;
