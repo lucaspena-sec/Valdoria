@@ -1,4 +1,4 @@
-<!doctype html><html lang="es"><head><title>Valdoria - Criaturas</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=6"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=6"></script><script src="comun.js?v=7"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
+<!doctype html><html lang="es"><head><title>Valdoria - Criaturas</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=6"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=6"></script><script src="comun.js?v=8"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
 <div class="win"><div id="cab"></div><div class="body">
 <h2>Criaturas</h2>
 <a href="dm.html">← Volver al panel de jugadores</a>
@@ -77,7 +77,8 @@ function editar(id,pre){
 function leerFicha(){const t=pf_t.value.trim();if(!t){msg.textContent='Pegá primero el texto de la ficha.';return}
  const x=leerCriatura(t);pf.style.display='none';pf_t.value='';
  editar(0,{id:'',nombre:x.nombre,tipo:x.tipo,rareza:x.rareza,imagen:'',datos:x.datos});
- msg.textContent=x.falta.length?'Revisá estos datos, no pude leerlos: '+x.falta.join(', ')+'. Lo que no entendí quedó en las notas.':'Ficha leída. Revisá todo antes de guardar.'}
+ const d=x.datos,sec=['rasgos','acciones','adicionales','reacciones','legendarias'].filter(k=>d[k].length).map(k=>d[k].length+' '+k).join(', '),nn=d.notas?d.notas.split('\n').length:0,df=[['Vulnerable a',d.vul],['Resistente a',d.res],['Inmune a',d.inmD],['Inmune a estados',d.inmE]].filter(a=>a[1]).map(a=>a[0]+' '+a[1]).join(' · ');
+ msg.textContent=(x.falta.length?'Revisá estos datos, no pude leerlos: '+x.falta.join(', ')+'. ':'Ficha leída. ')+'Leí: '+x.tipo+' '+d.tamano+', CA '+d.ca+', PG '+d.pg+', VD '+d.vd+(sec?', '+sec:'')+'.'+(df?' '+df+'.':'')+(nn?' '+nn+(nn==1?' línea quedó':' líneas quedaron')+' en las notas: revisalas.':'')+' Revisá todo antes de guardar.'}
 async function guardar(){
  const n=g('c_nombre').trim();if(!n){msg.textContent='Falta el nombre.';return}
  const car={},salv={};AB.forEach(([k])=>{car[k]=cl(g('cc_'+k),1,30);salv[k]=document.getElementById('cs_'+k).checked});

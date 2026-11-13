@@ -33,15 +33,43 @@ function tarjetaItem(i){const d=i.datos||{};
   gr('Pasivas',d.pasivas)+gr('Acción',d.accion)+gr('Acción adicional',d.adicional)+gr('Reacción',d.reaccion)+gr('Multiataque',d.multi)+'<div style="clear:both"></div></div>'}
 
 // Lee el texto de una ficha de criatura pegado (español o inglés) y devuelve {nombre,tipo,rareza,datos,falta}
+// Limpia el texto pegado (PDF, web, Markdown) y lo devuelve como lista de líneas listas para leer
+function limpiarFicha(txt){
+ const LBL='Clase de armadura|Puntos de (?:golpe|vida)|Velocidad|Desplazamiento|Iniciativa|Salvaciones|Tiradas de salvaci[oó]n|Habilidades|Vulnerabilidad(?:es)?(?: a(?:l)?)?(?: da[ñn]os?)?|Resistencia(?:s)?(?: a(?:l)?)?(?: da[ñn]os?)?|Inmunidad(?:es)?(?: a(?:l)?)?(?: (?:los|las|la))?(?: da[ñn]os?| estados?(?: alterad[oa]s?)?| condici(?:ón|ones)(?: alterad[oa]s?)?)?|Sentidos|Idiomas|Desaf[ií]o|Valor de desaf[ií]o|Nivel de desaf[ií]o|Armor Class|Hit Points|Speed|Challenge(?: Rating)?|Senses|Languages|Skills|Saving Throws|Damage Vulnerabilities|Damage Resistances|Damage Immunities|Condition Immunities';
+ let t=txt.normalize('NFC').replace(/\r\n?/g,'\n')
+  .replace(/[\u00a0\u2000-\u200a\u202f\u205f\u3000]/g,' ')
+  .replace(/[\u00ad\u200b-\u200d\u2060\ufeff]/g,'')
+  .replace(/[\u2044\u2215]/g,'/').replace(/\uff1a/g,':')
+  .replace(/¼/g,'1/4').replace(/½/g,'1/2').replace(/¾/g,'3/4').replace(/⅛/g,'1/8')
+  .replace(/[\u2010\u2011\u2012]/g,'-')
+  .replace(/\*{1,3}([^*\n]+?)\*{1,3}/g,'$1').replace(/\*+/g,'')
+  .replace(/(^|[\s(])_{1,3}([^_\n]+?)_{1,3}(?=[\s.,;:)]|$)/gm,'$1$2')
+  .replace(/([a-záéíóúñü])-\n\s*([a-záéíóúñü])/g,'$1$2');
+ // texto corrido o en columnas: cada etiqueta con ":" arranca su propia línea
+ t=t.replace(new RegExp('(\\S)[ \\t]+((?:'+LBL+')[ \\t]*:)','gi'),'$1\n$2');
+ t=t.replace(/(\S)[ \t]+(FUE\s+DES\s+CON\s+INT\s+SAB\s+CAR|STR\s+DEX\s+CON\s+INT\s+WIS\s+CHA)\s+/g,'$1\n$2\n');
+ t=t.replace(/(\S)[ \t]+(ACCIONES ADICIONALES|ACCIONES LEGENDARIAS|ACCIONES|REACCIONES|RASGOS|ACTIONS|BONUS ACTIONS|LEGENDARY ACTIONS|REACTIONS)(?=[ \t]+\S)/g,'$1\n$2\n');
+ const L=t.split('\n').map(s=>s.replace(/^(?:\s*(?:[>#|•·▪◦●■►▶]+|[-–—]\s))+\s*/,'').replace(/\s*\|\s*$/,'').trim()).filter(s=>s&&!/^[\s|:\-–—]+$/.test(s));
+ // etiqueta sola en una línea y su valor en la siguiente (típico de PDF): se unen
+ const solo=new RegExp('^(?:'+LBL+'|CA|PG|VD)\\s*:?$','i'),sec=/^(?:ACCIONES|REACCIONES|RASGOS|ACTIONS|REACTIONS|BONUS ACTIONS|LEGENDARY ACTIONS)/;
+ for(let i=0;i<L.length-1;i++){if(solo.test(L[i])&&!solo.test(L[i+1])&&!sec.test(L[i+1])){L[i]=L[i].replace(/\s*:?$/,'')+': '+L[i+1];L.splice(i+1,1)}}
+ // pegado en una sola línea: el nombre viene pegado al tipo y a veces las acciones también
+ if(L.length&&L[0].includes(',')){const mm=/\b(?:Tiny|Small|Medium|Large|Huge|Gargantuan|Diminut[oa]|Peque[ñn][oa]|Median[oa]|Grande|Enorme|Gargantuesc[oa])\b/i.exec(L[0]);
+  if(mm&&mm.index>0){let cut=mm.index;const tm=L[0].slice(0,cut).match(/\s(?:Muert[oa]s?\s+viviente|No[- ]?muert[oa]s?|Aberraci[oó]n|Bestia|Celestial|Cieno|Constructo|Drag[oó]n|Elemental|Fe[eé]rico|Gigante|Humanoide|Infernal|Monstruosidad|Planta)\s*$/i);
+   if(tm)cut=tm.index;const nom=L[0].slice(0,cut).trim(),resto=L[0].slice(cut).trim();if(nom&&resto)L.splice(0,1,nom,resto)}}
+ if(txt.split('\n').filter(s=>s.trim()).length<=3)return L.flatMap(l=>l.length>250?l.replace(/([.!?])\s+([A-ZÁÉÍÓÚÑ][^.:\n]{2,40}\.\s+(?=Ataque|Attack|Melee|Ranged|El |La |Los |Las |Un |Una |Cuando|Si |Cada|Hasta))/g,'$1\n$2').split('\n'):[l]);
+ return L}
+
 function leerCriatura(txt){
+ txt=txt.normalize('NFC').replace(/[\u00a0\u2009\u202f\u200b]/g,' ');
  const AL={fue:'FUE|STR|Fuerza|Strength',des:'DES|DEX|Destreza|Dexterity',con:'CON|Constituci[oó]n|Constitution',int:'INT|Inteligencia|Intelligence',sab:'SAB|WIS|Sabidur[ií]a|Wisdom',car:'CAR|CHA|Carisma|Charisma'};
  const SK=[['Acrobacias|Acrobatics',0],['Arcanos|Arcana',1],['Atletismo|Athletics',2],['Enga[ñn]o|Deception',3],['Historia|History',4],['Interpretaci[oó]n|Performance',5],['Intimidaci[oó]n|Intimidation',6],['Investigaci[oó]n|Investigation',7],['Juego de manos|Sleight of Hand',8],['Medicina|Medicine',9],['Naturaleza|Nature',10],['Percepci[oó]n|Perception',11],['Perspicacia|Insight',12],['Persuasi[oó]n|Persuasion',13],['Religi[oó]n|Religion',14],['Sigilo|Stealth',15],['Supervivencia|Survival',16],['Trato con animales|Animal Handling',17]];
- const TP=[['aberraci|aberration','Aberración'],['bestia|beast','Bestia'],['celestial','Celestial'],['cieno|ooze','Cieno'],['constructo|construct','Constructo'],['drag[oó]n|dragon','Dragón'],['elemental','Elemental'],['fe[eé]rico|fey|hada','Feérico'],['gigante|giant','Gigante'],['humanoide|humanoid','Humanoide'],['infernal|fiend','Infernal'],['monstruosidad|monstrosity','Monstruosidad'],['no muerto|undead','No muerto'],['planta|plant','Planta']];
+ const TP=[['aberraci|aberration','Aberración'],['bestia|beast','Bestia'],['celestial','Celestial'],['cieno|ooze','Cieno'],['constructo|construct','Constructo'],['drag[oó]n|dragon','Dragón'],['elemental','Elemental'],['fe[eé]rico|fey|hada','Feérico'],['gigante|giant','Gigante'],['humanoide|humanoid','Humanoide'],['infernal|fiend','Infernal'],['monstruosidad|monstrosity','Monstruosidad'],['muert[oa]s? viviente|no[- ]?muert|undead','No muerto'],['planta|plant','Planta']];
  const TM={tiny:'Diminuto',diminut:'Diminuto',small:'Pequeño',peque:'Pequeño',medium:'Mediano',median:'Mediano',large:'Grande',grande:'Grande',huge:'Enorme',enorme:'Enorme',gargantuan:'Gargantuesco',gargantuesc:'Gargantuesco'};
  const m=aPies;
- const L=txt.replace(/\r/g,'').split('\n').map(s=>s.trim()).filter(Boolean);
+ const L=limpiarFicha(txt);
  const d={desc:'',tamano:'Mediano',alin:'',vd:'0',ca:0,caNota:'',pg:0,dados:'',ini:null,vel:'',car:{fue:10,des:10,con:10,int:10,sab:10,car:10},salv:{},hab:Array(18).fill(0),res:'',vul:'',inmD:'',inmE:'',sentidos:'',idiomas:'',rasgos:[],acciones:[],adicionales:[],reacciones:[],legendarias:[],notas:''};
- const nombre=(L.shift()||'Criatura sin nombre').replace(/^#+\s*/,'');let tipo='Humanoide';
+ let nombre=(L.shift()||'Criatura sin nombre').replace(/^#+\s*/,'');if(nombre===nombre.toUpperCase()&&/[A-ZÁÉÍÓÚÑ]{2}/.test(nombre))nombre=nombre.charAt(0)+nombre.slice(1).toLowerCase();let tipo='Humanoide',tipoOk=false;
  const consumida=new Set();
  // tamaño, especie y alineamiento
  const SZ=/\b(Tiny|Small|Medium|Large|Huge|Gargantuan|Diminut[oa]|Peque[ñn][oa]|Median[oa]|Grande|Enorme|Gargantuesc[oa])\b/i;
@@ -49,36 +77,39 @@ function leerCriatura(txt){
  if(sz>=0){consumida.add(sz);const l=L[sz],w=l.split(',')[0].match(SZ)[1].toLowerCase();
   d.tamano=Object.entries(TM).find(([k])=>w.startsWith(k))[1];
   const partes=l.split(','),pt=partes[0].toLowerCase();
-  const t=TP.find(([re])=>new RegExp(re,'i').test(pt));if(t)tipo=t[1];
+  const t=TP.find(([re])=>new RegExp(re,'i').test(pt));if(t){tipo=t[1];tipoOk=true}
   d.alin=partes.slice(1).join(',').trim()}
  const T=L.join('\n');
  // características
  let n=0;for(const [k,al] of Object.entries(AL)){const r=T.match(new RegExp('(?:^|[\\s|])(?:'+al+')\\s*:?\\s*(\\d{1,2})(?!\\d)','im'));if(r){d.car[k]=+r[1];n++}}
  if(n<6){const h=L.findIndex(l=>(l.match(/\b(STR|DEX|CON|INT|WIS|CHA|FUE|DES|SAB|CAR)\b/gi)||[]).length>=5);
   if(h>=0&&L[h+1]){const v=[...L[h+1].matchAll(/(\d{1,2})\s*\(/g)].map(x=>+x[1]);if(v.length>=6){['fue','des','con','int','sab','car'].forEach((k,i)=>d.car[k]=v[i]);n=6;consumida.add(h);consumida.add(h+1)}}}
- const KEY=[['ca',/^(?:CA|AC|Clase de armadura|Armor Class)\b\s*:?\s*(\d+)\s*(?:\(([^)]*)\))?/i],['pg',/^(?:PG|HP|Puntos de golpe|Hit Points)\b\s*:?\s*(\d+)\s*(?:\(([^)]*)\))?/i],['vel',/^(?:Velocidad|Speed)\b\s*:?\s*(.+)/i],['ini',/^(?:Iniciativa|Initiative)\b\s*:?\s*([+\-−]?\d+)/i],['salv',/^(?:Salvaciones|Tiradas de salvaci[oó]n|Saving Throws|Saves)\b\s*:?\s*(.+)/i],['hab',/^(?:Habilidades|Skills)\b\s*:?\s*(.+)/i],['vul',/^(?:Vulnerabilidades(?: a(?:l)? da[ñn]o)?|Damage Vulnerabilities|Vulnerabilities)\b\s*:?\s*(.+)/i],['res',/^(?:Resistencias(?: a(?:l)? da[ñn]o)?|Damage Resistances|Resistances)\b\s*:?\s*(.+)/i],['inmE',/^(?:Inmunidades a (?:los )?estados|Inmunidad(?:es)? a condiciones|Condition Immunities)\b\s*:?\s*(.+)/i],['inmD',/^(?:Inmunidades(?: a(?:l)? da[ñn]o)?|Damage Immunities|Immunities)\b\s*:?\s*(.+)/i],['sentidos',/^(?:Sentidos|Senses)\b\s*:?\s*(.+)/i],['idiomas',/^(?:Idiomas|Languages)\b\s*:?\s*(.+)/i],['vd',/^(?:VD|CR|Valor de desaf[ií]o|Challenge(?: Rating)?)\b\s*:?\s*([\d\/]+)/i]];
- const SEC=[['rasgos',/^(?:Rasgos|Traits)$/i],['acciones',/^(?:Acciones|Actions)$/i],['adicionales',/^(?:Acciones? adicional(?:es)?|Bonus Actions?)$/i],['reacciones',/^(?:Reacciones|Reactions)$/i],['legendarias',/^(?:Acciones legendarias|Legendary Actions)\b.*$/i]];
+ const KEY=[['ca',/^(?:CA|AC|Clase de armadura|Armor Class)\b\s*:?\s*(\d+)\s*(?:\(([^)]*)\))?/i],['pg',/^(?:PG|HP|Puntos de golpe|Puntos de vida|Hit Points)\b\s*:?\s*(\d+)\s*(?:\(([^)]*)\))?/i],['vel',/^(?:Velocidad|Desplazamiento|Speed)\b\s*:?\s*(.+)/i],['ini',/^(?:Iniciativa|Initiative)\b\s*:?\s*([+\-−]?\d+)/i],['salv',/^(?:Salvaciones|Tiradas de salvaci[oó]n|Saving Throws|Saves)\b\s*:?\s*(.+)/i],['hab',/^(?:Habilidades|Skills)\b\s*:?\s*(.+)/i],['vul',/^(?:Vulnerabilidad(?:es)?(?: a(?:l)?)?(?: da[ñn]os?)?\s*:\s*|Vulnerabilidad(?:es)? a(?:l)? da[ñn]os?\b\s*:?\s*|Vulnerabilidades\b\s*:?\s*|(?:Damage )?Vulnerabilities\b\s*:?\s*)(.+)/i],['res',/^(?:Resistencia(?:s)?(?: a(?:l)?)?(?: da[ñn]os?)?\s*:\s*|Resistencia(?:s)? a(?:l)? da[ñn]os?\b\s*:?\s*|Resistencias\b\s*:?\s*|(?:Damage )?Resistances\b\s*:?\s*)(.+)/i],['inmE',/^(?:Inmunidad(?:es)?(?: a(?:l)?)?(?: (?:los|las|la))? (?:estados?|condici(?:ón|ones))(?: alterad[oa]s?)?\b\s*:?\s*|Condition Immunities\b\s*:?\s*)(.+)/i],['inmD',/^(?:Inmunidad(?:es)?(?: a(?:l)?)?(?: da[ñn]os?)?\s*:\s*|Inmunidad(?:es)? a(?:l)? da[ñn]os?\b\s*:?\s*|Inmunidades\b\s*:?\s*|(?:Damage )?Immunities\b\s*:?\s*)(.+)/i],['sentidos',/^(?:Sentidos|Senses)\b\s*:?\s*(.+)/i],['idiomas',/^(?:Idiomas|Languages)\b\s*:?\s*(.+)/i],['pb',/^(?:Bonificador(?: por)? (?:de )?competencia|Proficiency Bonus)\b.*/i],['vd',/^(?:VD|CR|(?:Valor|Nivel) de desaf[ií]o|Desaf[ií]o|Challenge(?: Rating)?)\b\s*:?\s*([\d\/]+)/i]];
+ const SEC=[['rasgos',/^(?:Rasgos|Traits)$/i],['acciones',/^(?:Acciones|Actions)$/i],['adicionales',/^(?:Acciones? adicional(?:es)?|Bonus Actions?)$/i],['reacciones',/^(?:Reacci[oó]n(?:es)?|Reactions?)$/i],['legendarias',/^(?:Acciones legendarias|Legendary Actions)\b.*$/i]];
  const ENT=/^([A-ZÁÉÍÓÚÑ0-9][^.:\n]{1,70}?)\.\s+(.+)$/;
  const RUIDO=/^(?:(?:FUE|DES|CON|INT|SAB|CAR|STR|DEX|WIS|CHA|MOD|SAVE|SALV)\b[\s\d+\-−()\/]*)+$|^[\d\s()+\-−]+$/i;
- let sec=null,cur=null,vistoClave=false;const skillsTxt=[],salvTxt=[];
+ let sec=null,cur=null,vistoClave=false,ult=null;const skillsTxt=[],salvTxt=[];
  L.forEach((l,i)=>{
   if(consumida.has(i))return;
-  const s=SEC.find(([,re])=>re.test(l));if(s){sec=s[0];cur=null;return}
+  const s=SEC.find(([,re])=>re.test(l.replace(/\s*:$/,'')));if(s){sec=s[0];cur=null;ult=null;return}
   if(!sec||!cur||!ENT.test(l)){
    const kv=KEY.find(([,re])=>re.test(l));
    if(kv&&(!sec||sec=='rasgos'&&!cur)||kv&&!ENT.test(l)&&!sec){
-    const r=l.match(kv[1]);vistoClave=true;
+    const r=l.match(kv[1]);vistoClave=true;ult=['vel','salv','hab','vul','res','inmE','inmD','sentidos','idiomas'].includes(kv[0])?kv[0]:null;
     if(kv[0]=='ca'){d.ca=+r[1];d.caNota=(r[2]||'').trim()}
     else if(kv[0]=='pg'){d.pg=+r[1];d.dados=(r[2]||'').trim()}
     else if(kv[0]=='ini'){d.ini=+r[1].replace('−','-')}
     else if(kv[0]=='salv')salvTxt.push(r[1]);
     else if(kv[0]=='hab')skillsTxt.push(r[1]);
     else if(kv[0]=='vd')d.vd=r[1];
+    else if(kv[0]=='pb'){}
     else d[kv[0]]=(d[kv[0]]?d[kv[0]]+'; ':'')+r[1].trim();
     return}}
   if(RUIDO.test(l))return;
   const e=l.match(ENT);
-  if(e&&e[1].split(' ').length<=8){if(!sec){if(!vistoClave)return d.notas+=(d.notas?'\n':'')+l;sec='rasgos'}cur={n:e[1].trim(),t:e[2].trim()};d[sec].push(cur);return}
+  if(ult&&!sec&&!(e&&e[1].split(' ').length<=8)){if(ult=='salv')salvTxt[salvTxt.length-1]+=' '+l;else if(ult=='hab')skillsTxt[skillsTxt.length-1]+=' '+l;else d[ult]+=' '+l;return}
+  ult=null;
+  if(e&&e[1].split(' ').length<=8&&!(cur&&!/[.!?)"”»]$/.test(cur.t))){if(!sec){if(!vistoClave)return d.notas+=(d.notas?'\n':'')+l;sec='rasgos'}cur={n:e[1].trim(),t:e[2].trim()};d[sec].push(cur);return}
   if(cur){cur.t+=' '+l;return}
   d.notas+=(d.notas?'\n':'')+l});
  // salvaciones y habilidades
@@ -87,6 +118,8 @@ function leerCriatura(txt){
  skillsTxt.join(',').split(/[,;]/).forEach(t=>{const r=t.match(/([A-Za-zñÑáéíóúÁÉÍÓÚ ]+?)\s*([+\-−]\d+)/);if(!r)return;
   const sk=SK.find(([re])=>new RegExp('^\\s*(?:'+re+')\\s*$','i').test(r[1]));if(!sk)return;
   const idx=sk[1],bon=+r[2].replace('−','-'),mod=md(d.car[HAB[idx][1]]);d.hab[idx]=bon>=mod+2*pb&&pb>0?2:1});
+ const COND=/^(?:invisible|tumbad|inmovilizad|cansad|ciego|sord[oa]|cegad|hechizad|ensordecid|agotamient|cansancio|asustad|agarrad|incapacitad|paralizad|petrificad|envenenad|derribad|apresad|aturdid|inconsciente|blinded|charmed|deafened|exhaustion|frightened|grappled|incapacitated|paralyzed|petrified|poisoned|prone|restrained|stunned|unconscious)/i,esEst=t=>{const p=t.split(/,| y | and /).map(s=>s.trim()).filter(Boolean);return p.length>0&&p.every(x=>COND.test(x))};
+ if(d.inmD&&!d.inmE){const p=d.inmD.split(';').map(s=>s.trim()).filter(Boolean),u=p[p.length-1];if(p.length&&esEst(u)){d.inmE=u;d.inmD=p.slice(0,-1).join('; ')}}
  // respaldo para CA y PG si venían en la misma línea
  if(!d.ca){const r=T.match(/\b(?:CA|AC)\s*:?\s*(\d+)/i);if(r)d.ca=+r[1]}
  if(!d.pg){const r=T.match(/\b(?:PG|HP)\s*:?\s*(\d+)\s*(?:\(([^)]*)\))?/i);if(r){d.pg=+r[1];d.dados=(r[2]||'').trim()}}
@@ -95,7 +128,8 @@ function leerCriatura(txt){
  ['vel','sentidos','res','vul','inmD','inmE','idiomas','notas'].forEach(k=>d[k]=k=='notas'?m(d[k]):m(d[k]).replace(/\.$/,''));
  ['rasgos','acciones','adicionales','reacciones','legendarias'].forEach(k=>d[k].forEach(e=>e.t=m(e.t)));
  const rareza=nv<=2?'comun':nv<=6?'infrecuente':nv<=11?'rara':nv<=17?'epica':'legendaria';
- const falta=[];if(!d.ca)falta.push('CA');if(!d.pg)falta.push('PG');if(n<6)falta.push('características');if(d.vd==='0'&&!/\b(?:VD|CR)\s*:?\s*0\b/i.test(T))falta.push('valor de desafío');
+ const falta=[];if(!d.ca)falta.push('CA');if(!d.pg)falta.push('PG');if(n<6)falta.push('características');if(d.vd==='0'&&!/\b(?:VD|CR|Desaf[ií]o|Challenge)\s*:?\s*0\b/i.test(T))falta.push('valor de desafío');if(!tipoOk)falta.push('tipo de criatura');
+ d.notas.split('\n').forEach(l=>{if(/^(?:Vulnerabilidad|Resistencia|Inmunidad|Desaf[ií]o|VD\b|Valor de desaf|Challenge|Damage (?:Vuln|Resist|Immun)|Condition Immun)/i.test(l))falta.push('línea sin leer: "'+l.slice(0,40)+'"')});
  return{nombre,tipo,rareza,datos:d,falta}}
 
 // Lee el texto de un conjuro pegado (español o inglés) y devuelve el conjuro y una lista de lo que no pudo leer
