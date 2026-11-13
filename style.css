@@ -194,3 +194,11 @@ textarea{width:100%;font:inherit;padding:8px}
 .chipd{padding:2px 6px;margin:1px}
 .dres{margin-top:6px;background:#14110b;padding:4px;text-align:center}
 .dres:empty{display:none}
+/* ficha de criatura en combate */
+.cfbtn{display:block;width:100%;margin-top:3px;font-size:12px;padding:3px}
+#fichaOv{display:none;position:fixed;inset:0;z-index:50;background:#000a;align-items:flex-end;justify-content:center}
+.fcard{background:#ece5cf;border:3px solid #7a1f1f;width:100%;max-width:640px;max-height:88vh;max-height:88dvh;display:flex;flex-direction:column}
+.fcab{display:flex;gap:8px;align-items:center;padding:6px 8px;background:#7a1f1f;color:#fff}
+.fcab b{flex:1;min-width:0}
+.fcuerpo{overflow:auto;padding:6px 10px calc(10px + env(safe-area-inset-bottom,0px));-webkit-overflow-scrolling:touch}
+@media(min-width:700px){#fichaOv{align-items:center}}

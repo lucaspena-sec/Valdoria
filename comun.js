@@ -131,3 +131,19 @@ function sangreSvg(s){if(!s)return'';const R='#a30f17',D='#7a0a10';let o='';
   o+=[[4,60,7],[16,95,6],[28,42,8],[43,80,6],[56,52,8],[70,105,6],[82,68,8],[94,45,6]].map(a=>'<rect x="'+a[0]+'" y="0" width="'+a[2]+'" height="'+a[1]+'" rx="'+a[2]/2+'" fill="'+D+'" opacity=".92"/><circle cx="'+(a[0]+a[2]/2)+'" cy="'+a[1]+'" r="'+a[2]*.75+'" fill="'+D+'" opacity=".92"/>').join('')}
  if(s>=4)o+='<rect width="100" height="120" fill="#000" opacity=".25"/><path d="M12 14 L88 106 M88 14 L12 106" stroke="#8b0000" stroke-width="10" stroke-linecap="round"/><path d="M12 14 L88 106 M88 14 L12 106" stroke="#d11a24" stroke-width="5" stroke-linecap="round"/>';
  return o}
+
+// ---- Ficha de criatura (la usan dm-criaturas y combate) ----
+const pbVD=v=>{const p=String(v||'0').split('/'),n=p.length>1?p[0]/p[1]:+p[0];return n<5?2:n<9?3:n<13?4:n<17?5:n<21?6:n<25?7:n<29?8:9};
+function bloque(c){const d=c.datos||{},car=d.car||{},pb=pbVD(d.vd),m=k=>md(car[k]??10);
+ const ini=d.ini!=null&&d.ini!==''?+d.ini:m('des');
+ const tabla='<table class="tb2"><tr>'+AB.map(([k])=>'<th>'+k.toUpperCase()+'</th>').join('')+'</tr><tr>'+AB.map(([k])=>'<td>'+(car[k]??10)+'<br>'+sgn(m(k))+'</td>').join('')+'</tr><tr>'+AB.map(([k])=>'<td><small>Salv.</small><br>'+sgn(m(k)+((d.salv||{})[k]?pb:0))+'</td>').join('')+'</tr></table>';
+ const habs=HAB.map(([n,a],i)=>[n,a,(d.hab||[])[i]||0]).filter(x=>x[2]).map(x=>x[0]+' '+sgn(m(x[1])+pb*x[2])).join(', ');
+ const ln=(t,v)=>v?'<p><b>'+t+'</b> '+esc(uni(v))+'</p>':'';
+ const gr=(t,a)=>(a&&a.length)?'<h4>'+t+'</h4>'+a.map(e=>'<p><b><i>'+esc(e.n)+'.</i></b> '+esc(uni(e.t))+'</p>').join(''):'';
+ return '<div class="sb">'+(c.imagen?'<img class="foto-cr" src="'+esc(c.imagen)+'" alt="">':'')+
+  '<p><i>'+esc(d.tamano||'')+' '+esc(c.tipo)+(d.alin?', '+esc(d.alin):'')+'</i></p>'+(d.desc?'<p style="white-space:pre-wrap">'+esc(uni(d.desc))+'</p>':'')+
+  '<p><b>CA</b> '+esc(d.ca)+(d.caNota?' ('+esc(d.caNota)+')':'')+' &nbsp; <b>Iniciativa</b> '+sgn(ini)+' ('+(10+ini)+')</p><p><b>PG</b> '+esc(d.pg)+(d.dados?' ('+esc(d.dados)+')':'')+'</p>'+
+  ln('Velocidad',d.vel)+tabla+ln('Habilidades',habs)+ln('Vulnerabilidades',d.vul)+ln('Resistencias',d.res)+ln('Inmunidades a daño',d.inmD)+ln('Inmunidades a estados',d.inmE)+ln('Sentidos',d.sentidos)+ln('Idiomas',d.idiomas)+
+  '<p><b>VD</b> '+esc(d.vd)+' (bonificador de competencia +'+pb+')</p>'+
+  gr('Rasgos',d.rasgos)+gr('Acciones',d.acciones)+gr('Acciones adicionales',d.adicionales)+gr('Reacciones',d.reacciones)+gr('Acciones legendarias',d.legendarias)+
+  (d.notas?'<h4>Notas del DM</h4><p style="white-space:pre-wrap">'+esc(uni(d.notas))+'</p>':'')+'<div style="clear:both"></div></div>'}

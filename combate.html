@@ -1,4 +1,4 @@
-<!doctype html><html lang="es"><head><title>Valdoria - Combate</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=8"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=6"></script><script src="comun.js?v=6"></script>
+<!doctype html><html lang="es"><head><title>Valdoria - Combate</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=9"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=6"></script><script src="comun.js?v=7"></script>
 <style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
 <div class="win"><div id="cab"></div><div class="body">
 <div id="msg" class="err"></div>
@@ -23,6 +23,7 @@
    <button onclick="agregarC()">+ Agregar criatura</button></div>
  </div></details>
 <div id="grid" class="cgrid"></div>
+<div id="fichaOv" onclick="if(event.target===this)cerrarFicha()"></div>
 </div></div>
 <script>
 const OJOA='<svg width="18" height="18" viewBox="0 0 24 24"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" fill="#fff" stroke="#222" stroke-width="2"/><circle cx="12" cy="12" r="3.5" fill="#222"/></svg>';
@@ -38,7 +39,7 @@ function rollDados(s){const r=String(s||'').match(/(\d+)\s*d\s*(\d+)\s*([+\-]\s*
 
 /* ---------- datos ---------- */
 function cDM(c){const pj=c.tipo=='pj',f=pj?PF[c.jugador]:null,p=pj?PERF.find(x=>x.id==c.jugador):null;
- return{id:c.id,tipo:c.tipo,ini:c.ini,dex:c.dex,jugador:c.jugador,alias:c.alias,real:c.nombre,
+ return{id:c.id,tipo:c.tipo,ini:c.ini,dex:c.dex,jugador:c.jugador,alias:c.alias,real:c.nombre,cid:c.criatura_id,
   nombre:pj?((f&&f.datos&&f.datos.nombre)||(p&&p.username)||'?'):(c.alias||c.nombre),
   imagen:pj?null:c.imagen,hp:pj?(f?f.hp:0):c.hp,hpmax:pj?(f?f.hp_max:1):c.hp_max,tmp:pj&&f?f.hp_temp:0,oculto:!c.visible}}
 async function cargarDM(){
@@ -77,7 +78,7 @@ function carta(it,dm){
   (img?'<img src="'+esc(img)+'" alt="" onerror="this.style.display=\'none\'">':'')+
   '<svg viewBox="0 0 100 120" preserveAspectRatio="none">'+sangreSvg(st)+'</svg><span class="cini">'+it.ini+'</span>'+(tir?'<div class="cdado">'+dadoHtml(tir,18)+'</div>':'')+
   (dm&&!pj?'<button class="ojoC" title="Mostrar u ocultar su vida a los jugadores" onclick="verC('+it.id+')">'+(it.oculto?OJOC:OJOA)+'</button>':'')+
-  '</div><div class="cnombre'+nc+'"><span>'+(turno?'▶ ':'')+esc(it.nombre)+'</span></div>'+bar+(dm?ctlDM(it):'')+'</div>'}
+  '</div><div class="cnombre'+nc+'"><span>'+(turno?'▶ ':'')+esc(it.nombre)+'</span></div>'+bar+(dm?ctlDM(it):'')+(dm&&!pj?'<button class="cfbtn" onclick="verFicha('+it.id+')">📜 Ficha</button>':'')+'</div>'}
 function ctlDM(it){const id=it.id,pj=it.tipo=='pj';
  return '<details class="cdm" id="d'+id+'"><summary>⚙ Controles</summary>'+
   'Iniciativa <input type="number" id="in'+id+'" value="'+it.ini+'" style="width:60px" onchange="setIni('+id+',this.value)"><br>'+
@@ -269,6 +270,18 @@ async function tirarDados(){
  if(error||!data){aviso(error||{message:'No se pudo tirar.'});dr.innerHTML='';dKey='';return}
  aviso(null);const t={u:ME.id,d:data.d,t:data.t,ts:'local'+Date.now()};
  TIR[ME.id]=t;dKey=t.ts;dr.innerHTML=dadoHtml(t,26);pintarGrid()}
+
+/* ---------- ficha de criatura (solo DM) ---------- */
+function verFicha(id){
+ const it=LISTA.find(x=>x.id==id);if(!it)return;
+ const cr=CR.find(c=>c.id==it.cid);
+ if(!cr){aviso({message:'Esa criatura ya no está en el bestiario.'});return}
+ aviso(null);
+ const ov=document.getElementById('fichaOv');
+ ov.innerHTML='<div class="fcard"><div class="fcab"><b>'+esc(it.real||cr.nombre)+'</b><span>PG '+it.hp+'/'+it.hpmax+'</span><button onclick="cerrarFicha()">✖</button></div><div class="fcuerpo">'+bloque(cr)+'</div></div>';
+ ov.style.display='flex';document.body.style.overflow='hidden'}
+function cerrarFicha(){const ov=document.getElementById('fichaOv');ov.style.display='none';ov.innerHTML='';document.body.style.overflow=''}
+document.addEventListener('keydown',e=>{if(e.key=='Escape')cerrarFicha()});
 
 (async()=>{
  ME=await cabecera('Combate');if(!ME)return;DM=!!ME.is_dm;if(!DM)initDados();

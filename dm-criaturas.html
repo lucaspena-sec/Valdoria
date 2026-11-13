@@ -1,4 +1,4 @@
-<!doctype html><html lang="es"><head><title>Valdoria - Criaturas</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=6"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=6"></script><script src="comun.js?v=6"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
+<!doctype html><html lang="es"><head><title>Valdoria - Criaturas</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=6"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=6"></script><script src="comun.js?v=7"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
 <div class="win"><div id="cab"></div><div class="body">
 <h2>Criaturas</h2>
 <a href="dm.html">← Volver al panel de jugadores</a>
@@ -43,7 +43,6 @@ const RZ={comun:'Común',infrecuente:'Infrecuente',rara:'Rara',epica:'Épica',le
 const VDS=['0','1/8','1/4','1/2'].concat(Array.from({length:30},(_,i)=>String(i+1)));
 const GR=[['rasgos','Rasgos'],['acciones','Acciones'],['adicionales','Acciones adicionales'],['reacciones','Reacciones'],['legendarias','Acciones legendarias']];
 const DEFC=()=>({desc:'',tamano:'Mediano',alin:'',vd:'1/4',ca:10,caNota:'',pg:10,dados:'',ini:null,vel:'9 m',car:{fue:10,des:10,con:10,int:10,sab:10,car:10},salv:{},hab:Array(18).fill(0),res:'',vul:'',inmD:'',inmE:'',sentidos:'',idiomas:'',rasgos:[],acciones:[],adicionales:[],reacciones:[],legendarias:[],notas:''});
-const pbVD=v=>{const p=String(v||'0').split('/'),n=p.length>1?p[0]/p[1]:+p[0];return n<5?2:n<9?3:n<13?4:n<17?5:n<21?6:n<25?7:n<29?8:9};
 let CR=[],LST={},HB=[];
 const opts=a=>a.map(v=>'<option>'+v+'</option>').join('');
 c_tipo.innerHTML=opts(TIPOS);c_tam.innerHTML=opts(TAM);c_vd.innerHTML=opts(VDS);
@@ -54,19 +53,6 @@ c_car.innerHTML=AB.map(([k,n])=>'<div class="cb"><small>'+n+'</small><input type
 c_salv.innerHTML=AB.map(([k,n])=>'<label><input type="checkbox" style="width:auto" id="cs_'+k+'"> '+n+'</label>').join('');
 grupos.innerHTML=GR.map(([k,t])=>'<h4>'+t+'</h4><div id="gr_'+k+'"></div><button onclick="addE(\''+k+'\')">+ Agregar</button>').join('');
 
-function bloque(c){const d=c.datos||{},car=d.car||{},pb=pbVD(d.vd),m=k=>md(car[k]??10);
- const ini=d.ini!=null&&d.ini!==''?+d.ini:m('des');
- const tabla='<table class="tb2"><tr>'+AB.map(([k])=>'<th>'+k.toUpperCase()+'</th>').join('')+'</tr><tr>'+AB.map(([k])=>'<td>'+(car[k]??10)+'<br>'+sgn(m(k))+'</td>').join('')+'</tr><tr>'+AB.map(([k])=>'<td><small>Salv.</small><br>'+sgn(m(k)+((d.salv||{})[k]?pb:0))+'</td>').join('')+'</tr></table>';
- const habs=HAB.map(([n,a],i)=>[n,a,(d.hab||[])[i]||0]).filter(x=>x[2]).map(x=>x[0]+' '+sgn(m(x[1])+pb*x[2])).join(', ');
- const ln=(t,v)=>v?'<p><b>'+t+'</b> '+esc(uni(v))+'</p>':'';
- const gr=(t,a)=>(a&&a.length)?'<h4>'+t+'</h4>'+a.map(e=>'<p><b><i>'+esc(e.n)+'.</i></b> '+esc(uni(e.t))+'</p>').join(''):'';
- return '<div class="sb">'+(c.imagen?'<img class="foto-cr" src="'+esc(c.imagen)+'" alt="">':'')+
-  '<p><i>'+esc(d.tamano||'')+' '+esc(c.tipo)+(d.alin?', '+esc(d.alin):'')+'</i></p>'+(d.desc?'<p style="white-space:pre-wrap">'+esc(uni(d.desc))+'</p>':'')+
-  '<p><b>CA</b> '+esc(d.ca)+(d.caNota?' ('+esc(d.caNota)+')':'')+' &nbsp; <b>Iniciativa</b> '+sgn(ini)+' ('+(10+ini)+')</p><p><b>PG</b> '+esc(d.pg)+(d.dados?' ('+esc(d.dados)+')':'')+'</p>'+
-  ln('Velocidad',d.vel)+tabla+ln('Habilidades',habs)+ln('Vulnerabilidades',d.vul)+ln('Resistencias',d.res)+ln('Inmunidades a daño',d.inmD)+ln('Inmunidades a estados',d.inmE)+ln('Sentidos',d.sentidos)+ln('Idiomas',d.idiomas)+
-  '<p><b>VD</b> '+esc(d.vd)+' (bonificador de competencia +'+pb+')</p>'+
-  gr('Rasgos',d.rasgos)+gr('Acciones',d.acciones)+gr('Acciones adicionales',d.adicionales)+gr('Reacciones',d.reacciones)+gr('Acciones legendarias',d.legendarias)+
-  (d.notas?'<h4>Notas del DM</h4><p style="white-space:pre-wrap">'+esc(uni(d.notas))+'</p>':'')+'<div style="clear:both"></div></div>'}
 async function cargar(){const{data,error}=await sb.from('criaturas').select('*');if(error){msg.textContent=error.message;return}CR=data||[];pintar()}
 function pintar(){
  const ab=[...document.querySelectorAll('#lista details[open]')].map(d=>d.id),b=fb.value.trim().toLowerCase();
