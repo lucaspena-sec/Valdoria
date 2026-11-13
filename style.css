@@ -172,9 +172,9 @@ textarea{width:100%;font:inherit;padding:8px}
 .cnombre{height:30px;display:flex;align-items:center;justify-content:center;text-align:center;font-weight:bold;font-size:13px;line-height:1.1;margin:3px 0;overflow:hidden}
 .cnombre span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word;min-width:0;max-width:100%}
 .cnombre.m{font-size:11px}.cnombre.l{font-size:10px}
-.cbar{position:relative;height:16px;background:#2a1a1a;border:2px inset #fff;overflow:hidden;margin-bottom:2px}
+.cbar{position:relative;height:18px;background:#2a1a1a;border:2px inset #fff;overflow:hidden;margin-bottom:2px}
 .cbar .fill{position:absolute;left:0;top:0;bottom:0}
-.cbar span{position:relative;z-index:1;color:#fff;font-size:11px;font-weight:bold;line-height:12px;padding-left:4px;text-shadow:1px 1px 2px #000}
+.cbar span{position:relative;z-index:1;display:block;color:#fff;font-size:11px;font-weight:bold;line-height:14px;padding-left:4px;text-shadow:1px 1px 2px #000}
 .cbar.t{height:8px}
 .cdm{font-size:12px;margin-top:3px}
 .cdm input{padding:3px;margin:2px 0}
