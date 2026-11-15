@@ -1,4 +1,4 @@
-<!doctype html><html lang="es"><head><title>Valdoria - Combate</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=10"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=6"></script><script src="comun.js?v=7"></script>
+<!doctype html><html lang="es"><head><title>Valdoria - Combate</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=11"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=6"></script><script src="comun.js?v=10"></script>
 <style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
 <div class="win"><div id="cab"></div><div class="body">
 <div id="msg" class="err"></div>
@@ -28,7 +28,7 @@
 <script>
 const OJOA='<svg width="18" height="18" viewBox="0 0 24 24"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" fill="#fff" stroke="#222" stroke-width="2"/><circle cx="12" cy="12" r="3.5" fill="#222"/></svg>';
 const OJOC='<svg width="18" height="18" viewBox="0 0 24 24"><path d="M2 11c3 5 7 7 10 7s7-2 10-7" fill="none" stroke="#fff" stroke-width="2"/><path d="M5 16l-2 3M12 18v3M19 16l2 3" stroke="#fff" stroke-width="2"/></svg>';
-let ME=null,DM=false,ES={activo:false,ronda:1,turno:null},LISTA=[],CB=[],PF={},PERF=[],CR=[],F=null,ultTurno=null,pend=false,VC=true,VR=true;
+let ME=null,DM=false,ES={activo:false,ronda:1,turno:null},LISTA=[],CB=[],PF={},PERF=[],CR=[],F=null,ultTurno=null,pend=false,VC=true,VR=true,V3=false,VIS={},COMP=new Set();
 const gv=id=>document.getElementById(id).value;
 const cl=(v,a,b)=>Math.max(a,Math.min(b,parseFloat(v)||a));
 const aviso=e=>{msg.textContent=e?e.message:''};
@@ -39,7 +39,7 @@ function rollDados(s){const r=String(s||'').match(/(\d+)\s*d\s*(\d+)\s*([+\-]\s*
 
 /* ---------- datos ---------- */
 function cDM(c){const pj=c.tipo=='pj',f=pj?PF[c.jugador]:null,p=pj?PERF.find(x=>x.id==c.jugador):null;
- return{id:c.id,tipo:c.tipo,ini:c.ini,dex:c.dex,jugador:c.jugador,alias:c.alias,real:c.nombre,cid:c.criatura_id,
+ return{id:c.id,tipo:c.tipo,ini:c.ini,dex:c.dex,jugador:c.jugador,alias:c.alias,real:c.nombre,cid:c.criatura_id,vs:c.ver_sangre??c.visible,vb:c.ver_barra??c.visible,vn:c.ver_nums??false,
   nombre:pj?((f&&f.datos&&f.datos.nombre)||(p&&p.username)||'?'):(c.alias||c.nombre),
   imagen:pj?null:c.imagen,hp:pj?(f?f.hp:0):c.hp,hpmax:pj?(f?f.hp_max:1):c.hp_max,tmp:pj&&f?f.hp_temp:0,oculto:!c.visible}}
 async function cargarDM(){
@@ -51,7 +51,7 @@ async function cargarJug(){
  const{data,error}=await sb.rpc('combate_ver');if(error){aviso(error);return false}
  ES={activo:!!data.activo,ronda:data.ronda||1,turno:data.turno};LISTA=data.lista||[];return true}
 async function cargar(){
- const[ok]=await Promise.all([DM?cargarDM():cargarJug(),cargarTir()]);if(!ok)return;
+ const[ok]=await Promise.all([DM?cargarDM():cargarJug(),cargarTir(),DM||cargarVis(),DM||cargarComp()]);if(!ok)return;
  pintar();if(!DM)await cargarMio()}
 
 /* ---------- pantalla ---------- */
@@ -66,19 +66,21 @@ function pintarBar(){if(!DM)return;
  dmBar.style.display='block';
  dmBar.innerHTML=ES.activo?'<button onclick="siguiente()">➡ Siguiente turno</button> <button onclick="terminar()">🏁 Terminar combate</button>':'<button onclick="iniciar()" style="font-size:16px;padding:10px 22px">⚔ Iniciar combate</button>'}
 function carta(it,dm){
- const pj=it.tipo=='pj',hay=pj||dm||!it.oculto;
+ const pj=it.tipo=='pj',vi=pj?null:(dm?{s:it.vs,b:it.vb,n:it.vn}:(VIS[it.id]||{s:!it.oculto,b:!it.oculto,n:false}));
  const pct=(pj||dm)?(it.hpmax>0?it.hp/it.hpmax*100:100):(it.pct==null?null:it.pct);
- const st=(hay&&pct!=null)?(pct<=0?4:pct<=25?3:pct<=50?2:pct<=75?1:0):0;
+ const st=((pj||dm||vi.s)&&pct!=null)?(pct<=0?4:pct<=25?3:pct<=50?2:pct<=75?1:0):0;
  const turno=ES.activo&&ES.turno==it.id,img=pj?urlRet(it.jugador):it.imagen,tir=pj?TIR[it.jugador]:null,nl=it.nombre.length+(turno?2:0),nc=nl>20?' l':nl>12?' m':'';
  let bar;
  if(pj)bar='<div class="cbar"><div class="fill rojo" style="width:'+cl(pct,0,100)+'%"></div><span>'+it.hp+'/'+it.hpmax+(it.tmp?' +'+it.tmp:'')+'</span></div>'+(it.tmp>0?'<div class="cbar t"><div class="fill azul" style="width:'+Math.min(100,it.tmp/Math.max(1,it.hpmax)*100)+'%"></div></div>':'');
- else if(dm||!it.oculto)bar='<div class="cbar"><div class="fill rojo" style="width:'+cl(pct,0,100)+'%"></div>'+(dm?'<span>'+it.hp+'/'+it.hpmax+'</span>':'')+'</div>';
- else bar='<div class="cbar"><span>?</span></div>';
+  else if(dm)bar='<div class="cbar"><div class="fill rojo" style="width:'+cl(pct,0,100)+'%"></div><span>'+it.hp+'/'+it.hpmax+'</span></div>';
+  else if(vi.b&&pct!=null)bar='<div class="cbar"><div class="fill rojo" style="width:'+cl(pct,0,100)+'%"></div>'+(vi.n&&vi.hp!=null?'<span>'+vi.hp+'/'+vi.hpmax+'</span>':'')+'</div>';
+  else if(vi.s)bar='<div class="cbarx"></div>';
+  else bar='<div class="cbar"><span>?</span></div>';
  return '<div class="ccard '+(pj?'cpj':'ccr')+(turno?' turno':'')+(dm&&it.oculto?' ocultoDM':'')+'"><div class="cfoto"><div class="ph">'+(pj?'🧙':'👹')+'</div>'+
   (img?'<img src="'+esc(img)+'" alt="" onerror="this.style.display=\'none\'">':'')+
   '<svg viewBox="0 0 100 120" preserveAspectRatio="none">'+sangreSvg(st)+'</svg><span class="cini">'+it.ini+'</span>'+(tir?'<div class="cdado">'+dadoHtml(tir,18)+'</div>':'')+
-  (dm&&!pj?'<button class="ojoC" title="Mostrar u ocultar su vida a los jugadores" onclick="verC('+it.id+')">'+(it.oculto?OJOC:OJOA)+'</button>':'')+
-  '</div><div class="cnombre'+nc+'"><span>'+(turno?'▶ ':'')+esc(it.nombre)+'</span></div>'+bar+(dm?ctlDM(it):'')+(dm&&!pj?'<button class="cfbtn" onclick="verFicha('+it.id+')">📜 Ficha</button>':'')+'</div>'}
+   (dm&&!pj?(V3?vis3(it):'<button class="ojoC" title="Mostrar u ocultar su vida a los jugadores" onclick="verC('+it.id+')">'+(it.oculto?OJOC:OJOA)+'</button>'):'')+
+  '</div><div class="cnombre'+nc+'"><span>'+(turno?'▶ ':'')+esc(it.nombre)+'</span></div>'+bar+(dm?ctlDM(it):'')+(dm&&!pj?'<button class="cfbtn" onclick="verFicha('+it.id+')">📜 Ficha</button>':'')+(pj&&(dm||(it.jugador!=ME.id&&COMP.has(it.jugador)))?'<button class="cfbtn" onclick="verFichaPJ(\''+it.jugador+'\')">📜 Ficha</button>':'')+'</div>'}
 function ctlDM(it){const id=it.id,pj=it.tipo=='pj';
  return '<details class="cdm" id="d'+id+'"><summary>⚙ Controles</summary>'+
   'Iniciativa <input type="number" id="in'+id+'" value="'+it.ini+'" style="width:60px" onchange="setIni('+id+',this.value)"><br>'+
@@ -122,7 +124,7 @@ function opcionesCR(){const b=crq.value.trim().toLowerCase(),v=crs.value;
 async function agregarC(){const c=CR.find(x=>x.id==parseInt(crs.value));if(!c){aviso({message:'Elegí una criatura de la lista.'});return}
  const n=cl(cant.value,1,20),d=c.datos||{},dex=md((d.car||{}).des??10),filas=[];
  for(let i=1;i<=n;i++){const hp=Math.max(1,tpg.checked?(rollDados(d.dados)||d.pg||1):(d.pg||1)),ini=cini.value.trim()===''?tirar20(dex):(parseInt(cini.value)||0);
-  filas.push({tipo:'criatura',criatura_id:c.id,nombre:n>1?c.nombre+' '+i:c.nombre,imagen:c.imagen||'',hp,hp_max:hp,ini,dex,visible:true})}
+  filas.push({tipo:'criatura',criatura_id:c.id,nombre:n>1?c.nombre+' '+i:c.nombre,imagen:c.imagen||'',hp,hp_max:hp,ini,dex,visible:true,...v3k(true,true,false)})}
  await q(sb.from('combatientes').insert(filas))}
 const ahora=()=>new Date().toISOString();
 async function iniciar(){const vivos=LISTA.filter(x=>!(x.tipo=='criatura'&&x.hp<=0));if(!vivos.length){aviso({message:'Agregá combatientes primero.'});return}
@@ -143,8 +145,8 @@ const nomCR=x=>{const c=CR.find(y=>y.id==x.cid);return c?c.nombre:x.nombre};
 function pintarEnc(){encEl.innerHTML=ENC.map(e=>'<div class="box"><b>'+esc(e.nombre)+'</b><br><small>'+((e.datos.criaturas||[]).map(x=>esc(nomCR(x))+(x.cant>1?' ×'+x.cant:'')).join(', ')||'<i>vacío</i>')+'</small><br>'+
   '<button onclick="activarEnc('+e.id+')">▶ Activar</button> <button onclick="activarEnc('+e.id+',true)" title="Agrega sus criaturas al combate en curso">➕ Sumar</button> <button onclick="reemplazarEnc('+e.id+')" title="Reemplaza su contenido con lo que tenés armado ahora">⟳ Actualizar</button> <button onclick="renombrarEnc('+e.id+')">✎</button> <button onclick="borrarEnc('+e.id+')">🗑</button></div>').join('')||'<i>Todavía no guardaste encuentros.</i>'}
 function entradasActuales(){const m={};
- CB.filter(c=>c.tipo=='criatura'&&c.criatura_id).forEach(c=>{const k=c.criatura_id+'|'+(c.alias||'')+'|'+c.visible;
-  (m[k]=m[k]||{cid:c.criatura_id,nombre:nomCR({cid:c.criatura_id,nombre:c.nombre.replace(/ \d+$/,'')}),alias:c.alias||'',visible:c.visible,cant:0}).cant++});
+ CB.filter(c=>c.tipo=='criatura'&&c.criatura_id).forEach(c=>{const s=c.ver_sangre??c.visible,b=c.ver_barra??c.visible,n=c.ver_nums??false,k=c.criatura_id+'|'+(c.alias||'')+'|'+s+b+n;
+  (m[k]=m[k]||{cid:c.criatura_id,nombre:nomCR({cid:c.criatura_id,nombre:c.nombre.replace(/ \d+$/,'')}),alias:c.alias||'',visible:s||b,vs:s,vb:b,vn:n,cant:0}).cant++});
  return Object.values(m)}
 async function guardarEnc(){const ent=entradasActuales();if(!ent.length){aviso({message:'Armá primero el combate con al menos una criatura.'});return}
  const n=prompt('Nombre del encuentro (por ejemplo: Emboscada en el camino)');if(!n||!n.trim())return;
@@ -159,8 +161,9 @@ async function borrarEnc(id){const e=ENC.find(x=>x.id==id);if(!confirm('¿Elimin
 function filasEnc(e,existentes){const filas=[],falt=[];
  (e.datos.criaturas||[]).forEach(x=>{const c=CR.find(y=>y.id==x.cid);if(!c){falt.push(x.nombre);return}
   const d=c.datos||{},dex=md((d.car||{}).des??10),ya=existentes.filter(z=>z.criatura_id==c.id).length;
-  for(let i=1;i<=x.cant;i++){const hp=Math.max(1,tpg.checked?(rollDados(d.dados)||d.pg||1):(d.pg||1));
-   filas.push({tipo:'criatura',jugador:null,criatura_id:c.id,nombre:(x.cant>1||ya>0)?c.nombre+' '+(ya+i):c.nombre,alias:x.alias||'',imagen:c.imagen||'',hp,hp_max:hp,ini:tirar20(dex),dex,visible:x.visible!==false})}});
+  const vs0=x.vs??(x.visible!==false),vb0=x.vb??(x.visible!==false),vn0=x.vn??false;
+   for(let i=1;i<=x.cant;i++){const hp=Math.max(1,tpg.checked?(rollDados(d.dados)||d.pg||1):(d.pg||1));
+   filas.push({tipo:'criatura',jugador:null,criatura_id:c.id,nombre:(x.cant>1||ya>0)?c.nombre+' '+(ya+i):c.nombre,alias:x.alias||'',imagen:c.imagen||'',hp,hp_max:hp,ini:tirar20(dex),dex,visible:vs0||vb0,...v3k(vs0,vb0,vn0)})}});
  return{filas,falt}}
 async function activarEnc(id,sumar){const e=ENC.find(x=>x.id==id);if(!e)return;
  if(!sumar&&CB.length&&!confirm('Esto reemplaza el combate actual por «'+e.nombre+'». ¿Seguir?'))return;
@@ -169,7 +172,7 @@ async function activarEnc(id,sumar){const e=ENC.find(x=>x.id==id);if(!e)return;
  if(!sumar){
   await sb.from('combatientes').delete().gte('id',0);await sb.rpc('tiradas_limpiar');
   await sb.from('combate_estado').update({activo:false,ronda:1,turno:null,actualizado:ahora()}).eq('id',1);
-  if(encPJ.checked)PERF.filter(p=>!p.is_dm&&PF[p.id]).forEach(p=>filas.push({tipo:'pj',jugador:p.id,criatura_id:null,nombre:p.username,alias:'',imagen:'',hp:1,hp_max:1,ini:tirar20(dexPJ(p.id)),dex:dexPJ(p.id),visible:true}))}
+  if(encPJ.checked)PERF.filter(p=>!p.is_dm&&PF[p.id]).forEach(p=>filas.push({tipo:'pj',jugador:p.id,criatura_id:null,nombre:p.username,alias:'',imagen:'',hp:1,hp_max:1,ini:tirar20(dexPJ(p.id)),dex:dexPJ(p.id),visible:true,...v3k(true,true,false)}))}
  const{error}=await sb.from('combatientes').insert(filas);if(error){aviso(error);return}
  await cargar();
  if(falt.length)aviso({message:'Estas criaturas ya no están en el bestiario y se omitieron: '+falt.join(', ')});
@@ -191,7 +194,8 @@ function pintarMio(){
   '<div class="hprow"><div class="bar"><div class="fill azul" style="width:'+Math.min(100,F.hp_temp/Math.max(1,F.hp_max)*100)+'%"></div><span>HP temporales: '+F.hp_temp+'</span></div><div class="ctl"><input type="number" id="mt" min="1" value="1"><button onclick="mCambiar(\'tmp\',-1)">−</button><button onclick="mCambiar(\'tmp\',1)">+</button></div></div>'+
   '<div class="muerte">Salvaciones contra muerte — Éxitos: '+[0,1,2].map(i=>'<span onclick="mMu(\'ok\','+i+')">'+(i<m.ok?'☑':'☐')+'</span>').join('')+' Fallos: '+[0,1,2].map(i=>'<span onclick="mMu(\'fail\','+i+')">'+(i<m.fail?'☒':'☐')+'</span>').join('')+'</div>'+
   '<p><b>Tiradas de salvación:</b> '+AB.map(([k])=>k.toUpperCase()+' '+sgn(md(car[k]??10)+(salv[k]?pb:0))+(salv[k]?'●':'')).join(' · ')+'</p>';
- const filas=(d.cmb||[]).map((c,i)=>[c,i]).filter(([c])=>(c.n||'').trim());
+ if('compartida' in F)h+='<label class="chk" style="display:block;margin-top:8px"><input type="checkbox" style="width:auto" '+(F.compartida?'checked':'')+' onchange="setComp(this.checked)"> Dejar que otros jugadores vean mi ficha</label>';
+  const filas=(d.cmb||[]).map((c,i)=>[c,i]).filter(([c])=>(c.n||'').trim());
  if(filas.length)h+='<h4>Usos y espacios</h4>'+filas.map(([c,i])=>'<div class="cmbrow"><b style="flex:1 1 120px">'+esc(c.n)+'</b><span><b>'+c.act+'</b> / '+c.max+'</span><span><button onclick="mCmb('+i+',-1)">−</button><button onclick="mCmb('+i+',1)">+</button></span></div>').join('');
  const pre=(d.conjuros||[]).filter(c=>c.prep).sort((x,y)=>x.nv-y.nv||x.n.localeCompare(y.n,'es'));
  const grs=RG.map(([k,t])=>[k,t,(d[k]||[]).filter(e=>(e.n||'').trim()||(e.t||'').trim())]).filter(g=>g[2].length);
@@ -199,6 +203,8 @@ function pintarMio(){
  if(VC&&pre.length)h+='<h4>Conjuros preparados</h4>'+[...new Set(pre.map(c=>c.nv))].map(n=>'<h5 style="margin:6px 0 2px">'+(n==0?'Trucos':'Nivel '+n)+'</h5>'+pre.filter(c=>c.nv==n).map(c=>'<details id="mc'+c.id+'"><summary><b>'+esc(c.n)+'</b> <small>'+esc(c.esc||'')+'</small></summary>'+cartaCj(c)+'</details>').join('')).join('');
  if(VR&&grs.length)h+='<h4>Rasgos y talentos</h4>'+grs.map(([k,t,a])=>'<details id="mr_'+k+'" class="box"><summary><b>'+t+'</b> ('+a.length+')</summary>'+a.map((e,i)=>'<details id="mrf_'+k+i+'"><summary><b>'+esc(e.n||'(sin nombre)')+'</b></summary><p style="white-space:pre-wrap">'+esc(uni(e.t||''))+'</p></details>').join('')+'</details>').join('');
  miBody.innerHTML=h;ab.forEach(id=>{const e=document.getElementById(id);if(e)e.open=true})}
+async function setComp(on){if(!F)return;pend=true;const{error}=await sb.from('fichas').update({compartida:on}).eq('user_id',ME.id);pend=false;
+ if(error){aviso(error);F.compartida=!on;pintarMio();return}F.compartida=on;aviso(null);cargar()}
 const RG=[['rasgosEsp','Rasgos de especie'],['dotes','Dotes'],['rasgosClase','Rasgos de clase'],['rasgosSub','Rasgos de subclase']];
 function verSec(k,v){if(k=='miConj')VC=v;else VR=v;try{localStorage.setItem(k,v?'1':'0')}catch(e){}if(document.activeElement)document.activeElement.blur();pintarMio()}
 function mCambiar(t,s){const n=parseInt(gv(t=='hp'?'mh':'mt'));if(!(n>0)||!F)return;
@@ -271,20 +277,43 @@ async function tirarDados(){
  aviso(null);const t={u:ME.id,d:data.d,t:data.t,ts:'local'+Date.now()};
  TIR[ME.id]=t;dKey=t.ts;dr.innerHTML=dadoHtml(t,26);pintarGrid()}
 
-/* ---------- ficha de criatura (solo DM) ---------- */
+/* ---------- visibilidad de criaturas (sangre / barra / números) ---------- */
+const v3k=(s,b,n)=>V3?{ver_sangre:s,ver_barra:b,ver_nums:n}:{};
+async function probarV3(){const{error}=await sb.from('combatientes').select('ver_sangre').limit(1);V3=!error}
+async function cargarVis(){const{data,error}=await sb.rpc('combate_vis');if(error||!Array.isArray(data))return true;const n={};data.forEach(x=>n[x.id]=x);VIS=n;return true}
+async function cargarComp(){const{data,error}=await sb.rpc('fichas_compartidas');if(error||!Array.isArray(data))return true;COMP=new Set(data);return true}
+const vis3=it=>'<div class="vis3">'+[['s','🩸','Sangre',it.vs],['b','📊','Barra de vida',it.vb],['n','🔢','Números de la barra',it.vn]].map(([k,ic,t,on])=>
+ '<button class="vb'+(on?' on':'')+(k=='n'&&!it.vb?' dis':'')+'" title="'+t+': '+(on?'los jugadores lo ven':'oculto para los jugadores')+'" onclick="v3('+it.id+',\''+k+'\')">'+ic+'</button>').join('')+'</div>';
+function v3(id,k){const c=CB.find(x=>x.id==id);if(!c)return;
+ let s=c.ver_sangre??c.visible,b=c.ver_barra??c.visible,n=c.ver_nums??false;
+ if(k=='s')s=!s;
+ else if(k=='b'){b=!b;if(!b)n=false}
+ else{if(!b){aviso({message:'Prendé primero la barra para poder mostrar los números.'});return}n=!n}
+ aviso(null);upd(id,{ver_sangre:s,ver_barra:b,ver_nums:n,visible:s||b})}
+
+/* ---------- hoja de ficha (criaturas y jugadores) ---------- */
+function abrirHoja(tit,pg,html){
+ const ov=document.getElementById('fichaOv');
+ ov.innerHTML='<div class="fcard"><div class="fcab"><b>'+tit+'</b><span>'+pg+'</span><button onclick="cerrarFicha()">✖</button></div><div class="fcuerpo">'+html+'</div></div>';
+ ov.style.display='flex';document.body.style.overflow='hidden'}
 function verFicha(id){
  const it=LISTA.find(x=>x.id==id);if(!it)return;
  const cr=CR.find(c=>c.id==it.cid);
  if(!cr){aviso({message:'Esa criatura ya no está en el bestiario.'});return}
+ aviso(null);abrirHoja(esc(it.real||cr.nombre),'PG '+it.hp+'/'+it.hpmax,bloque(cr))}
+async function verFichaPJ(uid){
+ let f=null;
+ if(DM)f=PF[uid];
+ else{const{data,error}=await sb.rpc('ficha_ver',{p_user:uid});if(error){aviso(error);return}f=data}
+ if(!f){aviso({message:'Ese jugador todavía no abrió su ficha.'});return}
  aviso(null);
- const ov=document.getElementById('fichaOv');
- ov.innerHTML='<div class="fcard"><div class="fcab"><b>'+esc(it.real||cr.nombre)+'</b><span>PG '+it.hp+'/'+it.hpmax+'</span><button onclick="cerrarFicha()">✖</button></div><div class="fcuerpo">'+bloque(cr)+'</div></div>';
- ov.style.display='flex';document.body.style.overflow='hidden'}
+ const d=f.datos||{},it=LISTA.find(x=>x.jugador==uid);
+ abrirHoja(esc(d.nombre||(it&&it.nombre)||'Jugador'),'PG '+f.hp+'/'+f.hp_max+(f.hp_temp?' (+'+f.hp_temp+')':''),bloquePJ(f,{notas:DM,img:urlRet(uid)}))}
 function cerrarFicha(){const ov=document.getElementById('fichaOv');ov.style.display='none';ov.innerHTML='';document.body.style.overflow=''}
 document.addEventListener('keydown',e=>{if(e.key=='Escape')cerrarFicha()});
 
 (async()=>{
- ME=await cabecera('Combate');if(!ME)return;DM=!!ME.is_dm;if(!DM)initDados();
+ ME=await cabecera('Combate');if(!ME)return;DM=!!ME.is_dm;if(!DM)initDados();else await probarV3();
  try{mi.open=localStorage.getItem('miCombate')!=='0';VC=localStorage.getItem('miConj')!=='0';VR=localStorage.getItem('miRasgos')!=='0'}catch(e){}
  if(DM){prep.style.display='block';const{data}=await sb.from('criaturas').select('id,nombre,tipo,imagen,datos');CR=(data||[]).sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));opcionesCR();await cargarEnc()}
  await cargar();setInterval(()=>{if(!document.hidden)cargar()},4000)})();

@@ -181,3 +181,28 @@ function bloque(c){const d=c.datos||{},car=d.car||{},pb=pbVD(d.vd),m=k=>md(car[k
   '<p><b>VD</b> '+esc(d.vd)+' (bonificador de competencia +'+pb+')</p>'+
   gr('Rasgos',d.rasgos)+gr('Acciones',d.acciones)+gr('Acciones adicionales',d.adicionales)+gr('Reacciones',d.reacciones)+gr('Acciones legendarias',d.legendarias)+
   (d.notas?'<h4>Notas del DM</h4><p style="white-space:pre-wrap">'+esc(uni(d.notas))+'</p>':'')+'<div style="clear:both"></div></div>'}
+
+// ---- Ficha de jugador, con el mismo formato que la de las criaturas (la usa combate) ----
+function bloquePJ(f,o){o=o||{};
+ const d=f.datos||{},car=d.car||{},salv=d.salv||{},hab=d.hab||[],nv=Math.max(1,Math.min(20,parseInt(d.nivel)||1)),pb=Math.ceil(nv/4)+1,m=k=>md(car[k]??10);
+ const tabla='<table class="tb2"><tr>'+AB.map(([k])=>'<th>'+k.toUpperCase()+'</th>').join('')+'</tr><tr>'+AB.map(([k])=>'<td>'+(car[k]??10)+'<br>'+sgn(m(k))+'</td>').join('')+'</tr><tr>'+AB.map(([k])=>'<td><small>Salv.'+(salv[k]?' ●':'')+'</small><br>'+sgn(m(k)+(salv[k]?pb:0))+'</td>').join('')+'</tr></table>';
+ const habs=HAB.map(([n,a],i)=>[n,a,hab[i]||0]).filter(x=>x[2]).map(x=>x[0]+' '+sgn(m(x[1])+pb*x[2])+(x[2]==2?' ◆':' ●')).join(', ');
+ const perc=10+m('sab')+pb*(hab[11]||0);
+ const ln=(t,v)=>v?'<p><b>'+t+'</b> '+esc(uni(String(v)))+'</p>':'';
+ const lim=a=>(a||[]).filter(e=>(e.n||'').trim()||(e.t||'').trim());
+ const gr=(t,a)=>{a=lim(a);return a.length?'<h4>'+t+'</h4>'+a.map(e=>'<p><b><i>'+esc(e.n||'(sin nombre)')+'.</i></b> '+esc(uni(e.t||''))+'</p>').join(''):''};
+ const cab=[(d.clase||'')+(d.sub?' ('+d.sub+')':'')+' nivel '+nv,d.esp,d.tras,d.ali].filter(Boolean).map(esc).join(' · ');
+ let cj='';
+ if(d.conj){const ab=AB.find(x=>x[0]==d.conj),pre=(d.conjuros||[]).filter(x=>x.prep).sort((x,y)=>x.nv-y.nv||String(x.n).localeCompare(String(y.n),'es'));
+  cj='<p><b>Conjuros</b> ('+esc(ab?ab[1]:'')+') CD '+(8+pb+m(d.conj))+' · Ataque '+sgn(pb+m(d.conj))+'</p>'+
+   [...new Set(pre.map(x=>x.nv))].map(n=>'<p><b>'+(n==0?'Trucos':'Nivel '+n)+':</b> '+pre.filter(x=>x.nv==n).map(x=>esc(x.n)).join(', ')+'</p>').join('')}
+ const usos=(d.cmb||[]).filter(x=>(x.n||'').trim()).map(x=>esc(x.n)+' '+x.act+'/'+x.max).join(' · ');
+ return '<div class="sb">'+(o.img?'<img class="foto-cr" src="'+esc(o.img)+'" alt="" onerror="this.style.display=\'none\'">':'')+
+  '<p><i>'+cab+'</i></p>'+
+  '<p><b>CA</b> '+esc(d.ca||'—')+' &nbsp; <b>Iniciativa</b> '+sgn(m('des'))+' ('+(10+m('des'))+')</p>'+
+  '<p><b>PG</b> '+f.hp+'/'+f.hp_max+(f.hp_temp?' (+'+f.hp_temp+' temporales)':'')+'</p>'+
+  ln('Velocidad',d.vel)+tabla+ln('Habilidades',habs)+ln('Percepción pasiva',perc)+ln('Idiomas',d.idiomas)+
+  '<p><b>Bonificador de competencia</b> +'+pb+'</p>'+cj+(usos?'<p><b>Usos y espacios</b> '+usos+'</p>':'')+
+  gr('Rasgos de especie',d.rasgosEsp)+gr('Dotes',d.dotes)+gr('Rasgos de clase',d.rasgosClase)+gr('Rasgos de subclase',d.rasgosSub)+
+  (o.notas&&d.notas?'<h4>Notas del jugador</h4><p style="white-space:pre-wrap">'+esc(uni(d.notas))+'</p>':'')+'<div style="clear:both"></div></div>'}
+
