@@ -1,4 +1,4 @@
-<!doctype html><html lang="es"><head><title>Valdoria - Combate</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=12"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=6"></script><script src="comun.js?v=10"></script>
+<!doctype html><html lang="es"><head><title>Valdoria - Combate</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=13"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=6"></script><script src="comun.js?v=10"></script>
 <style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
 <div class="win"><div id="cab"></div><div class="body">
 <div id="msg" class="err"></div>
@@ -22,6 +22,7 @@
    <label><input type="checkbox" id="tpg" style="width:auto"> Tirar los PG con los dados</label><br>
    <button onclick="agregarC()">+ Agregar criatura</button></div>
  </div></details>
+<details id="loot" class="box" style="display:none"><summary><b>🎁 Loot</b></summary><div id="lootBody"></div></details>
 <div id="grid" class="cgrid"></div>
 <div id="fichaOv" onclick="if(event.target===this)cerrarFicha()"></div>
 </div></div>
@@ -296,6 +297,120 @@ async function tirarDados(){
  aviso(null);const t={u:ME.id,d:data.d,t:data.t,ts:'local'+Date.now()};
  TIR[ME.id]=t;dKey=t.ts;dr.innerHTML=dadoHtml(t,26);pintarGrid()}
 
+/* ---------- loot (solo DM) ---------- */
+let LT={oro:'',modoOro:'iguales',items:[],sel:{},pre:null,saved:[],cat:[],q:'',fc:'',fr:'',edit:null,inf:'',ask:true};
+const barajar=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const ltJug=()=>PERF.filter(p=>!p.is_dm);
+const ltNom=id=>{const p=PERF.find(x=>x.id==id);return p?nomPJ(p):'(jugador)'};
+const ltSel=()=>ltJug().filter(p=>LT.sel[p.id]).map(p=>p.id);
+function ltDefecto(p){const f=PF[p.id],vivo=!!(f&&f.hp>0),enC=CB.filter(c=>c.tipo=='pj');return enC.length?(vivo&&!!enC.find(c=>c.jugador==p.id)):vivo}
+function ltSync(forzar){ltJug().forEach(p=>{if(forzar||!(p.id in LT.sel))LT.sel[p.id]=ltDefecto(p)})}
+async function ltIniciar(){
+ const[a,b]=await Promise.all([sb.from('items').select('id,nombre,categoria,rareza').order('nombre'),sb.from('loots').select('*').order('nombre')]);
+ LT.cat=a.data||[];LT.saved=b.error?null:(b.data||[]);
+ try{LT.ask=localStorage.getItem('lootAsk')!=='0'}catch(e){}
+ ltSync(true);ltPintar();
+ loot.addEventListener('toggle',()=>{if(loot.open){ltSync(false);ltPintar()}})}
+async function ltRecargar(){const b=await sb.from('loots').select('*').order('nombre');LT.saved=b.error?null:(b.data||[]);ltPintar()}
+
+/* reparto: oro en partes iguales (el resto, de a 1 moneda, a jugadores sorteados) e ítems parejos */
+function ltPlan(oro,modoOro,items,selIds){
+ const ids=barajar(selIds),n=ids.length,por={},adv=[];ids.forEach(u=>por[u]={oro:0,items:[]});
+ const T=Math.max(0,parseInt(oro)||0);
+ if(T&&n){if(modoOro=='cada')ids.forEach(u=>por[u].oro=T);else{const base=Math.floor(T/n),r=T%n;ids.forEach((u,i)=>por[u].oro=base+(i<r?1:0))}}
+ const pool=[];
+ items.forEach(l=>{const c=Math.max(1,parseInt(l.cant)||1),it={id:l.id,nombre:l.nombre};
+  if(l.modo=='cada')ids.forEach(u=>{for(let k=0;k<c;k++)por[u].items.push(it)});
+  else if(l.modo=='para'){if(l.para&&por[l.para]){for(let k=0;k<c;k++)por[l.para].items.push(it)}else adv.push('"'+l.nombre+'" va para alguien que no está seleccionado: no se entrega.')}
+  else for(let k=0;k<c;k++)pool.push(it)});
+ barajar(pool).forEach((x,i)=>por[ids[i%n]].items.push(x));
+ return{orden:ids,por,adv}}
+function ltAgrupar(a){const m={};a.forEach(x=>m[x.nombre]=(m[x.nombre]||0)+1);return Object.entries(m).map(([n,c])=>(c>1?c+'× ':'')+esc(n)).join(', ')}
+function ltResumen(P){return P.orden.map(u=>{const r=P.por[u];return ltNom(u)+': '+[r.oro?r.oro+' de oro':'',r.items.length?ltAgrupar(r.items).replace(/&amp;/g,'&'):''].filter(Boolean).join(', ')||'nada'}).join('\n')}
+
+function ltPreHtml(){const P=LT.pre;if(!P)return '';
+ return '<div class="ltpre"><b>👁 Vista previa</b>'+P.orden.map(u=>{const r=P.por[u];return '<div class="ltrow"><b class="pn">'+esc(ltNom(u))+'</b>'+(r.oro?'<span>🪙 '+r.oro+'</span>':'')+(r.items.length?'<span>'+ltAgrupar(r.items)+'</span>':'')+(!r.oro&&!r.items.length?'<i>nada</i>':'')+'</div>'}).join('')+
+  (P.adv.length?'<div class="ltadv">'+P.adv.map(x=>esc(x)).join('<br>')+'</div>':'')+
+  '<div class="ltrow" style="margin-top:6px"><button onclick="ltVista()">🎲 Volver a sortear</button><button onclick="ltConfirmar()"><b>✔ Confirmar y dar</b></button><button onclick="LT.pre=null;ltPintar()">Cancelar</button></div></div>'}
+function ltInval(){LT.pre=null;const p=document.getElementById('ltPre');if(p)p.innerHTML=''}
+function ltRes(){const el=document.getElementById('ltRes');if(!el)return;
+ const q=LT.q.trim().toLowerCase(),r=LT.cat.filter(i=>(!q||i.nombre.toLowerCase().includes(q))&&(!LT.fc||i.categoria==LT.fc)&&(!LT.fr||i.rareza==LT.fr));
+ el.innerHTML=!LT.cat.length?'<i>No hay ítems en el catálogo.</i>':!r.length?'<i>Sin resultados.</i>':
+  r.slice(0,30).map(i=>'<div class="ltrow"><span class="pn">'+esc(i.nombre)+' <small>'+esc(CATN[i.categoria]||'')+' · '+esc(RARN[i.rareza]||'')+'</small></span><button onclick="ltAdd(\''+i.id+'\')">＋</button></div>').join('')+(r.length>30?'<small>Mostrando 30 de '+r.length+': afiná la búsqueda.</small>':'')}
+function ltPintar(){
+ const el=document.getElementById('lootBody');if(!el)return;
+ const js=ltJug(),enC=CB.filter(c=>c.tipo=='pj');
+ const op=(o,v)=>Object.entries(o).map(([k,t])=>'<option value="'+k+'"'+(v==k?' selected':'')+'>'+t+'</option>').join('');
+ let h='<h4>👥 Para quién</h4><div class="ltrow"><button onclick="ltSobrev()">❤ Sobrevivientes</button><button onclick="ltTodos(true)">Todos</button><button onclick="ltTodos(false)">Ninguno</button></div>';
+ h+=js.map(p=>{const f=PF[p.id],hp=f?f.hp+'/'+f.hp_max:'sin ficha',vivo=f&&f.hp>0,en=enC.find(c=>c.jugador==p.id);
+  return '<label class="ltrow"><input type="checkbox" style="width:auto;margin:0" '+(LT.sel[p.id]?'checked':'')+' onchange="ltTog(\''+p.id+'\',this.checked)"> <span class="pn">'+esc(nomPJ(p))+'</span><small>'+(en?'⚔ ':'')+(vivo?'❤ ':'💀 ')+hp+'</small></label>'}).join('')||'<i>No hay jugadores.</i>';
+ h+='<h4>🪙 Oro</h4><div class="ltrow"><input type="number" id="ltOro" min="0" placeholder="0" value="'+esc(LT.oro)+'" oninput="LT.oro=this.value;ltInval()"><select onchange="LT.modoOro=this.value;ltInval()">'+op({iguales:'Partes iguales',cada:'X a cada uno'},LT.modoOro)+'</select></div><small>En partes iguales, lo que sobra se reparte de a 1 moneda a jugadores sorteados.</small>';
+ h+='<h4>🎒 Ítems</h4><div class="ltrow"><input id="ltQ" placeholder="Buscar ítem" value="'+esc(LT.q)+'" oninput="LT.q=this.value;ltRes()"><select onchange="LT.fc=this.value;ltRes()"><option value="">Todas las categorías</option>'+op(CATN,LT.fc)+'</select><select onchange="LT.fr=this.value;ltRes()"><option value="">Toda rareza</option>'+op(RARN,LT.fr)+'</select></div><div id="ltRes" class="ltres"></div>';
+ h+='<h5 style="margin:8px 0 2px">Lo que se va a repartir</h5>'+(LT.items.length?LT.items.map((l,i)=>'<div class="ltrow"><b class="pn">'+esc(l.nombre)+'</b><span>×</span><input type="number" min="1" max="99" value="'+l.cant+'" oninput="ltCant('+i+',this.value)"><select onchange="ltModo('+i+',this.value)">'+op({repartir:'Repartir',cada:'A cada uno',para:'Para…'},l.modo)+'</select>'+
+  (l.modo=='para'?'<select onchange="ltPara('+i+',this.value)"><option value="">¿Quién?</option>'+js.filter(p=>LT.sel[p.id]).map(p=>'<option value="'+p.id+'"'+(l.para==p.id?' selected':'')+'>'+esc(nomPJ(p))+'</option>').join('')+'</select>':'')+
+  '<button onclick="ltQuitar('+i+')">✖</button></div>').join(''):'<i>Todavía no agregaste ítems.</i>');
+ h+='<div class="ltrow" style="margin-top:8px"><button onclick="ltVista()">👁 Vista previa</button><button onclick="ltGuardar()">💾 '+(LT.edit?'Actualizar “'+esc(LT.edit.nombre)+'”':'Guardar como loot')+'</button>'+(LT.edit?'<button onclick="ltSoltar()">Nuevo</button>':'')+'</div>';
+ h+='<div id="ltPre">'+ltPreHtml()+'</div><div id="ltInf">'+LT.inf+'</div>';
+ h+='<h4>📦 Loots preparados</h4><label><input type="checkbox" style="width:auto" '+(LT.ask?'':'checked')+' onchange="ltAsk(this.checked)"> Dar sin confirmar</label>';
+ h+=LT.saved===null?'<br><i>Para guardar loots corré setup_loot.sql en Supabase.</i>':(LT.saved.length?LT.saved.map(l=>{const d=l.datos||{},n=(d.items||[]).length;return '<div class="ltrow"><b class="pn">'+esc(l.nombre)+' <small>'+((d.oro&&d.oro.monto)?'🪙 '+d.oro.monto+' · ':'')+n+' ítem'+(n==1?'':'s')+'</small></b><button onclick="ltDar('+l.id+')">▶ Dar</button><button onclick="ltCargar('+l.id+')" title="Cargar para editar">✏</button><button onclick="ltDup('+l.id+')" title="Duplicar">📄</button><button onclick="ltBorrar('+l.id+')" title="Borrar">🗑</button></div>'}).join(''):'<br><i>Todavía no guardaste loots.</i>');
+ el.innerHTML=h;ltRes()}
+function ltTog(u,on){LT.sel[u]=on;ltInval();ltPintar()}
+function ltTodos(on){ltJug().forEach(p=>LT.sel[p.id]=on);ltInval();ltPintar()}
+function ltSobrev(){ltSync(true);ltInval();ltPintar()}
+function ltCant(i,v){LT.items[i].cant=Math.max(1,parseInt(v)||1);ltInval()}
+function ltModo(i,v){LT.items[i].modo=v;ltInval();ltPintar()}
+function ltPara(i,v){LT.items[i].para=v;ltInval()}
+function ltQuitar(i){LT.items.splice(i,1);ltInval();ltPintar()}
+function ltAdd(id){const it=LT.cat.find(x=>String(x.id)==String(id));if(!it)return;
+ const ya=LT.items.find(l=>String(l.id)==String(id)&&l.modo!='para');if(ya)ya.cant++;else LT.items.push({id:it.id,nombre:it.nombre,cant:1,modo:'repartir',para:''});
+ ltInval();ltPintar()}
+function ltAsk(v){LT.ask=!v;try{localStorage.setItem('lootAsk',LT.ask?'1':'0')}catch(e){}}
+function ltVista(){const sel=ltSel();
+ if(!sel.length){aviso({message:'Elegí al menos un jugador.'});return}
+ if(!(parseInt(LT.oro)||0)&&!LT.items.length){aviso({message:'Poné algo de oro o agregá ítems.'});return}
+ aviso(null);LT.pre=ltPlan(LT.oro,LT.modoOro,LT.items,sel);ltPintar()}
+async function ltConfirmar(){if(LT.pre)await ltEntregar(LT.pre,true)}
+async function ltEntregar(plan,desdeArmado){
+ const entregas=plan.orden.map(u=>({user:u,oro:plan.por[u].oro,items:plan.por[u].items.map(x=>x.id)})).filter(e=>e.oro>0||e.items.length);
+ if(!entregas.length){aviso({message:'No hay nada para entregar.'});return}
+ const{data,error}=await sb.rpc('repartir_loot',{p_plan:{entregas}});
+ if(error){aviso(error);return}
+ aviso(null);ltInforme(data,desdeArmado)}
+function ltInforme(data,desdeArmado){
+ const inf=(data&&data.informe)||[],pen={};let h='<div class="ltpre"><b>✅ Loot entregado</b>';
+ inf.forEach(r=>{
+  h+='<div class="ltrow"><b class="pn">'+esc(ltNom(r.user))+'</b>'+(r.error?'<span>⚠ '+esc(r.error)+'</span>':'')+(r.oro?'<span>🪙 +'+r.oro+'</span>':'')+
+   (r.entregados&&r.entregados.length?'<span>'+Object.values(r.entregados.reduce((m,x)=>{const k=x.nombre+'|'+x.lugar;(m[k]=m[k]||{...x,c:0}).c++;return m},{})).map(x=>(x.c>1?x.c+'× ':'')+esc(x.nombre)+' <small>('+esc(x.lugar)+')</small>').join(', ')+'</span>':'')+
+   (r.pendientes&&r.pendientes.length?'<span class="ltadv">⚠ Sin entregar: '+r.pendientes.map(x=>esc(x.nombre)+' ('+esc(x.motivo)+')').join(', ')+'</span>':'')+'</div>';
+  (r.pendientes||[]).forEach(x=>{const k=r.user+'|'+x.id;pen[k]=pen[k]||{id:x.id,nombre:x.nombre,user:r.user,cant:0};pen[k].cant++})});
+ h+='</div>';LT.inf=h;LT.pre=null;
+ if(desdeArmado){LT.oro='';LT.items=[]}
+ const pp=Object.values(pen);pp.forEach(p=>LT.items.push({id:p.id,nombre:p.nombre,cant:p.cant,modo:'para',para:p.user}));
+ if(pp.length)LT.inf+='<small>Lo que no entró quedó en “Lo que se va a repartir”, para el mismo jugador, para reintentar cuando libere lugar.</small>';
+ ltPintar()}
+const ltDatos=()=>({oro:{monto:Math.max(0,parseInt(LT.oro)||0),modo:LT.modoOro},items:LT.items.filter(l=>l.modo!='para').map(l=>({id:l.id,nombre:l.nombre,cant:l.cant,modo:l.modo}))});
+async function ltGuardar(){
+ const d=ltDatos(),excl=LT.items.length-d.items.length;
+ if(!d.oro.monto&&!d.items.length){aviso({message:'No hay nada para guardar.'});return}
+ const nombre=(prompt('Nombre del loot',LT.edit?LT.edit.nombre:'')||'').trim();if(!nombre)return;
+ const r=LT.edit?await sb.from('loots').update({nombre,datos:d}).eq('id',LT.edit.id):await sb.from('loots').insert({nombre,datos:d});
+ if(r.error){aviso(r.error);return}
+ aviso(excl?{message:'Guardado. Los ítems con “Para…” no se guardan en un loot (los jugadores cambian).'}:null);LT.edit=null;await ltRecargar()}
+function ltSoltar(){LT.edit=null;ltPintar()}
+function ltCargar(id){const l=LT.saved.find(x=>x.id==id);if(!l)return;const d=l.datos||{};
+ LT.oro=d.oro&&d.oro.monto?String(d.oro.monto):'';LT.modoOro=(d.oro&&d.oro.modo)||'iguales';
+ LT.items=(d.items||[]).map(x=>({id:x.id,nombre:x.nombre,cant:x.cant||1,modo:x.modo=='cada'?'cada':'repartir',para:''}));
+ LT.edit={id:l.id,nombre:l.nombre};ltInval();ltPintar()}
+async function ltDup(id){const l=LT.saved.find(x=>x.id==id);if(!l)return;
+ const r=await sb.from('loots').insert({nombre:l.nombre+' (copia)',datos:l.datos});if(r.error){aviso(r.error);return}aviso(null);await ltRecargar()}
+async function ltBorrar(id){const l=LT.saved.find(x=>x.id==id);if(!l||!confirm('¿Borrar el loot “'+l.nombre+'”?'))return;
+ const r=await sb.from('loots').delete().eq('id',id);if(r.error){aviso(r.error);return}aviso(null);if(LT.edit&&LT.edit.id==id)LT.edit=null;await ltRecargar()}
+async function ltDar(id){const l=LT.saved.find(x=>x.id==id);if(!l)return;
+ const sel=ltSel();if(!sel.length){aviso({message:'Elegí al menos un jugador.'});return}
+ const d=l.datos||{},plan=ltPlan(d.oro?d.oro.monto:0,d.oro?d.oro.modo:'iguales',(d.items||[]).map(x=>({id:x.id,nombre:x.nombre,cant:x.cant||1,modo:x.modo=='cada'?'cada':'repartir'})),sel);
+ if(LT.ask&&!confirm('¿Dar “'+l.nombre+'”?\n\n'+ltResumen(plan)))return;
+ await ltEntregar(plan,false)}
+
 /* ---------- visibilidad de criaturas (sangre / barra / números) ---------- */
 const v3k=(s,b,n)=>V3?{ver_sangre:s,ver_barra:b,ver_nums:n}:{};
 async function probarV3(){const{error}=await sb.from('combatientes').select('ver_sangre').limit(1);V3=!error}
@@ -336,6 +451,6 @@ document.addEventListener('keydown',e=>{if(e.key=='Escape')cerrarFicha()});
 (async()=>{
  ME=await cabecera('Combate');if(!ME)return;DM=!!ME.is_dm;if(!DM)initDados();else await probarV3();
  try{mi.open=localStorage.getItem('miCombate')!=='0';VC=localStorage.getItem('miConj')!=='0';VR=localStorage.getItem('miRasgos')!=='0'}catch(e){}
- if(DM){prep.style.display='block';const{data}=await sb.from('criaturas').select('id,nombre,tipo,imagen,datos');CR=(data||[]).sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));opcionesCR();await cargarEnc()}
+ if(DM){prep.style.display='block';const{data}=await sb.from('criaturas').select('id,nombre,tipo,imagen,datos');CR=(data||[]).sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));opcionesCR();await cargarEnc();loot.style.display='block';await ltIniciar()}
  await cargar();setInterval(()=>{if(!document.hidden)cargar()},4000)})();
 </script></body></html>
