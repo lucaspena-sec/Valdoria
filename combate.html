@@ -1,4 +1,4 @@
-<!doctype html><html lang="es"><head><title>Valdoria - Combate</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=11"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=6"></script><script src="comun.js?v=10"></script>
+<!doctype html><html lang="es"><head><title>Valdoria - Combate</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=12"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=6"></script><script src="comun.js?v=10"></script>
 <style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
 <div class="win"><div id="cab"></div><div class="body">
 <div id="msg" class="err"></div>
@@ -28,7 +28,7 @@
 <script>
 const OJOA='<svg width="18" height="18" viewBox="0 0 24 24"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" fill="#fff" stroke="#222" stroke-width="2"/><circle cx="12" cy="12" r="3.5" fill="#222"/></svg>';
 const OJOC='<svg width="18" height="18" viewBox="0 0 24 24"><path d="M2 11c3 5 7 7 10 7s7-2 10-7" fill="none" stroke="#fff" stroke-width="2"/><path d="M5 16l-2 3M12 18v3M19 16l2 3" stroke="#fff" stroke-width="2"/></svg>';
-let ME=null,DM=false,ES={activo:false,ronda:1,turno:null},LISTA=[],CB=[],PF={},PERF=[],CR=[],F=null,ultTurno=null,pend=false,VC=true,VR=true,V3=false,VIS={},COMP=new Set();
+let ME=null,DM=false,ES={activo:false,ronda:1,turno:null},LISTA=[],CB=[],PF={},PERF=[],CR=[],F=null,ultTurno=null,pend=false,VC=true,VR=true,V3=false,V2=true,VIS={},COMP=new Set();
 const gv=id=>document.getElementById(id).value;
 const cl=(v,a,b)=>Math.max(a,Math.min(b,parseFloat(v)||a));
 const aviso=e=>{msg.textContent=e?e.message:''};
@@ -48,10 +48,19 @@ async function cargarDM(){
  ES=e.data||{activo:false,ronda:1,turno:null};CB=c.data||[];PF={};(f.data||[]).forEach(x=>PF[x.user_id]=x);PERF=p.data||[];
  LISTA=CB.map(cDM).sort(ord);return true}
 async function cargarJug(){
+ if(V2){
+  const r=await sb.rpc('combate_ver2');
+  if(!r.error&&r.data){const data=r.data;ES={activo:!!data.activo,ronda:data.ronda||1,turno:data.turno};LISTA=data.lista||[];TIR={};COMP=new Set();
+   LISTA.forEach(x=>{if(x.jugador&&x.tir)TIR[x.jugador]={u:x.jugador,d:x.tir.d,t:x.tir.t,ts:x.tir.ts};if(x.jugador&&x.comp)COMP.add(x.jugador)});return true}
+  if(r.error&&!/combate_ver2|could not find|PGRST202|does not exist/i.test(r.error.message||'')){aviso(r.error);return false}
+  V2=false} /* sin el SQL nuevo: se usa el camino anterior */
  const{data,error}=await sb.rpc('combate_ver');if(error){aviso(error);return false}
  ES={activo:!!data.activo,ronda:data.ronda||1,turno:data.turno};LISTA=data.lista||[];return true}
 async function cargar(){
- const[ok]=await Promise.all([DM?cargarDM():cargarJug(),cargarTir(),DM||cargarVis(),DM||cargarComp()]);if(!ok)return;
+ let ok;
+ if(DM)[ok]=await Promise.all([cargarDM(),cargarTir()]);
+ else{ok=await cargarJug();if(ok&&!V2){await Promise.all([cargarTir(),cargarVis(),cargarComp()]);normalizarLegacy()}}
+ if(!ok)return;
  pintar();if(!DM)await cargarMio()}
 
 /* ---------- pantalla ---------- */
@@ -59,27 +68,28 @@ function pintar(){pintarTurno();pintarBar();pintarGrid();if(DM)pintarPrep();else
 function pintarTurno(){
  if(!ES.activo){turnoEl.innerHTML=DM?'Combate sin iniciar. Armalo en la preparación y tocá "Iniciar combate".':'No hay un combate en curso.';return}
  const t=LISTA.find(x=>x.id==ES.turno),mio=!DM&&t&&t.jugador==ME.id;
- turnoEl.innerHTML='<b>Ronda '+ES.ronda+'</b> · Turno de: <b>'+esc(t?t.nombre:'—')+'</b>'+(mio?' <span class="miturno">¡ES TU TURNO!</span>':'');
+ turnoEl.innerHTML='<b>Ronda '+ES.ronda+'</b> · Turno de: <b>'+esc(t?t.nombre:'—')+'</b>'+(mio?' <span class="miturno">¡ES TU TURNO!</span><div class="pasar"><button id="pasarBtn" onclick="pasarTurno()">➡ Pasar turno</button></div>':'');
  if(mio&&ES.turno!=ultTurno&&navigator.vibrate)navigator.vibrate([200,100,200]);
  ultTurno=ES.turno}
 function pintarBar(){if(!DM)return;
  dmBar.style.display='block';
- dmBar.innerHTML=ES.activo?'<button onclick="siguiente()">➡ Siguiente turno</button> <button onclick="terminar()">🏁 Terminar combate</button>':'<button onclick="iniciar()" style="font-size:16px;padding:10px 22px">⚔ Iniciar combate</button>'}
+ dmBar.innerHTML=ES.activo?'<button onclick="anterior()" title="Vuelve al turno anterior (por si se pasó sin querer)">⬅ Turno anterior</button> <button onclick="siguiente()">➡ Siguiente turno</button> <button onclick="terminar()">🏁 Terminar combate</button>':'<button onclick="iniciar()" style="font-size:16px;padding:10px 22px">⚔ Iniciar combate</button>'}
 function carta(it,dm){
- const pj=it.tipo=='pj',vi=pj?null:(dm?{s:it.vs,b:it.vb,n:it.vn}:(VIS[it.id]||{s:!it.oculto,b:!it.oculto,n:false}));
- const pct=(pj||dm)?(it.hpmax>0?it.hp/it.hpmax*100:100):(it.pct==null?null:it.pct);
- const st=((pj||dm||vi.s)&&pct!=null)?(pct<=0?4:pct<=25?3:pct<=50?2:pct<=75?1:0):0;
+ const pj=it.tipo=='pj',full=dm||(pj&&it.jugador==ME.id),vi=full?{s:1,b:1,n:1}:{s:it.s??(pj||!it.oculto),b:it.b??(pj||!it.oculto),n:it.n??pj};
+ const pct=full?(it.hpmax>0?it.hp/it.hpmax*100:100):(it.pct!=null?it.pct:(it.hp!=null&&it.hpmax>0?it.hp/it.hpmax*100:null));
+ const st=((full||vi.s)&&pct!=null)?(pct<=0?4:pct<=25?3:pct<=50?2:pct<=75?1:0):0;
  const turno=ES.activo&&ES.turno==it.id,img=pj?urlRet(it.jugador):it.imagen,tir=pj?TIR[it.jugador]:null,nl=it.nombre.length+(turno?2:0),nc=nl>20?' l':nl>12?' m':'';
- let bar;
- if(pj)bar='<div class="cbar"><div class="fill rojo" style="width:'+cl(pct,0,100)+'%"></div><span>'+it.hp+'/'+it.hpmax+(it.tmp?' +'+it.tmp:'')+'</span></div>'+(it.tmp>0?'<div class="cbar t"><div class="fill azul" style="width:'+Math.min(100,it.tmp/Math.max(1,it.hpmax)*100)+'%"></div></div>':'');
-  else if(dm)bar='<div class="cbar"><div class="fill rojo" style="width:'+cl(pct,0,100)+'%"></div><span>'+it.hp+'/'+it.hpmax+'</span></div>';
-  else if(vi.b&&pct!=null)bar='<div class="cbar"><div class="fill rojo" style="width:'+cl(pct,0,100)+'%"></div>'+(vi.n&&vi.hp!=null?'<span>'+vi.hp+'/'+vi.hpmax+'</span>':'')+'</div>';
+  const tb=it.tmp>0?'<div class="cbar t"><div class="fill azul" style="width:'+Math.min(100,it.tmp/Math.max(1,it.hpmax)*100)+'%"></div></div>':'';
+  let bar;
+  if(full&&pj)bar='<div class="cbar"><div class="fill rojo" style="width:'+cl(pct,0,100)+'%"></div><span>'+it.hp+'/'+it.hpmax+(it.tmp?' +'+it.tmp:'')+'</span></div>'+tb;
+  else if(full)bar='<div class="cbar"><div class="fill rojo" style="width:'+cl(pct,0,100)+'%"></div><span>'+it.hp+'/'+it.hpmax+'</span></div>';
+  else if(vi.b&&pct!=null)bar='<div class="cbar"><div class="fill rojo" style="width:'+cl(pct,0,100)+'%"></div>'+(vi.n&&it.hp!=null?'<span>'+it.hp+'/'+it.hpmax+(it.tmp?' +'+it.tmp:'')+'</span>':'')+'</div>'+(vi.n?tb:'');
   else if(vi.s)bar='<div class="cbarx"></div>';
   else bar='<div class="cbar"><span>?</span></div>';
  return '<div class="ccard '+(pj?'cpj':'ccr')+(turno?' turno':'')+(dm&&it.oculto?' ocultoDM':'')+'"><div class="cfoto"><div class="ph">'+(pj?'🧙':'👹')+'</div>'+
   (img?'<img src="'+esc(img)+'" alt="" onerror="this.style.display=\'none\'">':'')+
   '<svg viewBox="0 0 100 120" preserveAspectRatio="none">'+sangreSvg(st)+'</svg><span class="cini">'+it.ini+'</span>'+(tir?'<div class="cdado">'+dadoHtml(tir,18)+'</div>':'')+
-   (dm&&!pj?(V3?vis3(it):'<button class="ojoC" title="Mostrar u ocultar su vida a los jugadores" onclick="verC('+it.id+')">'+(it.oculto?OJOC:OJOA)+'</button>'):'')+
+   (dm?(V3?vis3(it):(pj?'':'<button class="ojoC" title="Mostrar u ocultar su vida a los jugadores" onclick="verC('+it.id+')">'+(it.oculto?OJOC:OJOA)+'</button>')):'')+
   '</div><div class="cnombre'+nc+'"><span>'+(turno?'▶ ':'')+esc(it.nombre)+'</span></div>'+bar+(dm?ctlDM(it):'')+(dm&&!pj?'<button class="cfbtn" onclick="verFicha('+it.id+')">📜 Ficha</button>':'')+(pj&&(dm||(it.jugador!=ME.id&&COMP.has(it.jugador)))?'<button class="cfbtn" onclick="verFichaPJ(\''+it.jugador+'\')">📜 Ficha</button>':'')+'</div>'}
 function ctlDM(it){const id=it.id,pj=it.tipo=='pj';
  return '<details class="cdm" id="d'+id+'"><summary>⚙ Controles</summary>'+
@@ -132,6 +142,15 @@ async function iniciar(){const vivos=LISTA.filter(x=>!(x.tipo=='criatura'&&x.hp<
  await q(sb.from('combate_estado').update({activo:true,ronda:1,turno:vivos[0].id,actualizado:ahora()}).eq('id',1))}
 async function siguiente(){const l=LISTA;if(!l.length)return;let i=l.findIndex(x=>x.id==ES.turno),ronda=ES.ronda,n=0;
  do{i++;if(i>=l.length){i=0;ronda++}n++}while(n<=l.length&&l[i].tipo=='criatura'&&l[i].hp<=0);
+ await sb.rpc('tiradas_limpiar');
+ await q(sb.from('combate_estado').update({turno:l[i].id,ronda,actualizado:ahora()}).eq('id',1))}
+async function pasarTurno(){
+ const b=document.getElementById('pasarBtn');if(b)b.disabled=true;
+ const{error}=await sb.rpc('pasar_turno');
+ if(error){aviso(error);if(b)b.disabled=false;return}
+ aviso(null);await cargar()}
+async function anterior(){const l=LISTA;if(!l.length)return;let i=l.findIndex(x=>x.id==ES.turno),ronda=ES.ronda,n=0;
+ do{i--;if(i<0){i=l.length-1;ronda=Math.max(1,ronda-1)}n++}while(n<=l.length&&l[i].tipo=='criatura'&&l[i].hp<=0);
  await sb.rpc('tiradas_limpiar');
  await q(sb.from('combate_estado').update({turno:l[i].id,ronda,actualizado:ahora()}).eq('id',1))}
 async function terminar(){if(!confirm('¿Terminar el combate? Se quitan todos los combatientes.'))return;
@@ -281,6 +300,8 @@ async function tirarDados(){
 const v3k=(s,b,n)=>V3?{ver_sangre:s,ver_barra:b,ver_nums:n}:{};
 async function probarV3(){const{error}=await sb.from('combatientes').select('ver_sangre').limit(1);V3=!error}
 async function cargarVis(){const{data,error}=await sb.rpc('combate_vis');if(error||!Array.isArray(data))return true;const n={};data.forEach(x=>n[x.id]=x);VIS=n;return true}
+function normalizarLegacy(){LISTA.forEach(it=>{if(it.tipo=='pj'){it.s=it.b=it.n=true;return}
+ const v=VIS[it.id];if(v){it.s=v.s;it.b=v.b;it.n=v.n;if(v.hp!=null){it.hp=v.hp;it.hpmax=v.hpmax}}else{it.s=it.b=!it.oculto;it.n=false}})}
 async function cargarComp(){const{data,error}=await sb.rpc('fichas_compartidas');if(error||!Array.isArray(data))return true;COMP=new Set(data);return true}
 const vis3=it=>'<div class="vis3">'+[['s','🩸','Sangre',it.vs],['b','📊','Barra de vida',it.vb],['n','🔢','Números de la barra',it.vn]].map(([k,ic,t,on])=>
  '<button class="vb'+(on?' on':'')+(k=='n'&&!it.vb?' dis':'')+'" title="'+t+': '+(on?'los jugadores lo ven':'oculto para los jugadores')+'" onclick="v3('+it.id+',\''+k+'\')">'+ic+'</button>').join('')+'</div>';

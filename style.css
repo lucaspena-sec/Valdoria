@@ -214,4 +214,8 @@ textarea{width:100%;font:inherit;padding:8px}
 .vb:not(.on)::after{content:"";position:absolute;inset:0;background:linear-gradient(to top right,transparent 45%,#d22 46%,#d22 54%,transparent 55%)}
 .vb.dis{opacity:.3}
 .cbarx{height:18px;margin-bottom:2px}
+/* pasar turno (jugador) */
+.pasar{margin-top:8px}
+.pasar button{font-size:17px;font-weight:bold;padding:10px 22px}
 
+.miturno{white-space:nowrap;display:inline-block}
