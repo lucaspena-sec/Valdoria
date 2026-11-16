@@ -1,4 +1,4 @@
-<!doctype html><html lang="es"><head><title>Valdoria - Equipamiento</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=6"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=6"></script><script src="comun.js?v=6"></script>
+<!doctype html><html lang="es"><head><title>Valdoria - Equipamiento</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=14"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=6"></script><script src="comun.js?v=6"></script>
 <style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
 <div class="win"><div id="cab"></div><div class="body">
 <div id="msg" class="err"></div>
@@ -9,47 +9,61 @@
  <h3>Equipo</h3><div id="slots" class="slots"></div>
   <div class="box"><h3>Descartar o dar</h3>
   <div class="celda zona" id="zonaEl" onclick="aZona()"></div>
+  <label id="zq" style="display:none">Cantidad: <input id="zcant" type="number" min="1" max="99" style="width:70px"> <small id="zmax"></small></label><br>
   <button onclick="descartar()">Descartar</button><br>
   <input id="para" placeholder="Usuario que lo recibe"><select id="dest"><option value="cofre">Enviar a su cofre</option><option value="mochila">Enviar a su mochila</option></select> <button onclick="dar()">Dar</button></div>
  <div class="box"><h3>Oro</h3>
   <input id="pj" placeholder="Usuario"><input id="monto" type="number" min="1" placeholder="Monto">
   <button onclick="oroDar()">Dar oro</button> <button onclick="oroTirar()">Tirar oro</button></div>
 </div>
-<div class="der"><h3>Mochila</h3><div id="mo" class="grid"></div><div class="box" id="desc">Tocá un objeto para ver su descripción. Después tocá el casillero donde querés ponerlo (si hay otro objeto, se intercambian).</div><h3>Cofre</h3><div id="co" class="grid"></div></div>
+<div class="der"><h3>Mochila <button onclick="apilar()" title="Junta los objetos iguales en pilas de hasta 99">📚 Apilar</button></h3><div id="mo" class="grid"></div><div class="box" id="desc">Tocá un objeto para ver su descripción. Después tocá el casillero donde querés ponerlo (si hay otro objeto, se intercambian). Los objetos iguales se apilan hasta 99 (menos armas, armaduras y escudos): si lo soltás sobre uno igual, se unen.</div><h3>Cofre</h3><div id="co" class="grid"></div></div>
 </div></div></div>
 <script>
-let items=[],sel=null,zona=null,P=null;
+let items=[],sel=null,selQ=1,zona=null,P=null;
+const cant=x=>x&&x.cantidad>1?x.cantidad:1;
 const en=(l,p)=>items.find(x=>x.lugar==l&&x.pos==p);
 const NOM=['Cabeza','Cuerpo','Pies','Mano 1','Mano 2','Extra 1','Extra 2','Extra 3','Extra 4'];
 const AREA=['ca','cu','pi','m1','m2','e1','e2','e3','e4'];
 function celda(l,p,area){const x=en(l,p);
  const st=(area?'grid-area:'+area+';':'')+(x&&x.imagen?"background-image:url('"+esc(x.imagen.replace(/'/g,'%27'))+"')":'');
- return '<div class="celda'+(x?' tiene r-'+(x.rareza||'comun'):'')+(x&&x.imagen?' img':'')+(x&&x.id==sel?' sel':'')+'" style="'+st+'" onclick="clic(\''+l+'\','+p+')">'+(x?'<span class="nm">'+esc(x.nombre)+'</span>':'<span class="lab">'+(l=='equipo'?NOM[p]:'')+'</span>')+'</div>'}
+ return '<div class="celda'+(x?' tiene r-'+(x.rareza||'comun'):'')+(x&&x.imagen?' img':'')+(x&&x.id==sel?' sel':'')+'" style="'+st+'" onclick="clic(\''+l+'\','+p+')">'+(x?'<span class="nm">'+esc(x.nombre)+'</span>'+(cant(x)>1?'<span class="qty">×'+cant(x)+'</span>':''):'<span class="lab">'+(l=='equipo'?NOM[p]:'')+'</span>')+'</div>'}
 function render(){
  slots.innerHTML=NOM.map((_,i)=>celda('equipo',i,AREA[i])).join('');
  mo.innerHTML=Array.from({length:30},(_,i)=>celda('mochila',i)).join('');
  co.innerHTML=Array.from({length:30},(_,i)=>celda('cofre',i)).join('');
  const z=items.find(x=>x.id==zona);
- zonaEl.innerHTML=z?esc(z.nombre):'<span class="lab">Soltar acá</span>';
+ zonaEl.innerHTML=z?esc(z.nombre)+(cant(z)>1?' <b>×'+cant(z)+'</b>':''):'<span class="lab">Soltar acá</span>';
+ zq.style.display=z&&cant(z)>1?'inline':'none';if(z&&cant(z)>1){zmax.textContent='(de '+cant(z)+')';zcant.max=cant(z)}
 }
 async function cargar(){const{data}=await sb.from('inventario').select('*').eq('user_id',P.id);items=data||[];render()}
 function aviso(error,ok){msg.className=error?'err':'ok';msg.textContent=error?error.message:(ok||'Listo.')}
+function selHtml(x){const n=cant(x);return n>1?'<div class="qsel">Pila de <b>'+n+'</b>. Cantidad a mover: <button onclick="qAdj(-1)">−</button> <b id="qv">'+n+'</b> <button onclick="qAdj(1)">+</button> <button onclick="qSet(1)">1</button> <button onclick="qSet(0)">Todas</button></div>':''}
+function qAdj(d){const x=items.find(i=>i.id==sel);if(!x)return;selQ=Math.min(cant(x),Math.max(1,selQ+d));qv.textContent=selQ}
+function qSet(v){const x=items.find(i=>i.id==sel);if(!x)return;selQ=v?Math.min(v,cant(x)):cant(x);qv.textContent=selQ}
 async function clic(l,p){
  const x=en(l,p);
- if(sel==null){if(!x)return;sel=x.id;desc.innerHTML='<b>'+esc(x.nombre)+'</b>'+tarjetaItem(x);render();return}
+ if(sel==null){if(!x)return;sel=x.id;selQ=cant(x);desc.innerHTML='<b>'+esc(x.nombre)+'</b>'+tarjetaItem(x)+selHtml(x);render();return}
  if(x&&x.id==sel){sel=null;render();return}
- const id=sel;sel=null;
- const{error}=await sb.rpc('mover_item',{p_id:id,p_lugar:l,p_pos:p});
+ const id=sel,src=items.find(i=>i.id==id),q=Math.min(selQ,cant(src));sel=null;
+ const args={p_id:id,p_lugar:l,p_pos:p};if(q<cant(src))args.p_cant=q;
+ const{error}=await sb.rpc('mover_item',args);
  aviso(error,'');await cargar()}
-function aZona(){if(sel!=null){zona=sel;sel=null}else zona=null;render()}
+function aZona(){if(sel!=null){zona=sel;const x=items.find(i=>i.id==zona);zcant.value=x?Math.min(selQ,cant(x)):1;sel=null}else zona=null;render()}
+function zQ(z){const n=cant(z),q=parseInt(zcant.value);return n>1?(q>=1?Math.min(q,n):n):1}
 const zi=()=>items.find(x=>x.id==zona);
 async function descartar(){const z=zi();if(!z)return aviso({message:'Primero poné un objeto en la zona.'});
- if(!confirm('¿Seguro que querés descartar '+z.nombre+'? No se puede deshacer.'))return;
- const{error}=await sb.rpc('descartar_item',{p_id:z.id});zona=null;aviso(error);cargar()}
+ const q=zQ(z);
+ if(!confirm('¿Seguro que querés descartar '+(q>1?q+'× ':'')+z.nombre+'? No se puede deshacer.'))return;
+ const args={p_id:z.id};if(q<cant(z))args.p_cant=q;
+ const{error}=await sb.rpc('descartar_item',args);zona=null;aviso(error);cargar()}
 async function dar(){const z=zi(),u=para.value.trim();
  if(!z||!u)return aviso({message:'Poné un objeto en la zona y escribí el usuario.'});
- if(!confirm('¿Dar '+z.nombre+' a '+u+'?'))return;
- const{error}=await sb.rpc('dar_item',{p_id:z.id,p_usuario:u,p_lugar:dest.value});if(!error)zona=null;aviso(error);cargar()}
+ const q=zQ(z);
+ if(!confirm('¿Dar '+(q>1?q+'× ':'')+z.nombre+' a '+u+'?'))return;
+ const args={p_id:z.id,p_usuario:u,p_lugar:dest.value};if(q<cant(z))args.p_cant=q;
+ const{error}=await sb.rpc('dar_item',args);if(!error)zona=null;aviso(error);cargar()}
+async function apilar(){const{data,error}=await sb.rpc('apilar_inventario');
+ aviso(error,data>0?'Listo: se liberaron '+data+' casillero'+(data==1?'':'s')+'.':'No había nada para apilar.');cargar()}
 async function oroOp(fn,args){const{data,error}=await sb.rpc(fn,args);if(!error)oro.textContent=data;aviso(error)}
 function oroDar(){const m=parseInt(monto.value);if(!(m>0)||!pj.value.trim())return aviso({message:'Poné usuario y un monto mayor a 0.'});
  oroOp('dar_oro',{p_usuario:pj.value.trim(),p_monto:m})}

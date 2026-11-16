@@ -228,4 +228,8 @@ textarea{width:100%;font:inherit;padding:8px}
 .ltres{max-height:220px;overflow:auto;border:1px solid #aaa;background:#fff;padding:2px 4px;margin-top:4px}
 .ltpre{background:#fffbe6;border:2px solid #c9a227;padding:6px;margin-top:8px}
 .ltadv{color:#8b1a1a;font-size:12px}
+/* pilas de ítems */
+.celda .qty{position:absolute;right:1px;top:1px;background:#000d;color:#ffd54a;font-size:9px;font-weight:bold;padding:0 2px;border-radius:3px;line-height:1.2;z-index:2}
+.qsel{margin-top:6px}
+.qsel button{padding:0 8px}
 

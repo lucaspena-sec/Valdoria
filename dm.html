@@ -1,4 +1,4 @@
-<!doctype html><html lang="es"><head><title>Valdoria - Panel DM</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=6"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=6"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
+<!doctype html><html lang="es"><head><title>Valdoria - Panel DM</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=14"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=6"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
 <div class="win"><div id="cab"></div><div class="body">
 <h2>Panel del DM</h2>
 <div class="navdm"><a class="btn" href="dm-catalogo.html">📚 Catálogo</a><a class="btn" href="dm-criaturas.html">🐺 Criaturas</a><a class="btn" href="dm-novedades.html">📰 Novedades</a><a class="btn" href="dm-registro.html">📋 Registro</a><button onclick="respaldo()">💾 Copia de seguridad</button></div>
@@ -34,9 +34,9 @@ function tarjeta(x){const id=x.id,col=color(x.username),ocu=OC.has(id);
   '<input type="number" id="m'+id+'" placeholder="Cantidad de oro" min="0">'+
   '<button onclick="oro(\''+id+'\',1)">Dar</button> <button onclick="oro(\''+id+'\',-1)">Quitar</button> <button onclick="fijar(\''+id+'\')">Fijar total</button>'+
   fichaHtml(x)+
-  '<details id="it'+id+'"><summary>Ítems ('+its.length+')</summary>'+(its.map(y=>esc(y.nombre)+' ('+y.lugar+')').join('<br>')||'<i>Vacío</i>')+'</details>'+
+  '<details id="it'+id+'"><summary>Ítems ('+its.length+')</summary>'+(its.map(y=>esc(y.nombre)+(y.cantidad>1?' ×'+y.cantidad:'')+' ('+y.lugar+')').join('<br>')||'<i>Vacío</i>')+'</details>'+
   '<select id="l'+id+'"><option value="cofre">Al cofre</option><option value="mochila">A la mochila</option></select><br>'+
-  '<select class="cat" id="c'+id+'"></select> <button onclick="regalarCat(\''+id+'\')">Dar del catálogo</button><br>'+
+  '<select class="cat" id="c'+id+'"></select> <input type="number" id="q'+id+'" min="1" max="99" value="1" title="Cantidad" style="width:64px"> <button onclick="regalarCat(\''+id+'\')">Dar del catálogo</button><br>'+
   '<input id="n'+id+'" placeholder="O un ítem suelto: nombre"><input id="d'+id+'" placeholder="Descripción"><button onclick="regalar(\''+id+'\')">Dar ítem suelto</button></div>'}
 function pintar(){
  const gd={},ab=[...document.querySelectorAll('#lista details[open]')].map(d=>d.id);
@@ -71,7 +71,7 @@ async function fijar(id){const v=val(id);if(v===null)return;fin((await sb.rpc('d
 async function regalar(id){const n=g('n'+id).trim();if(!n){msg.textContent='Escribí el nombre del ítem.';return}
  fin((await sb.rpc('dm_dar_item',{p_user:id,p_nombre:n,p_desc:g('d'+id).trim(),p_lugar:g('l'+id)})).error)}
 async function regalarCat(id){const it=parseInt(g('c'+id));if(!it){msg.textContent='Elegí un ítem de la lista.';return}
- fin((await sb.rpc('dm_dar_catalogo',{p_user:id,p_item:it,p_lugar:g('l'+id)})).error)}
+ const q=Math.min(99,Math.max(1,parseInt(g('q'+id))||1)),a={p_user:id,p_item:it,p_lugar:g('l'+id)};if(q>1)a.p_cant=q;fin((await sb.rpc('dm_dar_catalogo',a)).error)}
 async function hp(id,s){const v=parseInt(g('h'+id));if(!(v>0)){msg.textContent='Escribí un número mayor a 0.';return}fin((await sb.rpc('dm_hp',{p_user:id,p_delta:s*v})).error)}
 async function insp(id,d){fin((await sb.rpc('dm_inspiracion',{p_user:id,p_delta:d})).error)}
 (async()=>{const p=await cabecera('Panel DM');if(!p)return;if(!p.is_dm){location.href='main.html';return}cargar()})();
