@@ -206,3 +206,197 @@ function bloquePJ(f,o){o=o||{};
   gr('Rasgos de especie',d.rasgosEsp)+gr('Dotes',d.dotes)+gr('Rasgos de clase',d.rasgosClase)+gr('Rasgos de subclase',d.rasgosSub)+
   (o.notas&&d.notas?'<h4>Notas del jugador</h4><p style="white-space:pre-wrap">'+esc(uni(d.notas))+'</p>':'')+'<div style="clear:both"></div></div>'}
 
+// ===== Ítems: leer el texto pegado de una ficha de ítem (catálogo del DM) =====
+// Entiende fichas de libro (nombre / tipo, rareza / texto) y fichas tipo carta (ESTADÍSTICAS, ESTILO,
+// DESCRIPCIÓN...), incluso con errores de escaneo (OCR). Puede haber VARIOS ítems pegados juntos.
+const _sa=s=>String(s).normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+const _lev1=(a,b)=>{if(a.length!==b.length)return 9;let d=0;for(let i=0;i<a.length;i++)if(a[i]!==b[i]&&++d>1)return 9;return d};
+const _VOC='anillo amuleto abanico botas capa collar cinturon daga espada escudo armadura yelmo guantes varita baston portal pocion pergamino instinto reactivo velocidad paralisis viento estatica centinela cetro corona talisman bolsa manto hacha lanza maza martillo ballesta cuchillo brazalete diadema'.split(' ');
+const _CHICAS=['de','del','la','las','el','los','y','en','con','a','al','para','por','un','una','o'];
+const _esMay=s=>{const l=s.replace(/[^A-Za-zÁÉÍÓÚÑáéíóúñ]/g,'');if(l.length<3)return false;return (l.match(/[A-ZÁÉÍÓÚÑ]/g)||[]).length/l.length>=0.7};
+const _tipoSig=s=>{if(!s||s.length>140)return false;const a=_sa(s).toLowerCase();
+ return (/maravillos/.test(a)||/\b(poco comun|comun|infrecuente|raro|rara|muy raro|muy rara|legendari[oa]|artefacto)\b/.test(a))&&(/[,(•]/.test(s)||/maravillos/.test(a)||s.length<=40)};
+const _kw=/^(propiedad\s+especial|efecto\s+pasivo|habilidad\s+pasiva|habilidad|pasiva|acci[oó]n\s+adicional|reacci[oó]n)\b/i;
+const _seccion=s=>{const a=_sa(s).toLowerCase().trim();return /^estadisticas?$/.test(a)||/^estilos?$/.test(a)||/^descripcion$/.test(a)||/^notas?\s+de\b/.test(a)||/^requiere\s+sintoni/.test(a)};
+
+function _itemLineas(txt){
+ let t=txt.normalize('NFC').replace(/\r\n?/g,'\n')
+  .replace(/[\u00a0\u2000-\u200a\u202f\u205f\u3000]/g,' ').replace(/[\u00ad\u200b-\u200d\u2060\ufeff]/g,'')
+  .replace(/[\u2044\u2215]/g,'/').replace(/\uff1a/g,':').replace(/[\u2010\u2011\u2012]/g,'-')
+  .replace(/[\u0400-\u04ff]/g,c=>({'А':'A','В':'B','Е':'E','К':'K','М':'M','Н':'H','О':'O','Р':'P','С':'C','Т':'T','Х':'X','а':'a','е':'e','о':'o','р':'p','с':'c','х':'x','у':'y','і':'i'}[c]||c))
+  .replace(/(ob)(i)(et)/gi,(m,a,b,c)=>a+(b==='I'?'J':'j')+c)
+  .replace(/OU(E|I)/g,'QU$1')
+  .replace(/\*{1,3}([^*\n]+?)\*{1,3}/g,'$1').replace(/\*+/g,'')
+  .replace(/([a-záéíóúñü])-\n\s*([a-záéíóúñü])/g,'$1$2');
+ return t.split('\n').map(s=>s.replace(/^(?:\s*(?:[>#|]+|[-–—]\s))+\s*/,'').replace(/\s*\|\s*$/,'').trim())
+  .filter(s=>!/^[\d\s\-–—•◦·|.,:;]{1,8}$/.test(s)&&!/^[A-Za-z]$/.test(s)||s==='')
+  .map(s=>s.replace(/^(?:[•◦·▪●■►▶]\s*)+/,'').replace(/^(?:[VvXx✓✔√]\s+)+(?=\S)/,'').replace(/^(?:[A-Za-z]\s){2}(?=[A-ZÁÉÍÓÚÑ])/,''))
+}
+
+function separarItems(txt){
+ const L=_itemLineas(txt),idx=[];
+ const sig=j=>{let a=j;while(a<L.length&&!L[a])a++;return a};
+ for(let i=0;i<L.length;i++){
+  if(!L[i]||(i>0&&L[i-1]))continue;
+  if(_tipoSig(L[i])||_seccion(L[i]))continue;
+  const b=sig(i+1),c=sig(b+1);
+  if(b>=L.length)continue;
+  if(_tipoSig(L[b])||/^estad[ií]sticas?$/i.test(_sa(L[b]))||(_esMay(L[b])&&L[c]&&/^estad[ií]sticas?$/i.test(_sa(L[c]))))idx.push(i)}
+ if(idx.length<2)return [txt];
+ return idx.map((s,k)=>L.slice(s,k+1<idx.length?idx[k+1]:L.length).join('\n'))}
+
+function _nombreBonito(s){
+ let t=s.replace(/^[\s•◦·\-–—]+|[\s•◦·\-–—]+$/g,'').replace(/\s+/g,' ');
+ const l=t.replace(/[^A-Za-zÁÉÍÓÚÑáéíóúñ]/g,''),may=(l.match(/[A-ZÁÉÍÓÚÑ]/g)||[]).length;
+ let cor=false;
+ const mixto=/[a-záéíóúñ][A-ZÁÉÍÓÚÑ]|[A-ZÁÉÍÓÚÑ]{2,}[a-záéíóúñ]\b/.test(t);
+ if(l.length&&(may/l.length>=0.5||mixto))t=t.toLowerCase().split(' ').map((w,i)=>i&&_CHICAS.includes(w)?w:w.charAt(0).toUpperCase()+w.slice(1)).join(' ');
+ t=t.split(' ').map(w=>{const b=_sa(w).toLowerCase();if(b.length<5||_VOC.includes(b))return w;
+  const m=_VOC.find(v=>v[0]===b[0]&&_lev1(v,b)===1);if(!m)return w;cor=true;
+  const f=w.charAt(0)===w.charAt(0).toUpperCase()&&w.charAt(0)!==w.charAt(0).toLowerCase();return f?m.charAt(0).toUpperCase()+m.slice(1):m}).join(' ');
+ return {n:t,cor}}
+const _oracion=s=>{const t=s.toLowerCase().replace(/\s+/g,' ').trim();return t.charAt(0).toUpperCase()+t.slice(1)};
+
+function _parrafos(lineas){const out=[];let cur='';
+ lineas.forEach(s=>{
+  if(!s){if(cur){out.push(cur);cur=''}return}
+  if(cur&&/[.!?:»”"]$/.test(cur)&&/^[A-ZÁÉÍÓÚÑ¡¿«“"]/.test(s)){out.push(cur);cur=s}
+  else cur=cur?cur+' '+s:s});
+ if(cur)out.push(cur);return out}
+
+const _ARMAS_DIST=['arco corto','arco largo','ballesta ligera','ballesta de mano','ballesta pesada','honda','dardo','cerbatana'];
+const _ARMAS_MARC=['espada larga','espada corta','mandoble','estoque','cimitarra','hacha de batalla','gran hacha','alabarda','pica','lanza de caballeria','latigo','martillo de guerra','tridente','pica','guja','maza estrellada','martillo de guerra','arco largo','ballesta de mano','ballesta pesada','cerbatana'];
+const _ARM_TIPO={ligera:['acolchada','cuero'],media:['pieles','camisote','escamas','coraza','semiplacas','semi placas'],pesada:['anillas','mallas','bandas','placas','completa']};
+const _ARMAS_SIMPLES=['daga','baston','hacha de mano','jabalina','maza','garrote','gran garrote','lanza','martillo ligero','hoz','arco corto','ballesta ligera','dardo','honda'];
+const _TD={acido:'ácido',frio:'frío',fuego:'fuego',fuerza:'fuerza',necrotico:'necrótico',psiquico:'psíquico',radiante:'radiante',relampago:'relámpago',electrico:'relámpago',trueno:'trueno',veneno:'veneno',contundente:'contundente',cortante:'cortante',perforante:'perforante'};
+const _PROPS=['Ligera','Sutil','Pesada','Alcance','Arrojadiza','Carga','Distancia','Dos manos','Munición','Versátil'];
+
+function _catDe(s){const a=_sa(s||'').toLowerCase();
+ if(/pergamino/.test(a))return 'pergaminos';
+ if(/pocion|elixir|aceite|unguento|municion|bomba/.test(a))return 'consumibles';
+ if(/\bescudo\b/.test(a))return 'escudos';
+ if(/armadura|coraza|cota de/.test(a))return 'armaduras';
+ if(/\barma\b/.test(a))return 'armas';
+ if(/\b(gema|joya|tesoro|obra de arte|valios)/.test(a))return 'valiosos';
+ if(/maravillos|anillo|varita|\bvara\b|cetro|amuleto|collar|\bcapa\b|botas|guantes|cinturon|yelmo|corona|talisman|orbe|cubo|abanico/.test(a))return 'accesorios';
+ return ''}
+function _rarDe(s){const a=_sa(s||'').toLowerCase();
+ if(/muy rar/.test(a))return 'epica';if(/legendari|artefacto/.test(a))return 'legendaria';
+ if(/poco comun|infrecuente/.test(a))return 'infrecuente';if(/\brar[oa]\b/.test(a))return 'rara';if(/\bcomun\b/.test(a))return 'comun';return ''}
+
+function _statsDe(txt){
+ const K='Tipo|Da[ñn]o|Propiedades?|Bonificador|CA|Clase de armadura|Peso|Fuerza|Sigilo|Alcance|Precio|Valor|Maestr[ií]a|Competencia';
+ const re=new RegExp('(?:^|[\\s•◦·|])('+K+')\\s*:\\s*','gi'),pos=[];let m;
+ while((m=re.exec(txt)))pos.push({k:_sa(m[1]).toLowerCase(),i:m.index+m[0].length,s:m.index});
+ const r={};pos.forEach((p,j)=>{r[p.k]=txt.slice(p.i,j+1<pos.length?pos[j+1].s:txt.length).replace(/[•◦·|\s.,;]+$/,'').trim()});return r}
+
+function _grupoDe(nombre,texto){
+ const h=_sa(nombre).toLowerCase(),t=_sa(texto).toLowerCase().slice(0,220);
+ if(/pasiv/.test(h))return 'pasivas';
+ const cand=[['adicional',t.search(/accion adicional/)],['reaccion',t.search(/reaccion/)],['accion',t.search(/(como|usar|emplear|utilizar|gastar|con) una accion|accion de magia/)]].filter(x=>x[1]>=0).sort((a,b)=>a[1]-b[1]);
+ return cand.length?cand[0][0]:'pasivas'}
+
+const _FREQ=/\(?\s*((?:\d+|una|un)\s+vez(?:es)?\s+por\s+[a-záéíóúñ]+(?:\s+(?:corto|largo))?)\s*\)?/i;
+
+function leerItem(txt){
+ const ruido=/[\u0400-\u04ff]/.test(txt)||/[A-Z]{2,}[a-z]{1,2}[A-Z]/.test(txt)||/\b[A-Z]{3,}[a-z]\b/.test(txt);
+ const L=_itemLineas(txt),avisos=[],falta=[];
+ let i=0;while(i<L.length&&!L[i])i++;
+ const nom=_nombreBonito(L[i]||'');i++;
+ let tipoL='';const subt=[];
+ for(let k=0;k<2;k++){let j=i;while(j<L.length&&!L[j])j++;const s=L[j];if(s==null)break;
+  if(_tipoSig(s)){tipoL=tipoL?tipoL+' '+s:s;i=j+1}
+  else if(_esMay(s)&&s.split(' ').length<=6&&!_seccion(s)&&!_kw.test(s)&&!/:/.test(s)){subt.push(s);i=j+1}
+  else break}
+ const sec={intro:[],desc2:[],notas:[],estilo:[],stats:[],quotes:[]},ents=[];
+ let cur='intro',ent=null,sint=false,abierta=false,notasEt='';
+ const nuevaEnt=(n,t,tipoKw)=>{const fm=_FREQ.exec(n);let freq='';if(fm){freq=fm[1].toLowerCase();n=n.replace(_FREQ,'').trim()}
+  ent={n:_nombreBonito(n).n,t:t?[t]:[],freq,kw:tipoKw||''};ents.push(ent);cur='entry'};
+ for(;i<L.length;i++){
+  const s=L[i];
+  if(!s){if(cur==='intro'||cur==='desc2'||cur==='notas')sec[cur].push('');continue}
+  if(abierta){sec.quotes[sec.quotes.length-1]+=' '+s;if(/["”»]/.test(s))abierta=false;continue}
+  if(/^["“«‘]/.test(s)&&cur!=='stats'&&cur!=='notas'){sec.quotes.push(s);if(!/["”»]/.test(s.slice(1)))abierta=true;continue}
+  const a=_sa(s).toLowerCase().trim();
+  if(/^estadisticas?$/.test(a)){cur='stats';continue}
+  if(/^estilos?$/.test(a)){cur='estilo';continue}
+  if(/^descripcion$/.test(a)){cur='desc2';continue}
+  if(/^notas?\s+de\b/.test(a)){cur='notas';notasEt=_nombreBonito(s).n;continue}
+  if(/^requiere\s+sintoni/.test(a)){sint=true;cur='sint';continue}
+  if(cur==='entry'&&ent&&!ent.t.length&&!ent.freq&&/^\(?\s*(\d+|una|un)\s+vez/i.test(s)){ent.freq=(_FREQ.exec(s)||[0,s])[1].toLowerCase();continue}
+  const km=_kw.exec(s);
+  if(km){const kl=km[1].replace(/[^A-Za-zÁÉÍÓÚÑáéíóúñ]/g,''),ratio=(kl.match(/[A-ZÁÉÍÓÚÑ]/g)||[]).length/kl.length;
+   if(ratio>=0.5){
+    const resto=s.slice(km[0].length).replace(/^\s*(?:--|—|–|-|:)?\s*/,''),toks=resto.split(/\s+/);
+    let corte=-1,marc=false;
+    for(let k=1;k<toks.length;k++)if(/^[vVxX✓✔√]$/.test(toks[k])){corte=k;marc=true;break}
+    if(corte<0)for(let k=1;k<toks.length;k++)if(/^[A-ZÁÉÍÓÚÑ][a-záéíóúñ]{2,}$/.test(toks[k])){corte=k;break}
+    const nombre=corte>=0?toks.slice(0,corte).join(' '):resto,texto=corte>=0?toks.slice(corte+(marc?1:0)).join(' '):'';
+    nuevaEnt(nombre||km[1],texto,km[1]);continue}}
+  if(_esMay(s)&&s.split(' ').length<=7&&!/[.!?]$/.test(s)){nuevaEnt(s.replace(/^[•◦·]\s*/,''),'');continue}
+  if(cur==='stats')sec.stats.push(s);
+  else if(cur==='entry')ent.t.push(s);
+  else if(cur==='sint'){}
+  else sec[cur].push(s)}
+
+ // --- datos básicos
+ const st=_statsDe(sec.stats.join(' '));
+ let rareza=_rarDe(tipoL),catTxt=[tipoL,subt.join(' ')].join(' ');
+ let categoria=_catDe(tipoL)||'';
+ if(st.tipo){const c=_catDe(st.tipo);if(c)categoria=c}
+ if(!categoria&&(st.dano||_catDe(subt.join(' '))==='armas'))categoria='armas';
+ if(!categoria)categoria=_catDe(subt.join(' '))||'';
+ if(/sintoni/i.test(_sa(tipoL)))sint=true;
+ const datos={peso:st.peso||'',sint,pasivas:[],accion:[],adicional:[],reaccion:[],multi:[]},extra=[];
+
+ if(categoria==='armas'||(!categoria&&st.dano)){
+  categoria='armas';
+  const base=_sa(st.tipo||((/\(([^)]*)\)/.exec(tipoL)||[,''])[1])||'').toLowerCase().trim();
+  datos.comp=/marcial/.test(_sa((st.competencia||'')+' '+(st.tipo||'')).toLowerCase())||_ARMAS_MARC.some(x=>base.includes(x))?'Marcial':(_ARMAS_SIMPLES.some(x=>base.includes(x))||/simple/.test(_sa(st.tipo||'').toLowerCase())?'Simple':'');
+  datos.tipoArma=(/distancia/.test(base)||_ARMAS_DIST.some(x=>base.includes(x)))?'A distancia':'Cuerpo a cuerpo';
+  datos.dano='';datos.tipoDano='cortante';datos.versatil='';datos.alcance='';datos.maestria='';datos.props=[];
+  const dm=/(\d+d\d+(?:\s*[+\-]\s*\d+)?)\s*(?:de\s+da[ñn]o\s+)?([a-záéíóúñ]+)?/i.exec(st.dano||'');
+  if(dm){datos.dano=dm[1].replace(/\s+/g,'');const td=_TD[_sa(dm[2]||'').toLowerCase()];if(td)datos.tipoDano=td}
+  (st.propiedades||st.propiedad||'').split(/\s*[.,;]\s*(?![^()]*\))/).forEach(p=>{p=p.trim();if(!p)return;
+   const b=_sa(p).toLowerCase().replace(/\(.*$/,'').trim(),pr=_PROPS.find(x=>_sa(x).toLowerCase()===b);
+   if(pr){if(!datos.props.includes(pr))datos.props.push(pr);
+    const vm=/\((\d+d\d+)/.exec(p);if(pr==='Versátil'&&vm)datos.versatil=vm[1];
+    const am=/(\d+\s*\/\s*\d+)/.exec(p);if(am&&(pr==='Arrojadiza'||pr==='Munición'))datos.alcance=am[1].replace(/\s/g,'')+' pies'}
+   else if(/^[+\-−]\d+\s+al\s+ataque/i.test(p))datos.pasivas.push({n:'Bonificador de ataque',t:p.replace(/^[−]/,'-')});
+   else if(p.length>2)extra.push(p.charAt(0).toUpperCase()+p.slice(1)+'.')});
+  if(st.alcance&&!datos.alcance)datos.alcance=st.alcance;
+  if(st.maestria){const mm=['Hendir','Rozar','Mella','Empujar','Debilitar','Ralentizar','Derribar','Hostigar'].find(x=>_sa(x).toLowerCase()===_sa(st.maestria).toLowerCase());if(mm)datos.maestria=mm}
+ }else if(categoria==='armaduras'||categoria==='escudos'){
+  const tp=_sa(st.tipo||catTxt).toLowerCase();
+  datos.armTipo=/escudo/.test(tp)||categoria==='escudos'?'Escudo':/pesada/.test(tp)||_ARM_TIPO.pesada.some(x=>tp.includes(x))?'Pesada':/media/.test(tp)||_ARM_TIPO.media.some(x=>tp.includes(x))?'Media':'Ligera';
+  const ca=st.ca||st['clase de armadura']||st.bonificador||'';
+  datos.armCA=/des/i.test(ca)?ca.replace(/\s+/g,' ').replace(/[.;]+$/,'').trim():(/^[+\-]?\d+/.exec(ca)||[''])[0].replace(/^(\d)/,(m,d)=>categoria==='escudos'?'+'+d:d);
+  if(!datos.armCA&&ca)datos.armCA=ca;
+  datos.armFue=(/\d+/.exec(st.fuerza||'')||[''])[0];datos.armSig=/desventaja/i.test(st.sigilo||'');
+  if(st.propiedades||st.propiedad){const p=st.propiedades||st.propiedad;extra.push(p.charAt(0).toUpperCase()+p.slice(1)+'.')}
+ }
+
+ // --- habilidades con nombre
+ ents.forEach(e=>{const texto=_parrafos(e.t).join(' ').trim();
+  const g=_grupoDe(e.kw+' '+e.n,texto);
+  datos[g].push({n:e.n,t:(e.freq?'('+e.freq+') ':'')+texto})});
+
+ // --- descripción
+ const partes=[];
+ const reqS=/sintoni[a-z]*\s+con\s+([^)]+)/i.exec(_sa(tipoL));
+ if(reqS)partes.push('Requiere sintonización con '+reqS[1].trim()+'.');
+ if(subt.length)partes.push(subt.map(_oracion).join(' · '));
+ partes.push(..._parrafos(sec.intro),..._parrafos(sec.desc2));
+ if(sec.notas.some(Boolean))partes.push((notasEt||'Notas')+': '+_parrafos(sec.notas).join(' '));
+ sec.quotes.forEach(q=>partes.push(q.replace(/['‘’]+"$/,'"')));
+ const tags=sec.estilo.join(' ').replace(/["“”'’]/g,' ').replace(/(?:^|\s)[VvXx✓✔√](?=\s)/g,' ').replace(/\s+/g,' ').trim();
+ if(tags)partes.push('Estilo: '+tags.split(/\s+(?=[A-ZÁÉÍÓÚÑ])/).join(' · '));
+ extra.forEach(x=>partes.push(x));
+ const descripcion=partes.filter(Boolean).join('\n\n').replace(/\n{3,}/g,'\n\n').trim();
+
+ if(!rareza){falta.push('rareza');rareza='comun'}
+ if(!categoria){falta.push('categoría');categoria='accesorios'}
+ if(nom.cor)avisos.push('corregí el nombre a “'+nom.n+'” (parecía mal escaneado)');
+ if(ruido)avisos.push('el texto parece de un escaneo (OCR): revisá las palabras mal leídas');
+ return {nombre:nom.n,categoria,rareza,descripcion,datos,falta,avisos,tags:tags?1:0}
+}

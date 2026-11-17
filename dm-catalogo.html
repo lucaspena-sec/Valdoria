@@ -1,10 +1,11 @@
-<!doctype html><html lang="es"><head><title>Valdoria - Catálogo DM</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=6"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=6"></script><script src="comun.js?v=6"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
+<!doctype html><html lang="es"><head><title>Valdoria - Catálogo DM</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=14"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=6"></script><script src="comun.js?v=11"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
 <div class="win"><div id="cab"></div><div class="body">
 <h2>Catálogo y mercaderes</h2>
 <a href="dm.html">← Volver al panel de jugadores</a>
 <div id="msg" class="err"></div>
 <h3>Mercaderes</h3><button onclick="nuevoM()">+ Nuevo mercader</button><div id="merc"></div>
-<h3>Catálogo de ítems</h3><button onclick="editar(0)">+ Nuevo ítem</button> <input id="bq" placeholder="Buscar ítem por nombre" oninput="pintar()">
+<h3>Catálogo de ítems</h3><button onclick="editar(0)">+ Nuevo ítem</button> <button onclick="pf.style.display='block'">📋 Pegar ficha</button> <input id="bq" placeholder="Buscar ítem por nombre" oninput="pintar()">
+<div id="pf" class="box" style="display:none"><textarea id="pf_t" rows="8" placeholder="Pegá acá el texto de la ficha del ítem. Podés pegar varios ítems juntos."></textarea><button onclick="leerFichaItem()">Leer ficha</button> <button onclick="pf.style.display='none'">Cancelar</button><br><small>Si es uno solo, se abre el editor con los datos cargados para revisar. Si pegás varios, te los muestro en una lista para guardarlos de una vez.</small><div id="pf_l"></div></div>
 <div id="ed" class="box" style="display:none">
  <input type="hidden" id="e_id">
  <input id="e_nombre" placeholder="Nombre">
@@ -79,8 +80,8 @@ const quitar=(m,i)=>q(sb.from('oferta').delete().eq('mercader_id',m).eq('item_id
 function pintarGr(k){document.getElementById('gr_'+k).innerHTML=LST[k].map((e,i)=>'<div class="box"><input value="'+esc(e.n)+'" placeholder="Nombre" oninput="LST[\''+k+'\']['+i+'].n=this.value"><textarea rows="3" placeholder="Descripción" oninput="LST[\''+k+'\']['+i+'].t=this.value">'+esc(e.t)+'</textarea><button onclick="quitarE(\''+k+'\','+i+')">Quitar</button></div>').join('')}
 const addE=k=>{LST[k].push({n:'',t:''});pintarGr(k)};
 const quitarE=(k,i)=>{LST[k].splice(i,1);pintarGr(k)};
-function editar(id){
- const i=id?IT.find(x=>x.id==id):{id:'',nombre:'',descripcion:'',precio:0,categoria:'armas',rareza:'comun',imagen:'',datos:{}},d=i.datos||{};
+function editar(id,pre){
+ const i=pre||(id?IT.find(x=>x.id==id):{id:'',nombre:'',descripcion:'',precio:0,categoria:'armas',rareza:'comun',imagen:'',datos:{}}),d=i.datos||{};
  ed.style.display='block';e_id.value=i.id;e_nombre.value=i.nombre;e_desc.value=i.descripcion||'';e_cat.value=i.categoria;e_rar.value=i.rareza;e_precio.value=i.precio;e_img.value=i.imagen||'';
  e_peso.value=d.peso||'';e_sint.checked=!!d.sint;
  e_comp.value=d.comp||'';e_ta.value=d.tipoArma||'Cuerpo a cuerpo';e_dano.value=d.dano||'';e_td.value=d.tipoDano||'cortante';e_vers.value=d.versatil||'';e_alc.value=d.alcance||'';e_mae.value=d.maestria||'';
@@ -88,6 +89,24 @@ function editar(id){
  e_at.value=d.armTipo||'Ligera';e_aca.value=d.armCA||'';e_afu.value=d.armFue||'';e_sig.checked=!!d.armSig;
  LST={};GR.forEach(([k])=>{LST[k]=(d[k]||[]).map(e=>({...e}));pintarGr(k)});
  bloques();ed.scrollIntoView()}
+let PFL=[];
+const PRECIO_SUG={comun:'50–100',infrecuente:'101–500',rara:'501–5.000',epica:'5.001–50.000',legendaria:'más de 50.000'};
+function resumenLectura(x){const d=x.datos,N={pasivas:'pasiva',accion:'acción',adicional:'adicional',reaccion:'reacción',multi:'multiataque'},
+ gr=Object.keys(N).filter(k=>d[k].length).map(k=>d[k].length+' '+N[k]+(d[k].length>1&&k!='multi'?'s':'')).join(', ');
+ return (x.falta.length?'Revisá estos datos, no pude leerlos: '+x.falta.join(', ')+'. ':'Ficha leída. ')+'Leí: '+CATN[x.categoria]+', '+RARN[x.rareza]+(d.sint?', requiere sintonización':'')+(gr?', '+gr:'')+'.'+(x.avisos.length?' Ojo: '+x.avisos.join('; ')+'.':'')+' Poné el precio (sugerido para '+RARN[x.rareza].toLowerCase()+': '+PRECIO_SUG[x.rareza]+' po). Revisá todo antes de guardar.'}
+function abrirLeido(x){editar(0,{id:'',nombre:x.nombre,descripcion:x.descripcion,precio:0,categoria:x.categoria,rareza:x.rareza,imagen:'',datos:x.datos});msg.textContent=resumenLectura(x)}
+function leerFichaItem(){const t=pf_t.value.trim();if(!t){msg.textContent='Pegá primero el texto del ítem.';return}
+ const bl=separarItems(t).map(leerItem).filter(x=>x.nombre);
+ if(!bl.length){msg.textContent='No encontré ningún ítem en ese texto.';return}
+ if(bl.length==1){pf.style.display='none';pf_t.value='';pf_l.innerHTML='';abrirLeido(bl[0]);return}
+ PFL=bl.map(x=>({...x,ok:true}));pintarPFL();msg.textContent='Encontré '+bl.length+' ítems. Tildá los que quieras guardar o revisalos de a uno.'}
+function pintarPFL(){pf_l.innerHTML=PFL.map((x,i)=>'<div class="box"><label><input type="checkbox" style="width:auto" '+(x.ok?'checked':'')+' onchange="PFL['+i+'].ok=this.checked"> <b>'+esc(x.nombre)+'</b></label> <small>'+CATN[x.categoria]+' · '+RARN[x.rareza]+(x.datos.sint?' · sintonización':'')+(x.falta.length?' · ⚠ falta '+esc(x.falta.join(', ')):'')+'</small> <button onclick="revisarPFL('+i+')">Revisar y editar</button>'+(x.avisos.length?'<br><small>⚠ '+esc(x.avisos.join('; '))+'</small>':'')+'</div>').join('')+'<button onclick="guardarPFL()">💾 Guardar los tildados (precio 0)</button> <small>Después les ponés el precio y la foto con “Editar”.</small>'}
+function revisarPFL(i){const x=PFL[i];PFL.splice(i,1);if(PFL.length)pintarPFL();else{pf_l.innerHTML='';pf.style.display='none';pf_t.value=''}abrirLeido(x)}
+async function guardarPFL(){const f=PFL.filter(x=>x.ok).map(x=>({nombre:x.nombre,descripcion:x.descripcion,precio:0,categoria:x.categoria,rareza:x.rareza,imagen:'',datos:x.datos}));
+ if(!f.length){msg.textContent='No hay ítems tildados.';return}
+ const{error}=await sb.from('items').insert(f);if(error){msg.textContent=error.message;return}
+ msg.textContent='Se guardaron '+f.length+' ítems en el catálogo con precio 0: ponele el precio a cada uno con “Editar”.';
+ PFL=[];pf_l.innerHTML='';pf_t.value='';pf.style.display='none';cargar()}
 async function guardar(){
  const n=g('e_nombre').trim();if(!n){msg.textContent='Falta el nombre.';return}
  const cat=g('e_cat'),d={peso:g('e_peso').trim(),sint:e_sint.checked};
