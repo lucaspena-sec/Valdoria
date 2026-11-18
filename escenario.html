@@ -1,0 +1,50 @@
+<!doctype html><html lang="es"><head><title>Valdoria - Escenario</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=15"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=7"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
+<div class="win"><div id="cab"></div><div class="body">
+<div id="vacio" class="box" style="text-align:center"><div style="font-size:42px">🎬</div><b>El DM todavía no mostró ninguna escena.</b><br><small>Cuando muestre una, aparece acá sola.</small></div>
+<div id="escenaEl" style="display:none">
+ <div id="marco" onclick="abrirZoom()"><img id="ei" alt="Escena"></div>
+ <h2 id="et" style="display:none"></h2>
+ <div id="eb"></div>
+ <small class="escayuda">Tocá la foto para ampliarla (útil con los mapas).</small>
+</div>
+</div></div>
+<div id="zoom" onclick="zoomToggle(event)"><img id="zi" alt=""></div>
+<button id="zoomx" onclick="cerrarZoom(event)">✖ Cerrar</button>
+<button id="fs" onclick="pantallaCompleta()" title="Pantalla completa" style="display:none;position:fixed;right:10px;bottom:10px;z-index:70;opacity:.55">⛶</button>
+<script>
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>'&#'+c.charCodeAt(0)+';');
+const TV=new URLSearchParams(location.search).get('tv')==='1';
+if(TV){document.body.classList.add('tv');fs.style.display='block'}
+let ULT='',IMG='';
+
+function pintar(d){
+ if(!d.mostrando){vacio.style.display='block';escenaEl.style.display='none';IMG='';return}
+ vacio.style.display='none';escenaEl.style.display='block';
+ et.textContent=d.titulo||'';et.style.display=d.titulo?'block':'none';
+ eb.innerHTML=(d.bloques||[]).map(b=>'<div class="escpl"><b>'+esc(b.t)+'</b>'+esc(b.x)+'</div>').join('');
+ if(d.imagen&&d.imagen!==IMG)cambiarImagen(d.imagen)}
+function cambiarImagen(u){
+ const primera=!IMG;IMG=u;const pre=new Image();
+ const poner=()=>{if(u!==IMG)return;if(primera){ei.src=u;return}ei.style.opacity=0;setTimeout(()=>{if(u!==IMG)return;ei.src=u;ei.style.opacity=1},220)};
+ pre.onload=poner;pre.onerror=()=>{ei.src=u;ei.style.opacity=1};pre.src=u}
+async function ver(){
+ if(document.hidden)return;
+ const{data,error}=await sb.rpc('escenario_ver');
+ if(error||!data)return;
+ const k=JSON.stringify(data);if(k===ULT)return;ULT=k;pintar(data)}
+
+function abrirZoom(){if(!IMG)return;zi.src=IMG;zoom.className='';zoom.style.display='block';zoomx.style.display='block';zoom.scrollTop=0;zoom.scrollLeft=0}
+function zoomToggle(e){e.stopPropagation();zoom.classList.toggle('x2')}
+function cerrarZoom(e){if(e)e.stopPropagation();zoom.style.display='none';zoomx.style.display='none'}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')cerrarZoom()});
+function pantallaCompleta(){const d=document.documentElement;if(document.fullscreenElement)document.exitFullscreen();else if(d.requestFullscreen)d.requestFullscreen()}
+async function pedirDespierto(){try{if(TV&&navigator.wakeLock)await navigator.wakeLock.request('screen')}catch(e){}}
+
+(async()=>{
+ const p=await cabecera('Escenario');if(!p)return;
+ await ver();setInterval(ver,3000);
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden){ver();pedirDespierto()}});
+ pedirDespierto();
+ if(TV){let t;const mostrar=()=>{fs.style.opacity=.55;document.body.style.cursor='';clearTimeout(t);t=setTimeout(()=>{fs.style.opacity=0;document.body.style.cursor='none'},3000)};document.addEventListener('mousemove',mostrar);mostrar()}
+})();
+</script></body></html>

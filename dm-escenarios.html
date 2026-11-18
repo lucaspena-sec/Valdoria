@@ -1,0 +1,155 @@
+<!doctype html><html lang="es"><head><title>Valdoria - Escenarios DM</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=15"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=7"></script><script src="comun.js?v=11"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
+<div class="win"><div id="cab"></div><div class="body">
+<h2>🎬 Escenarios</h2>
+<a href="dm.html">← Volver al panel</a>
+<div id="msg" class="err"></div>
+<div id="estado" class="box"></div>
+<div id="lista"></div>
+<div id="panel"></div>
+</div></div>
+<script>
+const g=id=>document.getElementById(id);
+const PLANTILLA=['Descripción del lugar','Introducción','Nudo','Desenlace','Texto para jugadores','Posibles enemigos','Notas secretas'];
+const nuevoBloque=t=>({id:'b'+Math.random().toString(36).slice(2,9),t,x:'',v:false});
+let ES=[],ALL=[],SC=[],EST={mostrando:false,escenario_id:null,escena_id:null},sel=null,vista=0,vivo=true,tmr=null;
+const ABIERTOS=new Set(),pend=new Set();
+try{vivo=localStorage.getItem('escVivo')!=='0'}catch(e){}
+const nomEsc=id=>{const e=ES.find(x=>x.id==id);return e?e.nombre:''};
+const archivo=u=>decodeURIComponent((u||'').split('/').pop().split('?')[0]);
+const scn=()=>SC[vista]||null;
+const bl=id=>((scn()||{}).bloques||[]).find(b=>b.id==id);
+
+async function cargar(){
+ const[a,b,c]=await Promise.all([sb.from('escenarios').select('*').order('nombre'),sb.from('escenas').select('*').order('orden'),sb.from('escenario_estado').select('*').eq('id',1).maybeSingle()]);
+ if(a.error||b.error){msg.textContent=(a.error||b.error).message+' — ¿corriste setup_escenarios.sql?';return}
+ ES=a.data||[];ALL=b.data||[];if(c.data)EST=c.data;
+ if(sel&&!ES.find(x=>x.id==sel))sel=null;
+ recalc();pintar()}
+function recalc(){SC=ALL.filter(s=>s.escenario_id==sel).sort((x,y)=>x.orden-y.orden);if(vista>=SC.length)vista=Math.max(0,SC.length-1)}
+
+function pintar(){
+ const p=ALL.find(s=>s.id==EST.escena_id),en=EST.mostrando&&p;
+ estado.innerHTML=(en?'📺 <b>En pantalla:</b> '+esc(nomEsc(p.escenario_id))+' · '+esc(p.titulo||'(sin título)')+' <button onclick="ocultar()">⬛ Ocultar</button>':'⬛ Los jugadores no están viendo ninguna escena.')+
+  '<br><a href="escenario.html" target="_blank">👁 Ver como jugador</a> · <a href="escenario.html?tv=1" target="_blank">🖥 Modo TV (para la mesa)</a>';
+ lista.innerHTML='<div class="escrow">'+ES.map(e=>'<button class="chipE'+(e.id==sel?' on':'')+'" onclick="abrir('+e.id+')">'+esc(e.nombre)+' <small>('+ALL.filter(s=>s.escenario_id==e.id).length+')</small></button>').join('')+'<button onclick="nuevoEsc()">＋ Nuevo escenario</button></div>';
+ panel.innerHTML=sel?panelHtml():'<p><i>'+(ES.length?'Elegí un escenario o creá uno nuevo.':'Todavía no tenés escenarios. Creá el primero con “＋ Nuevo escenario”.')+'</i></p>';
+ afterPaint()}
+
+function panelHtml(){
+ const s=scn(),proy=EST.mostrando&&s&&EST.escena_id==s.id;
+ let h='<div class="box"><b>'+esc(nomEsc(sel))+'</b> <button onclick="renombrarEsc()" title="Renombrar">✏</button> <button onclick="borrarEsc()" title="Borrar el escenario">🗑</button><br>'+
+  '<button onclick="fi.click()">📷 Agregar fotos</button><input type="file" id="fi" accept="image/*" multiple style="display:none" onchange="subirFotos(this)"> <span id="sub"></span></div>';
+ if(!SC.length)return h+'<p><i>Este escenario todavía no tiene fotos. Tocá “📷 Agregar fotos” y elegí varias de una vez.</i></p>';
+ h+='<div class="escctl"><button class="flecha" onclick="ir(-1)">◀</button><b>'+(vista+1)+' / '+SC.length+'</b><button class="flecha" onclick="ir(1)">▶</button></div>';
+ h+='<label><input type="checkbox" style="width:auto" '+(vivo?'checked':'')+' onchange="vivoSet(this.checked)"> 🔴 En vivo: al pasar con las flechas, los jugadores lo ven al instante</label>';
+ h+='<div class="escprev" id="prev"><img src="'+esc(s.imagen)+'" alt="">'+(proy?'<span class="escbadge">📺 EN PANTALLA</span>':'')+'</div>';
+ h+='<div class="escrow"><button onclick="mostrar()">📺 Mostrar esta escena</button><button onclick="ocultar()">⬛ Ocultar</button></div>';
+ h+='<div class="escstrip">'+SC.map((x,i)=>'<div class="escth'+(i==vista?' on':'')+((EST.mostrando&&EST.escena_id==x.id)?' live':'')+'" onclick="irA('+i+')"><img src="'+esc(x.imagen)+'" loading="lazy" alt=""><b>'+(i+1)+'</b></div>').join('')+'</div>';
+ return h+editorHtml(s)}
+
+function editorHtml(s){
+ const bq=s.bloques||[];
+ return '<div class="box"><input id="s_tit" value="'+esc(s.titulo)+'" placeholder="Título de la escena (para ubicarte; los jugadores no lo ven)" oninput="setTit(this.value)">'+
+  '<label><input type="checkbox" style="width:auto" '+(s.mostrar_titulo?'checked':'')+' onchange="setMT(this.checked)"> Mostrar el título a los jugadores</label>'+
+  '<div class="escrow"><button onclick="mover(-1)">⬅ Mover antes</button><button onclick="mover(1)">Mover después ➡</button><button onclick="fc.click()">🖼 Cambiar foto</button><input type="file" id="fc" accept="image/*" style="display:none" onchange="subirCambio(this)"><button onclick="borrarEscena()">🗑 Borrar escena</button></div></div>'+
+  '<h3>📝 Narración <small id="gd"></small></h3><small>El ojo de cada bloque decide si lo ven los jugadores. Todo lo demás queda solo para vos.</small>'+
+  bq.map(bloqueHtml).join('')+
+  '<div class="escrow"><select id="nb" onchange="addBloque(this.value)"><option value="">＋ Agregar bloque…</option>'+PLANTILLA.map(t=>'<option>'+esc(t)+'</option>').join('')+'<option value="*">Otro nombre…</option></select></div>'}
+
+function bloqueHtml(b){
+ return '<details class="escblq" '+(ABIERTOS.has(b.id)?'open':'')+' ontoggle="togB(\''+b.id+'\',this.open)"><summary><button class="ojo'+(b.v?' on':'')+'" title="'+(b.v?'Los jugadores lo ven':'Oculto para los jugadores')+'" onclick="visB(\''+b.id+'\')">'+(b.v?'👁':'🙈')+'</button> <b>'+esc(b.t)+'</b>'+(b.x?' <span class="pto">●</span>':'')+'</summary>'+
+  '<input value="'+esc(b.t)+'" oninput="tB(\''+b.id+'\',this.value)" placeholder="Nombre del bloque"><textarea rows="6" oninput="xB(\''+b.id+'\',this.value)" placeholder="Escribí acá…">'+esc(b.x)+'</textarea>'+
+  '<div class="escrow"><button onclick="movB(\''+b.id+'\',-1)">▲</button><button onclick="movB(\''+b.id+'\',1)">▼</button><button onclick="delB(\''+b.id+'\')">🗑 Quitar</button></div></details>'}
+
+function afterPaint(){
+ const p=g('prev');if(p){let x0=null;p.ontouchstart=e=>{x0=e.touches[0].clientX};p.ontouchend=e=>{if(x0==null)return;const dx=e.changedTouches[0].clientX-x0;x0=null;if(Math.abs(dx)>50)ir(dx<0?1:-1)}}
+ const on=document.querySelector('.escth.on');if(on&&on.scrollIntoView)on.scrollIntoView({inline:'center',block:'nearest'})}
+document.addEventListener('keydown',e=>{if(/INPUT|TEXTAREA|SELECT/.test((document.activeElement||{}).tagName))return;if(e.key=='ArrowLeft')ir(-1);if(e.key=='ArrowRight')ir(1)});
+
+/* ---- guardado de textos (con un respiro para no guardar en cada tecla) ---- */
+function mod(){const s=scn();if(!s)return;pend.add(s.id);if(g('gd'))g('gd').textContent='…';clearTimeout(tmr);tmr=setTimeout(flush,700)}
+async function flush(){
+ const ids=[...pend];pend.clear();
+ for(const id of ids){const s=ALL.find(x=>x.id==id);if(!s)continue;
+  const{error}=await sb.from('escenas').update({titulo:s.titulo,mostrar_titulo:s.mostrar_titulo,bloques:s.bloques}).eq('id',id);
+  if(error){msg.textContent=error.message;return}}
+ if(g('gd'))g('gd').textContent='💾 guardado'}
+const flushYa=()=>{clearTimeout(tmr);return flush()};
+function setTit(v){scn().titulo=v;mod()}
+async function setMT(v){scn().mostrar_titulo=v;pend.add(scn().id);await flushYa()}
+function tB(id,v){const b=bl(id);if(b){b.t=v;mod()}}
+function xB(id,v){const b=bl(id);if(b){b.x=v;mod()}}
+function togB(id,ab){if(ab)ABIERTOS.add(id);else ABIERTOS.delete(id)}
+async function visB(id){const b=bl(id);if(!b)return;b.v=!b.v;pend.add(scn().id);await flushYa();pintar()}
+async function addBloque(v){if(!v)return;const t=v=='*'?(prompt('Nombre del bloque')||'').trim():v;if(!t){pintar();return}
+ const b=nuevoBloque(t);scn().bloques.push(b);ABIERTOS.add(b.id);pend.add(scn().id);await flushYa();pintar()}
+async function movB(id,d){const a=scn().bloques,i=a.findIndex(b=>b.id==id),j=i+d;if(i<0||j<0||j>=a.length)return;[a[i],a[j]]=[a[j],a[i]];pend.add(scn().id);await flushYa();pintar()}
+async function delB(id){const b=bl(id);if(!b)return;if(b.x&&!confirm('¿Quitar el bloque “'+b.t+'” con su texto?'))return;
+ const s=scn();s.bloques=s.bloques.filter(x=>x.id!=id);pend.add(s.id);await flushYa();pintar()}
+
+/* ---- escenarios ---- */
+async function nuevoEsc(){const n=(prompt('Nombre del escenario (por ej. Misión del desierto)')||'').trim();if(!n)return;
+ const{error}=await sb.from('escenarios').insert({nombre:n});if(error){msg.textContent=error.message;return}
+ msg.textContent='';await cargar();const e=ES.filter(x=>x.nombre==n).sort((a,b)=>b.id-a.id)[0];if(e)abrir(e.id)}
+function abrir(id){sel=id;vista=0;recalc();const p=EST.mostrando?SC.findIndex(s=>s.id==EST.escena_id):-1;if(p>=0)vista=p;pintar()}
+async function renombrarEsc(){const n=(prompt('Nuevo nombre',nomEsc(sel))||'').trim();if(!n)return;
+ const{error}=await sb.from('escenarios').update({nombre:n}).eq('id',sel);if(error){msg.textContent=error.message;return}await cargar()}
+async function borrarEsc(){
+ if(!confirm('¿Borrar el escenario “'+nomEsc(sel)+'” con sus '+SC.length+' escenas y fotos? No se puede deshacer.'))return;
+ const arch=SC.map(s=>archivo(s.imagen)).filter(Boolean);
+ const{error}=await sb.from('escenarios').delete().eq('id',sel);if(error){msg.textContent=error.message;return}
+ if(arch.length)sb.storage.from('escenarios').remove(arch);
+ sel=null;await cargar()}
+
+/* ---- escenas ---- */
+async function mover(d){const s=scn(),j=vista+d;if(!s||j<0||j>=SC.length)return;const t=SC[j];
+ const a=s.orden,b=t.orden==s.orden?s.orden+d:t.orden;
+ const r=await Promise.all([sb.from('escenas').update({orden:b}).eq('id',s.id),sb.from('escenas').update({orden:a}).eq('id',t.id)]);
+ const er=r.find(x=>x.error);if(er){msg.textContent=er.error.message;return}
+ vista=j;await cargar()}
+async function borrarEscena(){const s=scn();if(!s||!confirm('¿Borrar esta escena y su foto? No se puede deshacer.'))return;
+ const{error}=await sb.from('escenas').delete().eq('id',s.id);if(error){msg.textContent=error.message;return}
+ sb.storage.from('escenarios').remove([archivo(s.imagen)]);await cargar()}
+
+/* ---- proyección ---- */
+async function setEstado(o){const{error}=await sb.from('escenario_estado').update({...o,actualizado:new Date().toISOString()}).eq('id',1);
+ if(error){msg.textContent=error.message;return false}msg.textContent='';Object.assign(EST,o);return true}
+async function mostrar(){const s=scn();if(!s)return;await flushYa();if(await setEstado({escenario_id:sel,escena_id:s.id,mostrando:true}))pintar()}
+async function ocultar(){if(await setEstado({mostrando:false}))pintar()}
+async function irA(i){if(i<0||i>=SC.length)return;vista=i;pintar();if(vivo&&EST.mostrando&&EST.escenario_id==sel)await mostrar()}
+const ir=d=>irA(vista+d);
+function vivoSet(v){vivo=v;try{localStorage.setItem('escVivo',v?'1':'0')}catch(e){}}
+
+/* ---- fotos: se achican en el celular antes de subir (no hace falta que pesen menos de 2 MB) ---- */
+async function comprimir(file,max=1800){
+ let bmp;try{bmp=await createImageBitmap(file,{imageOrientation:'from-image'})}catch(e){bmp=await new Promise((ok,no)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=()=>no(new Error('formato de imagen no válido'));i.src=URL.createObjectURL(file)})}
+ const W=bmp.width||bmp.naturalWidth,H=bmp.height||bmp.naturalHeight,r=Math.min(1,max/Math.max(W,H)),w=Math.max(1,Math.round(W*r)),h=Math.max(1,Math.round(H*r));
+ const c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');x.fillStyle='#000';x.fillRect(0,0,w,h);x.drawImage(bmp,0,0,w,h);
+ let q=.85,blob;
+ do{blob=await new Promise((ok,no)=>c.toBlob(b=>b?ok(b):no(new Error('no se pudo comprimir')),'image/jpeg',q));q-=.15}while(blob.size>4.5e6&&q>.35);
+ return blob}
+async function subirUna(file){
+ const blob=await comprimir(file),nom=(crypto.randomUUID?crypto.randomUUID():Date.now()+'-'+Math.random().toString(36).slice(2))+'.jpg';
+ const{error}=await sb.storage.from('escenarios').upload(nom,blob,{contentType:'image/jpeg'});if(error)throw error;
+ return sb.storage.from('escenarios').getPublicUrl(nom).data.publicUrl}
+async function subirFotos(inp){
+ const fs=[...inp.files];inp.value='';if(!fs.length)return;
+ let n=SC.length?Math.max(...SC.map(s=>s.orden))+1:0;const filas=[],errs=[];
+ for(let i=0;i<fs.length;i++){
+  if(g('sub'))g('sub').textContent='Subiendo '+(i+1)+' de '+fs.length+'…';
+  try{filas.push({escenario_id:sel,orden:n++,titulo:fs[i].name.replace(/\.[^.]+$/,'').replace(/[_-]+/g,' ').trim(),imagen:await subirUna(fs[i]),mostrar_titulo:false,bloques:PLANTILLA.map(nuevoBloque)})}
+  catch(e){errs.push('“'+fs[i].name+'”: '+(e.message||e))}}
+ if(filas.length){const{error}=await sb.from('escenas').insert(filas);if(error)errs.push(error.message)}
+ msg.textContent=errs.length?'No se pudo subir: '+errs.join(' · '):'';
+ const antes=SC.length;await cargar();if(filas.length)vista=antes;pintar()}
+async function subirCambio(inp){
+ const f=inp.files[0];inp.value='';const s=scn();if(!f||!s)return;
+ try{const u=await subirUna(f),vieja=archivo(s.imagen);
+  const{error}=await sb.from('escenas').update({imagen:u}).eq('id',s.id);if(error)throw error;
+  sb.storage.from('escenarios').remove([vieja]);msg.textContent='';await cargar()}
+ catch(e){msg.textContent='No se pudo cambiar la foto: '+(e.message||e)}}
+
+(async()=>{const p=await cabecera('Escenarios DM');if(!p)return;if(!p.is_dm){location.href='main.html';return}
+ await cargar();
+ const pr=ALL.find(s=>s.id==EST.escena_id);if(EST.mostrando&&pr){sel=pr.escenario_id;recalc();vista=Math.max(0,SC.findIndex(s=>s.id==pr.id));pintar()}})();
+</script></body></html>

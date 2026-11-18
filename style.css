@@ -232,4 +232,46 @@ textarea{width:100%;font:inherit;padding:8px}
 .celda .qty{position:absolute;right:1px;top:1px;background:#000d;color:#ffd54a;font-size:9px;font-weight:bold;padding:0 2px;border-radius:3px;line-height:1.2;z-index:2}
 .qsel{margin-top:6px}
 .qsel button{padding:0 8px}
+/* escenarios (DM) */
+.escrow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:6px 0}
+.chipE.on{outline:3px solid #ffd54a}
+.escctl{display:flex;align-items:center;justify-content:center;gap:18px;margin:8px 0}
+.escctl .flecha{font-size:26px;padding:6px 22px}
+.escprev{position:relative;background:#000;border:3px solid #7a1f1f;margin:8px 0}
+.escprev img{display:block;width:100%;max-height:55vh;object-fit:contain}
+.escbadge{position:absolute;left:6px;top:6px;background:#d22;color:#fff;font-weight:bold;font-size:12px;padding:2px 6px}
+.escstrip{display:flex;gap:6px;overflow-x:auto;padding:4px 0;margin:6px 0}
+.escth{position:relative;flex:0 0 auto;width:84px;border:3px solid #555;background:#000;cursor:pointer}
+.escth img{display:block;width:100%;height:56px;object-fit:cover}
+.escth b{position:absolute;left:0;top:0;background:#000b;color:#fff;font-size:11px;padding:0 4px}
+.escth.on{border-color:#ffd54a}
+.escth.live{border-color:#d22}
+.escth.live::after{content:"📺";position:absolute;right:0;bottom:0;font-size:12px;background:#000b}
+.escblq{border:2px solid #aaa;background:#fffbe6;margin:6px 0;padding:4px 6px}
+.escblq summary{cursor:pointer;display:flex;align-items:center;gap:6px}
+.escblq textarea{width:100%;font:inherit;padding:6px}
+.ojo{padding:2px 8px;font-size:16px}
+.ojo.on{background:#fff;border-color:#ffd54a}
+.pto{color:#c47a00}
+/* escenario (jugadores y modo TV) */
+#marco{background:#000;border:3px solid #7a1f1f;cursor:zoom-in}
+#marco img{display:block;width:100%;max-height:70vh;object-fit:contain;transition:opacity .25s}
+#et{margin:10px 0 4px}
+.escpl{background:#fffbe6;border:2px solid #c9a227;padding:8px 10px;margin:8px 0;white-space:pre-wrap;font-size:16px;line-height:1.35}
+.escpl b{display:block;color:#7a1f1f;margin-bottom:2px}
+#zoom{display:none;position:fixed;inset:0;z-index:60;background:#000;overflow:auto;touch-action:pan-x pan-y pinch-zoom}
+#zoom img{display:block;width:100%;height:auto;min-height:100%;object-fit:contain}
+#zoom.x2 img{width:250%;max-width:none;object-fit:initial}
+#zoomx{display:none;position:fixed;right:10px;top:10px;z-index:61}
+body.tv{background:#000}
+body.tv #cab,body.tv .escayuda{display:none}
+body.tv .win{border:0;box-shadow:none;background:#000;margin:0;max-width:none}
+body.tv .body{padding:0;background:#000}
+body.tv #marco{border:0;cursor:none}
+body.tv #marco img{width:100vw;height:100vh;max-height:none}
+body.tv #et{position:fixed;left:3vw;top:2vh;margin:0;color:#fff;text-shadow:0 0 8px #000;font-size:3vw;z-index:5}
+body.tv #eb{position:fixed;left:0;right:0;bottom:0;background:#000b;padding:1.5vw 4vw;max-height:45vh;overflow:auto;z-index:5}
+body.tv .escpl{background:none;border:0;color:#fff;font-size:2.3vw;padding:.4vw 0}
+body.tv .escpl b{color:#ffd54a}
+body.tv #vacio{background:none;border:0;color:#ccc;margin-top:30vh;font-size:3vw}
 
