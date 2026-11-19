@@ -1,4 +1,4 @@
-<!doctype html><html lang="es"><head><title>Valdoria - Escenarios DM</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=15"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=7"></script><script src="comun.js?v=11"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
+<!doctype html><html lang="es"><head><title>Valdoria - Escenarios DM</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=15"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=7"></script><script src="comun.js?v=12"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
 <div class="win"><div id="cab"></div><div class="body">
 <h2>🎬 Escenarios</h2>
 <a href="dm.html">← Volver al panel</a>
@@ -9,15 +9,19 @@
 </div></div>
 <script>
 const g=id=>document.getElementById(id);
-const PLANTILLA=['Descripción del lugar','Introducción','Nudo','Desenlace','Texto para jugadores','Posibles enemigos','Notas secretas'];
-const nuevoBloque=t=>({id:'b'+Math.random().toString(36).slice(2,9),t,x:'',v:false});
-let ES=[],ALL=[],SC=[],EST={mostrando:false,escenario_id:null,escena_id:null},sel=null,vista=0,vivo=true,tmr=null;
+const SUGERENCIAS=['Descripción del lugar','Introducción','Nudo','Desenlace','Texto para jugadores','Posibles enemigos','Notas secretas','Pistas','Tesoro','Diálogo'];
+const nuevoId=()=>'b'+Math.random().toString(36).slice(2,9);
+const nuevoBloque=t=>({id:nuevoId(),t,x:'',v:false});
+const clon=o=>JSON.parse(JSON.stringify(o));
+let ES=[],ALL=[],SC=[],EST={mostrando:false,escenario_id:null,escena_id:null},sel=null,vista=0,vivo=true,tmr=null,COMP=null,PE=null;
 const ABIERTOS=new Set(),pend=new Set();
 try{vivo=localStorage.getItem('escVivo')!=='0'}catch(e){}
 const nomEsc=id=>{const e=ES.find(x=>x.id==id);return e?e.nombre:''};
 const archivo=u=>decodeURIComponent((u||'').split('/').pop().split('?')[0]);
 const scn=()=>SC[vista]||null;
 const bl=id=>((scn()||{}).bloques||[]).find(b=>b.id==id);
+const misma=id=>ALL.filter(s=>s.escenario_id==sel&&(s.bloques||[]).some(b=>b.id==id));
+function editB(id,fn){misma(id).forEach(s=>{fn(s.bloques.find(x=>x.id==id));pend.add(s.id)})}
 
 async function cargar(){
  const[a,b,c]=await Promise.all([sb.from('escenarios').select('*').order('nombre'),sb.from('escenas').select('*').order('orden'),sb.from('escenario_estado').select('*').eq('id',1).maybeSingle()]);
@@ -48,18 +52,29 @@ function panelHtml(){
  return h+editorHtml(s)}
 
 function editorHtml(s){
- const bq=s.bloques||[];
+ const bq=s.bloques||[],vacios=ALL.filter(x=>x.escenario_id==sel).reduce((n,x)=>n+(x.bloques||[]).filter(b=>!(b.x||'').trim()).length,0);
  return '<div class="box"><input id="s_tit" value="'+esc(s.titulo)+'" placeholder="Título de la escena (para ubicarte; los jugadores no lo ven)" oninput="setTit(this.value)">'+
   '<label><input type="checkbox" style="width:auto" '+(s.mostrar_titulo?'checked':'')+' onchange="setMT(this.checked)"> Mostrar el título a los jugadores</label>'+
   '<div class="escrow"><button onclick="mover(-1)">⬅ Mover antes</button><button onclick="mover(1)">Mover después ➡</button><button onclick="fc.click()">🖼 Cambiar foto</button><input type="file" id="fc" accept="image/*" style="display:none" onchange="subirCambio(this)"><button onclick="borrarEscena()">🗑 Borrar escena</button></div></div>'+
-  '<h3>📝 Narración <small id="gd"></small></h3><small>El ojo de cada bloque decide si lo ven los jugadores. Todo lo demás queda solo para vos.</small>'+
+  '<h3>📝 Narración <small id="gd"></small></h3><small>El ojo de cada bloque decide si lo ven los jugadores. Un bloque con 🔗 está en varias fotos: lo escribís una vez y se actualiza en todas.</small>'+
+  '<div class="escrow"><button onclick="peAbrir()">📋 Pegar escena</button>'+(vacios?'<button onclick="limpiarVacios()">🧹 Quitar bloques vacíos ('+vacios+')</button>':'')+'</div>'+
+  '<div id="pe">'+peHtml()+'</div>'+
   bq.map(bloqueHtml).join('')+
-  '<div class="escrow"><select id="nb" onchange="addBloque(this.value)"><option value="">＋ Agregar bloque…</option>'+PLANTILLA.map(t=>'<option>'+esc(t)+'</option>').join('')+'<option value="*">Otro nombre…</option></select></div>'}
+  '<div class="escrow"><input id="nbn" list="nbl" placeholder="Nombre del nuevo bloque (ej. Introducción, Nudo…)" onkeydown="if(event.key===\'Enter\')addBloque()"><datalist id="nbl">'+SUGERENCIAS.map(t=>'<option value="'+esc(t)+'">').join('')+'</datalist><button onclick="addBloque()">＋ Agregar bloque</button></div>'}
 
 function bloqueHtml(b){
- return '<details class="escblq" '+(ABIERTOS.has(b.id)?'open':'')+' ontoggle="togB(\''+b.id+'\',this.open)"><summary><button class="ojo'+(b.v?' on':'')+'" title="'+(b.v?'Los jugadores lo ven':'Oculto para los jugadores')+'" onclick="visB(\''+b.id+'\')">'+(b.v?'👁':'🙈')+'</button> <b>'+esc(b.t)+'</b>'+(b.x?' <span class="pto">●</span>':'')+'</summary>'+
+ const n=misma(b.id).length;
+ return '<details class="escblq" '+(ABIERTOS.has(b.id)?'open':'')+' ontoggle="togB(\''+b.id+'\',this.open)"><summary><button class="ojo'+(b.v?' on':'')+'" title="'+(b.v?'Los jugadores lo ven':'Oculto para los jugadores')+'" onclick="visB(\''+b.id+'\')">'+(b.v?'👁':'🙈')+'</button> <b>'+esc(b.t)+'</b>'+(b.x?' <span class="pto">●</span>':'')+(n>1?' <span class="pto" title="Está en '+n+' fotos y se edita en todas a la vez">🔗 '+n+'</span>':'')+'</summary>'+
   '<input value="'+esc(b.t)+'" oninput="tB(\''+b.id+'\',this.value)" placeholder="Nombre del bloque"><textarea rows="6" oninput="xB(\''+b.id+'\',this.value)" placeholder="Escribí acá…">'+esc(b.x)+'</textarea>'+
-  '<div class="escrow"><button onclick="movB(\''+b.id+'\',-1)">▲</button><button onclick="movB(\''+b.id+'\',1)">▼</button><button onclick="delB(\''+b.id+'\')">🗑 Quitar</button></div></details>'}
+  '<div class="escrow"><button onclick="movB(\''+b.id+'\',-1)">▲</button><button onclick="movB(\''+b.id+'\',1)">▼</button><button onclick="compB(\''+b.id+'\')">🔗 Compartir con otras fotos</button><button onclick="delB(\''+b.id+'\')">🗑 Quitar</button></div>'+
+  (COMP===b.id?compHtml(b.id):'')+'</details>'}
+
+function picker(prefix,marcadas,fijas){
+ return '<div class="escpick">'+SC.map((x,i)=>'<label><img src="'+esc(x.imagen)+'" loading="lazy" alt=""><b>'+(i+1)+'</b><input type="checkbox" class="'+prefix+'" data-id="'+x.id+'" '+(marcadas.has(x.id)?'checked':'')+(fijas&&fijas.has(x.id)?' disabled':'')+'></label>').join('')+'</div>'}
+function compHtml(id){
+ const en=new Set(misma(id).map(s=>s.id));
+ return '<div class="box"><b>Mostrar este bloque también en:</b>'+picker('cpk',en,new Set([scn().id]))+
+  '<div class="escrow"><button onclick="compAplicar(\''+id+'\')">Aplicar</button><button onclick="document.querySelectorAll(\'.cpk\').forEach(c=>c.checked=true)">Todas</button><button onclick="COMP=null;pintar()">Cancelar</button></div><small>Si lo sacás de una foto, se quita de esa foto. El texto es el mismo en todas.</small></div>'}
 
 function afterPaint(){
  const p=g('prev');if(p){let x0=null;p.ontouchstart=e=>{x0=e.touches[0].clientX};p.ontouchend=e=>{if(x0==null)return;const dx=e.changedTouches[0].clientX-x0;x0=null;if(Math.abs(dx)>50)ir(dx<0?1:-1)}}
@@ -67,7 +82,7 @@ function afterPaint(){
 document.addEventListener('keydown',e=>{if(/INPUT|TEXTAREA|SELECT/.test((document.activeElement||{}).tagName))return;if(e.key=='ArrowLeft')ir(-1);if(e.key=='ArrowRight')ir(1)});
 
 /* ---- guardado de textos (con un respiro para no guardar en cada tecla) ---- */
-function mod(){const s=scn();if(!s)return;pend.add(s.id);if(g('gd'))g('gd').textContent='…';clearTimeout(tmr);tmr=setTimeout(flush,700)}
+function mod(){if(g('gd'))g('gd').textContent='…';clearTimeout(tmr);tmr=setTimeout(flush,700)}
 async function flush(){
  const ids=[...pend];pend.clear();
  for(const id of ids){const s=ALL.find(x=>x.id==id);if(!s)continue;
@@ -75,17 +90,69 @@ async function flush(){
   if(error){msg.textContent=error.message;return}}
  if(g('gd'))g('gd').textContent='💾 guardado'}
 const flushYa=()=>{clearTimeout(tmr);return flush()};
-function setTit(v){scn().titulo=v;mod()}
-async function setMT(v){scn().mostrar_titulo=v;pend.add(scn().id);await flushYa()}
-function tB(id,v){const b=bl(id);if(b){b.t=v;mod()}}
-function xB(id,v){const b=bl(id);if(b){b.x=v;mod()}}
+function setTit(v){const s=scn();s.titulo=v;pend.add(s.id);mod()}
+async function setMT(v){const s=scn();s.mostrar_titulo=v;pend.add(s.id);await flushYa()}
+function tB(id,v){editB(id,b=>b.t=v);mod()}
+function xB(id,v){editB(id,b=>b.x=v);mod()}
 function togB(id,ab){if(ab)ABIERTOS.add(id);else ABIERTOS.delete(id)}
-async function visB(id){const b=bl(id);if(!b)return;b.v=!b.v;pend.add(scn().id);await flushYa();pintar()}
-async function addBloque(v){if(!v)return;const t=v=='*'?(prompt('Nombre del bloque')||'').trim():v;if(!t){pintar();return}
- const b=nuevoBloque(t);scn().bloques.push(b);ABIERTOS.add(b.id);pend.add(scn().id);await flushYa();pintar()}
+async function visB(id){const b=bl(id);if(!b)return;const v=!b.v;editB(id,x=>x.v=v);await flushYa();pintar()}
+async function addBloque(){const inp=g('nbn'),t=((inp&&inp.value)||'').trim();
+ if(!t){msg.textContent='Escribí el nombre del bloque (por ejemplo: Introducción).';if(inp)inp.focus();return}
+ msg.textContent='';const b=nuevoBloque(t),s=scn();s.bloques=(s.bloques||[]).concat(b);ABIERTOS.add(b.id);pend.add(s.id);await flushYa();pintar()}
 async function movB(id,d){const a=scn().bloques,i=a.findIndex(b=>b.id==id),j=i+d;if(i<0||j<0||j>=a.length)return;[a[i],a[j]]=[a[j],a[i]];pend.add(scn().id);await flushYa();pintar()}
-async function delB(id){const b=bl(id);if(!b)return;if(b.x&&!confirm('¿Quitar el bloque “'+b.t+'” con su texto?'))return;
- const s=scn();s.bloques=s.bloques.filter(x=>x.id!=id);pend.add(s.id);await flushYa();pintar()}
+async function delB(id){const b=bl(id);if(!b)return;const n=misma(id).length;let todas=false;
+ if(n>1){todas=confirm('Este bloque está en '+n+' fotos.\n\nAceptar = quitarlo de TODAS las fotos\nCancelar = quitarlo solo de esta foto');
+  if(!todas&&!confirm('¿Quitarlo solo de esta foto?'))return}
+ else if(b.x&&!confirm('¿Quitar el bloque “'+b.t+'” con su texto?'))return;
+ (todas?misma(id):[scn()]).forEach(s=>{s.bloques=s.bloques.filter(x=>x.id!=id);pend.add(s.id)});
+ await flushYa();pintar()}
+function compB(id){COMP=COMP===id?null:id;ABIERTOS.add(id);pintar()}
+async function compAplicar(id){const b=bl(id);if(!b)return;const cur=scn();
+ document.querySelectorAll('.cpk').forEach(c=>{const s=ALL.find(x=>x.id==c.dataset.id);if(!s||s.id==cur.id)return;
+  const tiene=(s.bloques||[]).some(x=>x.id==id);
+  if(c.checked&&!tiene){s.bloques=(s.bloques||[]).concat(clon(b));pend.add(s.id)}
+  else if(!c.checked&&tiene){s.bloques=s.bloques.filter(x=>x.id!=id);pend.add(s.id)}});
+ COMP=null;await flushYa();pintar()}
+async function limpiarVacios(){
+ const af=ALL.filter(s=>s.escenario_id==sel&&(s.bloques||[]).some(b=>!(b.x||'').trim()));
+ const n=af.reduce((k,s)=>k+s.bloques.filter(b=>!(b.x||'').trim()).length,0);
+ if(!n||!confirm('Se quitan '+n+' bloques SIN texto de las fotos de este escenario. Los que tienen texto no se tocan. ¿Seguir?'))return;
+ af.forEach(s=>{s.bloques=s.bloques.filter(b=>(b.x||'').trim());pend.add(s.id)});await flushYa();pintar()}
+
+/* ---- pegar escena: detecta etapa, título de la escena, títulos de cada parte y sus párrafos ---- */
+function peAbrir(){PE={texto:'',res:null,sel:0,on:[],nom:[],tit:true,rem:false,dest:new Set([scn().id])};pintarPE()}
+function peCerrar(){PE=null;pintarPE()}
+function pintarPE(){const el=g('pe');if(el)el.innerHTML=peHtml()}
+function peLeer(){
+ const t=((g('pe_t')||{}).value||'').trim();if(!t){msg.textContent='Pegá primero el texto de la escena.';return}
+ PE.texto=t;PE.res=leerEscena(t);
+ if(!PE.res.escenas.length||!PE.res.escenas.some(e=>e.bloques.length)){msg.textContent='No encontré texto para armar bloques. Revisá que hayas pegado la escena.';PE.res=null;return}
+ msg.textContent='';peElegir(0)}
+function peElegir(i){PE.sel=i;const E=PE.res.escenas[i];PE.on=E.bloques.map(()=>true);PE.nom=E.bloques.map(b=>b.t);pintarPE()}
+function peHtml(){
+ if(!PE)return '';
+ if(!PE.res)return '<div class="box"><b>📋 Pegar escena</b><br><textarea id="pe_t" rows="8" placeholder="Pegá acá el texto de la escena (con sus títulos y párrafos)…" oninput="PE.texto=this.value">'+esc(PE.texto)+'</textarea><div class="escrow"><button onclick="peLeer()">Leer escena</button><button onclick="peCerrar()">Cancelar</button></div><small>Detecta “Etapa…”, “Escena: …”, el título de cada parte y sus párrafos, y une los renglones cortados por el copiado. Después elegís qué guardar y en qué fotos.</small></div>';
+ const E=PE.res.escenas[PE.sel],multi=PE.res.escenas.length>1;
+ return '<div class="box"><b>📋 Escena leída</b>'+
+  (multi?'<div>Encontré '+PE.res.escenas.length+' escenas. Elegí la que querés aplicar ahora:<br>'+PE.res.escenas.map((e,i)=>'<label><input type="radio" name="pesel" style="width:auto" '+(i==PE.sel?'checked':'')+' onchange="peElegir('+i+')"> '+esc((e.etapa?e.etapa+' · ':'')+(e.titulo||'(sin título)'))+'</label>').join('<br>')+'</div>':'')+
+  (E.titulo||E.etapa?'<label style="display:block;margin-top:6px"><input type="checkbox" style="width:auto" '+(PE.tit?'checked':'')+' onchange="PE.tit=this.checked"> Poner “'+esc((E.etapa?E.etapa+' · ':'')+E.titulo)+'” como título de esta foto</label>':'')+
+  '<div style="margin-top:6px"><b>Bloques detectados ('+E.bloques.length+')</b></div>'+
+  E.bloques.map((b,i)=>'<div class="escblq"><label><input type="checkbox" style="width:auto" '+(PE.on[i]?'checked':'')+' onchange="PE.on['+i+']=this.checked"> <input value="'+esc(PE.nom[i])+'" oninput="PE.nom['+i+']=this.value" style="width:80%"></label><br><small>'+esc(b.x.slice(0,110).replace(/\n+/g,' '))+(b.x.length>110?'…':'')+' <i>('+b.x.length+' caracteres)</i></small></div>').join('')+
+  '<div style="margin-top:6px"><b>Ponerlos en estas fotos:</b></div>'+picker('pek',PE.dest,null)+
+  '<div class="escrow"><button onclick="peDest(0)">Solo esta foto</button><button onclick="peDest(1)">Todas las fotos</button></div>'+
+  '<label style="display:block"><input type="checkbox" style="width:auto" '+(PE.rem?'checked':'')+' onchange="PE.rem=this.checked"> Reemplazar los bloques que ya tienen esas fotos (si no, se agregan al final)</label>'+
+  '<small>Si elegís varias fotos, los bloques quedan vinculados 🔗: los editás una vez y cambian en todas.</small>'+
+  '<div class="escrow"><button onclick="peAplicar()"><b>✔ Agregar a las fotos elegidas</b></button><button onclick="PE.res=null;pintarPE()">⬅ Volver al texto</button><button onclick="peCerrar()">Cancelar</button></div></div>'}
+function peDest(todas){PE.dest=new Set(todas?SC.map(s=>s.id):[scn().id]);pintarPE()}
+async function peAplicar(){
+ const E=PE.res.escenas[PE.sel],dest=[...document.querySelectorAll('.pek:checked')].map(c=>+c.dataset.id);
+ if(!dest.length){msg.textContent='Elegí al menos una foto.';return}
+ const nuevos=E.bloques.map((b,i)=>({id:nuevoId(),t:((PE.nom[i]||'').trim()||b.t||'Bloque'),x:b.x,v:false,_on:PE.on[i]})).filter(b=>b._on).map(({_on,...b})=>b);
+ const titulo=PE.tit&&(E.titulo||E.etapa)?(E.etapa?E.etapa+(E.titulo?' · ':''):'')+E.titulo:null;
+ if(!nuevos.length&&!titulo){msg.textContent='No hay bloques tildados.';return}
+ dest.forEach(id=>{const s=ALL.find(x=>x.id==id);if(!s)return;s.bloques=(PE.rem?[]:(s.bloques||[])).concat(clon(nuevos));pend.add(s.id)});
+ if(titulo){const s=scn();s.titulo=titulo;pend.add(s.id)}
+ await flushYa();PE=null;msg.textContent='Listo: '+nuevos.length+' bloque'+(nuevos.length==1?'':'s')+' en '+dest.length+' foto'+(dest.length==1?'':'s')+(dest.length>1?' (vinculados 🔗)':'')+'.';pintar()}
 
 /* ---- escenarios ---- */
 async function nuevoEsc(){const n=(prompt('Nombre del escenario (por ej. Misión del desierto)')||'').trim();if(!n)return;
@@ -137,7 +204,7 @@ async function subirFotos(inp){
  let n=SC.length?Math.max(...SC.map(s=>s.orden))+1:0;const filas=[],errs=[];
  for(let i=0;i<fs.length;i++){
   if(g('sub'))g('sub').textContent='Subiendo '+(i+1)+' de '+fs.length+'…';
-  try{filas.push({escenario_id:sel,orden:n++,titulo:fs[i].name.replace(/\.[^.]+$/,'').replace(/[_-]+/g,' ').trim(),imagen:await subirUna(fs[i]),mostrar_titulo:false,bloques:PLANTILLA.map(nuevoBloque)})}
+  try{filas.push({escenario_id:sel,orden:n++,titulo:fs[i].name.replace(/\.[^.]+$/,'').replace(/[_-]+/g,' ').trim(),imagen:await subirUna(fs[i]),mostrar_titulo:false,bloques:[]})}
   catch(e){errs.push('“'+fs[i].name+'”: '+(e.message||e))}}
  if(filas.length){const{error}=await sb.from('escenas').insert(filas);if(error)errs.push(error.message)}
  msg.textContent=errs.length?'No se pudo subir: '+errs.join(' · '):'';

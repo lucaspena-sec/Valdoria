@@ -400,3 +400,90 @@ function leerItem(txt){
  if(ruido)avisos.push('el texto parece de un escaneo (OCR): revisá las palabras mal leídas');
  return {nombre:nom.n,categoria,rareza,descripcion,datos,falta,avisos,tags:tags?1:0}
 }
+
+// ===== Escenas de misión: leer un texto pegado (títulos + párrafos) =====
+// Detecta "ETAPA 1 — ...", "Escena: ...", títulos de sección (con o sin ":"), listas con o sin número,
+// diálogos ("Elias: ...") y une los renglones cortados por el copiado, aunque no haya líneas en blanco.
+const _ESC_ETAPA=/^(etapa|cap[ií]tulo|acto|parte)\s+(\d+|[ivxlc]+)\b\s*(?:[—–:\-]+\s*(.*))?$/i;
+const _ESC_ESCENA=/^escena\s*(\d+)?\s*[:—–\-]+\s*(.+)$/i;
+const _eLetras=s=>s.replace(/[^A-Za-zÁÉÍÓÚÑáéíóúñ]/g,'');
+const _eMay=s=>{const l=_eLetras(s);return l.length>=3&&(l.match(/[A-ZÁÉÍÓÚÑ]/g)||[]).length/l.length>=0.7};
+const _eCap=s=>{s=s.replace(/\s+/g,' ').trim();if(!s)return s;if(_eMay(s))s=s.toLowerCase();return s.charAt(0).toUpperCase()+s.slice(1)};
+const _eEtapa=s=>_eCap(s).replace(/([—–:\-]\s*)([a-záéíóúñ])/,(m,a,b)=>a+b.toUpperCase());
+const _eIni=/^[A-ZÁÉÍÓÚÑ¿¡"“«(]/;
+const _eFin=/[.!?:)"”»…]$/;
+const _eHabla=/^[A-ZÁÉÍÓÚÑ][A-Za-zÁÉÍÓÚÑáéíóúñ ]{1,24}:\s+\S/;
+
+function _esTitulo(R,i){
+ const s=R[i].s;if(s.length>80)return null;
+ let p=i-1;while(p>=0&&!R[p].s)p--;
+ const prev=p>=0?R[p].s:'',vacioAntes=i>0&&!R[i-1].s;
+ let n=i+1;while(n<R.length&&!R[n].s)n++;
+ const next=n<R.length?R[n].s:'';
+ const finPrev=!prev||vacioAntes||/[.!?)"”»…]$/.test(prev)||_ESC_ESCENA.test(prev)||_ESC_ETAPA.test(prev);
+ const may=/^[A-ZÁÉÍÓÚÑ¿¡]/.test(s),pal=s.split(/\s+/).length;
+ if(/^\d+[.)]\s/.test(s)||/^[•◦▪●\-–]\s/.test(s))return null;
+ if(_eMay(s)&&!/[.!?]$/.test(s)&&!_eHabla.test(s))return s;
+ if(may&&/:$/.test(s)&&finPrev&&pal<=10&&!/[.!?]\s/.test(s))return s;
+ if(may&&!/[.!?:,;]/.test(s)&&s.length<=45&&pal<=6&&finPrev&&next&&_eIni.test(next))return s;
+ if(may&&s.length<=50&&!/[.!?:,;]/.test(s)&&/\s[—–-]\s[A-ZÁÉÍÓÚÑ]/.test(s)&&pal<=8)return s;
+ return null}
+
+function _armarTexto(lines,lista){
+ const out=[];let cur=null,modo=lista?'?':'';
+ const push=()=>{if(cur){out.push(cur);cur=null}};
+ const esItem=s=>/^(\d+[.)])\s+/.test(s)||/^[•◦▪●\-–]\s+/.test(s);
+ // junta el renglón k con los siguientes que lo continúan (en minúscula, sin ser ítem ni línea en blanco)
+ const frase=k=>{let t=lines[k],j=k+1;while(j<lines.length&&lines[j]&&!esItem(lines[j])&&!_eIni.test(lines[j])){t+=' '+lines[j];j++}return[t,j]};
+ for(let k=0;k<lines.length;k++){
+  const s=lines[k];
+  if(!s){push();if(modo==='bul'||modo==='num')modo='';continue}
+  const num=/^(\d+[.)])\s+(.*)$/.exec(s),bul=/^[•◦▪●\-–]\s+(.*)$/.exec(s);
+  if(num){push();cur={li:1,t:num[1]+' '+num[2]};modo='num';continue}
+  if(bul){push();cur={li:1,t:'• '+bul[1]};modo='bul';continue}
+  const may=_eIni.test(s);
+  if(modo==='?'){
+   if(s.length<=60&&!/[.!?]$/.test(s)){cur={li:1,t:'• '+s};modo='bul';continue}
+   modo=''}
+  if((modo==='num'||modo==='bul')&&cur){
+   if(may){
+    const[f,j]=frase(k);
+    if(/[.!?]$/.test(f)&&!/[.!?)]$/.test(cur.t)){push();modo='';cur={t:f};k=j-1;continue}   // vuelve el texto normal
+    if(modo==='bul'){push();cur={li:1,t:'• '+f};k=j-1;continue}}
+   cur.t+=' '+s;continue}
+  if(cur&&!cur.li&&!(_eFin.test(cur.t)&&(may||_eHabla.test(s))))cur.t+=' '+s;
+  else{push();cur={t:s}}}
+ push();
+ let res='';
+ out.forEach((u,k)=>{
+  const t=u.li&&!/^\d/.test(u.t)?u.t.replace(/\)\s+(?=[A-ZÁÉÍÓÚÑ])/g,')\n• '):u.t;
+  res+=(k?(u.li&&out[k-1].li?'\n':'\n\n'):'')+t});
+ return res.trim()}
+
+function leerEscena(txt){
+ const raw=String(txt||'').normalize('NFC').replace(/\r\n?/g,'\n')
+  .replace(/[\u00a0\u2000-\u200a\u202f\u205f\u3000]/g,' ').replace(/[\u00ad\u200b-\u200d\u2060\ufeff]/g,'')
+  .replace(/([a-záéíóúñü])-\n\s*([a-záéíóúñü])/g,'$1$2');
+ const R=raw.split('\n').map(l=>{l=l.trim();
+  const m=/^#{1,6}\s+(.+?)\s*#*$/.exec(l)||/^\*\*(.+?)\*\*\s*:?$/.exec(l)||/^__(.+?)__\s*:?$/.exec(l);
+  return m?{s:m[1].trim(),h:true}:{s:l.replace(/\*{1,3}/g,''),h:false}});
+ const escenas=[];let etapa='',S=null,B=null;
+ const cerrarBloque=()=>{if(S&&B&&(B.l.some(Boolean)||B.t))S.bloques.push(B);B=null};
+ const cerrarEsc=()=>{cerrarBloque();if(S&&(S.bloques.length||S.titulo))escenas.push(S);S=null};
+ for(let i=0;i<R.length;i++){
+  const{s,h}=R[i];
+  if(!s){if(B)B.l.push('');continue}
+  let m;
+  if(s.length<=80&&(m=_ESC_ETAPA.exec(s))&&(h||_eMay(s)||/[—–:\-]/.test(s))){cerrarEsc();etapa=_eEtapa(s);continue}
+  if(s.length<=120&&(m=_ESC_ESCENA.exec(s))){cerrarEsc();S={etapa,titulo:_eCap(m[2]),bloques:[]};B=null;continue}
+  if(!S)S={etapa,titulo:'',bloques:[]};
+  const tit=h?s:_esTitulo(R,i);
+  if(tit){cerrarBloque();B={t:_eCap(tit.replace(/[:：]\s*$/,'')),l:[],lista:/[:：]\s*$/.test(tit)};continue}
+  if(!B)B={t:'',l:[],lista:false};
+  B.l.push(s)}
+ cerrarEsc();
+ const res=escenas.map(e=>({etapa:e.etapa,titulo:e.titulo,bloques:e.bloques.map(b=>({t:b.t||e.titulo||'Narración',x:_armarTexto(b.l,b.lista)})).filter(b=>b.x||b.t)}));
+ const avisos=[];
+ if(!res.length)avisos.push('no encontré texto para armar la escena');
+ res.forEach(e=>{if(e.bloques.length===1&&!e.titulo)avisos.push('no detecté títulos: quedó todo en un solo bloque (podés dividirlo a mano)')});
+ return {escenas:res,avisos}}
