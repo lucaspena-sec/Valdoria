@@ -293,3 +293,44 @@ body.tv #vacio{background:none;border:0;color:#ccc;margin-top:30vh;font-size:3vw
 #modalPJ{display:none;position:fixed;inset:0;z-index:80;background:#000a;align-items:center;justify-content:center;padding:10px}
 .mbox{background:#ece5cf;border:3px solid #7a1f1f;padding:12px;max-width:420px;width:100%}
 .mbox h3{margin-top:0;color:#7a1f1f}
+/* estados de combate (condiciones) */
+.cest{display:flex;flex-wrap:wrap;gap:2px;align-items:center;min-height:20px;margin:2px 0 0}
+.echip{padding:0 5px;margin:0;font-size:10px;line-height:16px;border:2px solid var(--ec,#888);background:#fffdf4;border-radius:10px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:normal;color:#000}
+.echip.ico{padding:0 3px}
+.echip.her{border-style:dashed;opacity:.75}
+.echip b{margin-left:2px}
+.ccard.est:not(.turno){animation:estGlow 2.2s ease-in-out infinite}
+.ccard.est.turno{box-shadow:0 0 0 3px #ffd54a,0 0 14px 6px var(--e1)}
+@keyframes estGlow{0%,100%{box-shadow:0 0 0 2px var(--e1),0 0 6px 1px var(--e1)}50%{box-shadow:0 0 0 2px var(--e2),0 0 14px 4px var(--e2)}}
+.cfx{position:absolute;inset:0;pointer-events:none;z-index:1}
+@keyframes fxPulse{0%,100%{opacity:1}50%{opacity:.45}}
+@keyframes fxFlick{0%,100%{opacity:.9}20%{opacity:.4}45%{opacity:1}70%{opacity:.5}}
+.fx-agarrado{background:repeating-linear-gradient(45deg,#a0522d66 0 6px,transparent 6px 14px)}
+.fx-apresado{background:repeating-linear-gradient(90deg,#4e342e88 0 5px,transparent 5px 20px),repeating-linear-gradient(0deg,#4e342e88 0 5px,transparent 5px 20px)}
+.fx-asustado{background:radial-gradient(circle,transparent 35%,#6a1b9acc 100%);animation:fxFlick 1.3s infinite}
+.fx-aturdido{background:radial-gradient(circle at 50% 18%,#ffee58aa,transparent 55%);animation:fxPulse .8s infinite}
+.fx-cegado{background:radial-gradient(circle,#0000 15%,#000d 100%)}
+.fx-encantado{background:radial-gradient(circle,transparent 40%,#ff4d9a99 100%);animation:fxPulse 1.8s infinite}
+.fx-ensordecido{background:repeating-radial-gradient(circle at 50% 50%,#90a4ae55 0 4px,transparent 4px 14px)}
+.fx-envenenado{background:linear-gradient(to top,#2ecc40aa,#2ecc4033 45%,transparent 75%),radial-gradient(circle at 22% 82%,#9dff7a 0 3px,transparent 4px),radial-gradient(circle at 68% 68%,#9dff7a 0 2px,transparent 3px),radial-gradient(circle at 82% 88%,#9dff7a 0 3px,transparent 4px);animation:fxPulse 2s ease-in-out infinite}
+.fx-agotado{background:linear-gradient(to top,#000a,transparent 60%)}
+.fx-incapacitado{background:#37474f55}
+.fx-inconsciente{background:#1a237e88}
+.fx-invisible{background:linear-gradient(135deg,#b3e5fc55,transparent 40%,#b3e5fc55 70%,transparent);animation:fxPulse 2.4s infinite}
+.fx-paralizado{background:repeating-linear-gradient(0deg,#00e5ff55 0 3px,transparent 3px 9px);animation:fxPulse 1.2s infinite}
+.fx-petrificado{background:#9e9e9e77}
+.fx-derribado{background:linear-gradient(to bottom,transparent 55%,#6d4c4199)}
+.ccard.inv .cfoto img{opacity:.4}
+.ccard.pet .cfoto img{filter:grayscale(1) contrast(1.15)}
+.ccard.agot .cfoto img{filter:grayscale(var(--gs,0))}
+.ccard.agm .cfoto img{filter:grayscale(1) brightness(.55)}
+@media(prefers-reduced-motion:reduce){.ccard.est,.cfx{animation:none!important}}
+.turnoEst{margin-top:6px;font-size:13px;background:#fff4c2;border:2px solid #c9a227;padding:4px 6px;line-height:1.35}
+/* controles de estados (DM) */
+.estp{margin-top:6px;border-top:1px dotted #888;padding-top:4px}
+.estg{display:grid;grid-template-columns:1fr 1fr;gap:2px;margin:3px 0}
+.eb{padding:2px 3px;margin:0;font-size:10px;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border:2px solid #999;border-style:solid;opacity:.85}
+.eb.on{background:#fff;border-color:var(--ec);box-shadow:inset 0 0 0 1px var(--ec);font-weight:bold;opacity:1}
+.estag{display:flex;align-items:center;gap:4px;margin:3px 0}
+.estag button{padding:0 8px;margin:0}
+.estf{padding:3px;margin:2px 0;font-size:12px}

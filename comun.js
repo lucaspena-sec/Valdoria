@@ -487,3 +487,33 @@ function leerEscena(txt){
  if(!res.length)avisos.push('no encontré texto para armar la escena');
  res.forEach(e=>{if(e.bloques.length===1&&!e.titulo)avisos.push('no detecté títulos: quedó todo en un solo bloque (podés dividirlo a mano)')});
  return {escenas:res,avisos}}
+
+// ===== Estados (condiciones) de D&D 2024 para el combate =====
+// k = clave guardada en la base · ic = ícono · c = color del marco · r = resumen corto · d = descripción completa
+const ESTADOS=[
+ {k:'agarrado',n:'Agarrado',ic:'✊',c:'#a0522d',r:'Velocidad 0. Desventaja al atacar a quien no lo agarra.',d:'Velocidad 0 (no puede aumentar). Desventaja en tiradas de ataque contra objetivos distintos a quien lo agarra. Quien agarra puede arrastrarlo o cargarlo pagando 1 pie extra de movimiento por pie (salvo si es Diminuto o dos tamaños menor).'},
+ {k:'apresado',n:'Apresado',ic:'⛓',c:'#8d6e63',r:'Velocidad 0. Ventaja en ataques contra él; desventaja en sus ataques y salvaciones de Destreza.',d:'Velocidad 0 (no puede aumentar). Ataques contra la criatura tienen ventaja; sus propios ataques tienen desventaja y tiene desventaja en salvaciones de Destreza.'},
+ {k:'asustado',n:'Asustado',ic:'😱',c:'#8e44ad',r:'Desventaja en pruebas y ataques mientras vea la fuente del miedo; no puede acercarse a ella.',d:'Desventaja en pruebas de característica y tiradas de ataque mientras la fuente del miedo esté a la vista. No puede acercarse voluntariamente a la fuente.'},
+ {k:'aturdido',n:'Aturdido',ic:'💫',c:'#f1c40f',r:'Incapacitado, no habla; ataques en su contra con ventaja.',d:'Está Incapacitado, no puede hablar y los ataques en su contra tienen ventaja.'},
+ {k:'cegado',n:'Cegado',ic:'🙈',c:'#546e7a',r:'No ve. Ataques en su contra con ventaja; los suyos con desventaja.',d:'No puede ver; falla automáticamente pruebas de característica que requieran vista. Ataques en su contra tienen ventaja y sus ataques tienen desventaja.'},
+ {k:'encantado',n:'Encantado',ic:'💘',c:'#ec407a',r:'No puede atacar ni dañar a quien lo encantó.',d:'No puede atacar ni elegir como objetivo de efectos dañinos o mágicos a quien lo encantó. Quien encantó tiene ventaja en pruebas de característica para interactuar socialmente.'},
+ {k:'ensordecido',n:'Ensordecido',ic:'🔇',c:'#78909c',r:'No oye; falla pruebas que requieran oído.',d:'No puede oír; falla automáticamente pruebas de característica que requieran oído.'},
+ {k:'envenenado',n:'Envenenado',ic:'🤢',c:'#2ecc40',r:'Desventaja en ataques y pruebas de característica.',d:'Tiene desventaja en tiradas de ataque y en pruebas de característica.'},
+ {k:'agotado',n:'Agotado',ic:'😩',c:'#c19a3a',r:'',d:'Tiene hasta 6 niveles acumulados. Por cada nivel, resta -2 a todas las pruebas con d20 (pruebas de característica, ataques y salvaciones) y reduce su velocidad en 5 pies. Al llegar al nivel 6, la criatura muere. Un descanso largo reduce el nivel en 1.'},
+ {k:'incapacitado',n:'Incapacitado',ic:'🚫',c:'#7f8c8d',r:'Sin acciones ni reacciones; pierde la concentración; desventaja en iniciativa.',d:'No puede realizar ninguna acción, acción adicional ni reacción. Pierde la concentración, no puede hablar y tiene desventaja en iniciativa.'},
+ {k:'inconsciente',n:'Inconsciente',ic:'💤',c:'#3949ab',r:'Incapacitado y derribado, velocidad 0. Ataques con ventaja; cuerpo a cuerpo a 5 pies o menos son críticos.',d:'Está Incapacitado y Derribado, suelta lo que sostiene y su velocidad es 0. Falla automáticamente salvaciones de Fuerza y Destreza; los ataques contra ella tienen ventaja (y si impactan a 5 pies o menos, son críticos).'},
+ {k:'invisible',n:'Invisible',ic:'👻',c:'#81d4fa',r:'Ataques en su contra con desventaja; los suyos con ventaja.',d:'Tiene ventaja en iniciativa. No le afectan efectos que requieran ver al objetivo (salvo excepciones), su equipo se oculta con ella, los ataques contra ella tienen desventaja y sus propios ataques tienen ventaja.'},
+ {k:'paralizado',n:'Paralizado',ic:'🧊',c:'#00e5ff',r:'Incapacitado, velocidad 0. Ataques con ventaja; cuerpo a cuerpo a 5 pies o menos son críticos.',d:'Está Incapacitado y su velocidad es 0. Falla automáticamente salvaciones de Fuerza y Destreza; ataques contra ella tienen ventaja y los impactos cuerpo a cuerpo a 5 pies o menos son críticos.'},
+ {k:'petrificado',n:'Petrificado',ic:'🗿',c:'#9e9e9e',r:'Convertido en piedra: incapacitado, inmóvil, resistente a todo daño. Ataques en su contra con ventaja.',d:'Se transforma (junto con su equipo no mágico) en una sustancia sólida inanimada (generalmente piedra), gana resistencia a todo daño y es inmune a veneno. Está Incapacitado, no puede moverse ni hablar, y los ataques en su contra tienen ventaja.'},
+ {k:'derribado',n:'Derribado',ic:'🛌',c:'#a1887f',r:'Solo se arrastra. Desventaja al atacar; cuerpo a cuerpo a 5 pies o menos en su contra con ventaja, a más distancia con desventaja.',d:'Solo puede moverse arrastrándose (a menos que se ponga en pie gastando movimiento). Tiene desventaja en tiradas de ataque. Los ataques cuerpo a cuerpo contra ella a 5 pies o menos tienen ventaja; los ataques a más de 5 pies tienen desventaja.'}
+];
+const ESTK=Object.fromEntries(ESTADOS.map(e=>[e.k,e]));
+// Estados que traen otros incluidos (se muestran como "heredados", no hace falta tildarlos)
+const ESTINC={aturdido:['incapacitado'],inconsciente:['incapacitado','derribado'],paralizado:['incapacitado'],petrificado:['incapacitado']};
+// {dir: estados aplicados, der: claves heredadas que no están aplicadas}
+function estEfec(est){const dir=(est||[]).filter(e=>e&&ESTK[e.k]),set=new Set(dir.map(e=>e.k)),der=[];
+ dir.forEach(e=>(ESTINC[e.k]||[]).forEach(h=>{if(!set.has(h)&&!der.includes(h))der.push(h)}));return{dir,der}}
+function estLista(est){const E=estEfec(est);return E.dir.concat(E.der.map(k=>({k})))}
+function estResumen(e){const s=ESTK[e.k];if(!s)return '';
+ if(e.k=='agotado'){const n=Math.max(1,Math.min(6,parseInt(e.n)||1));return '−'+2*n+' a toda tirada de d20 y −'+5*n+' pies de velocidad'+(n>=6?' (¡muere!)':'')}
+ return s.r}

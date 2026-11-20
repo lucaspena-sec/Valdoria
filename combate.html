@@ -1,4 +1,4 @@
-<!doctype html><html lang="es"><head><title>Valdoria - Combate</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=13"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=8"></script><script src="comun.js?v=10"></script>
+<!doctype html><html lang="es"><head><title>Valdoria - Combate</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=17"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=8"></script><script src="comun.js?v=13"></script>
 <style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
 <div class="win"><div id="cab"></div><div class="body">
 <div id="msg" class="err"></div>
@@ -42,7 +42,7 @@ function rollDados(s){const r=String(s||'').match(/(\d+)\s*d\s*(\d+)\s*([+\-]\s*
 function cDM(c){const pj=c.tipo=='pj',f=pj?PF[c.jugador]:null,p=pj?PERF.find(x=>x.id==c.jugador):null;
  return{id:c.id,tipo:c.tipo,ini:c.ini,dex:c.dex,jugador:c.jugador,alias:c.alias,real:c.nombre,cid:c.criatura_id,vs:c.ver_sangre??c.visible,vb:c.ver_barra??c.visible,vn:c.ver_nums??false,
   nombre:pj?((f&&f.datos&&f.datos.nombre)||(p&&p.nombre)||(p&&p.username)||'?'):(c.alias||c.nombre),
-  imagen:pj?null:c.imagen,hp:pj?(f?f.hp:0):c.hp,hpmax:pj?(f?f.hp_max:1):c.hp_max,tmp:pj&&f?f.hp_temp:0,oculto:!c.visible}}
+  imagen:pj?null:c.imagen,hp:pj?(f?f.hp:0):c.hp,hpmax:pj?(f?f.hp_max:1):c.hp_max,tmp:pj&&f?f.hp_temp:0,oculto:!c.visible,est:c.estados||[],vest:c.ver_est??true}}
 async function cargarDM(){
  const[e,c,f,p]=await Promise.all([sb.from('combate_estado').select('*').eq('id',1).maybeSingle(),sb.from('combatientes').select('*'),sb.from('fichas').select('user_id,hp,hp_max,hp_temp,datos'),sb.from('profiles').select('id,username,nombre,is_dm,es_actual,borrado_en').order('username')]);
  if(e.error||c.error){aviso(e.error||c.error);return false}
@@ -69,7 +69,8 @@ function pintar(){pintarTurno();pintarBar();pintarGrid();if(DM)pintarPrep();else
 function pintarTurno(){
  if(!ES.activo){turnoEl.innerHTML=DM?'Combate sin iniciar. Armalo en la preparación y tocá "Iniciar combate".':'No hay un combate en curso.';return}
  const t=LISTA.find(x=>x.id==ES.turno),mio=!DM&&t&&t.jugador==ME.id;
- turnoEl.innerHTML='<b>Ronda '+ES.ronda+'</b> · Turno de: <b>'+esc(t?t.nombre:'—')+'</b>'+(mio?' <span class="miturno">¡ES TU TURNO!</span><div class="pasar"><button id="pasarBtn" onclick="pasarTurno()">➡ Pasar turno</button></div>':'');
+ const lst=t?estLista(t.est):[],et=(lst.length&&(DM||mio))?'<div class="turnoEst">'+lst.map(e=>ESTK[e.k].ic+' <b>'+esc(ESTK[e.k].n)+(e.k=='agotado'?' '+e.n:'')+'</b>: '+esc(uni(estResumen(e)))).join('<br>')+'</div>':'';
+ turnoEl.innerHTML='<b>Ronda '+ES.ronda+'</b> · Turno de: <b>'+esc(t?t.nombre:'—')+'</b>'+(mio?' <span class="miturno">¡ES TU TURNO!</span>':'')+et+(mio?'<div class="pasar"><button id="pasarBtn" onclick="pasarTurno()">➡ Pasar turno</button></div>':'');
  if(mio&&ES.turno!=ultTurno&&navigator.vibrate)navigator.vibrate([200,100,200]);
  ultTurno=ES.turno}
 function pintarBar(){if(!DM)return;
@@ -79,7 +80,7 @@ function carta(it,dm){
  const pj=it.tipo=='pj',full=dm||(pj&&it.jugador==ME.id),vi=full?{s:1,b:1,n:1}:{s:it.s??(pj||!it.oculto),b:it.b??(pj||!it.oculto),n:it.n??pj};
  const pct=full?(it.hpmax>0?it.hp/it.hpmax*100:100):(it.pct!=null?it.pct:(it.hp!=null&&it.hpmax>0?it.hp/it.hpmax*100:null));
  const st=((full||vi.s)&&pct!=null)?(pct<=0?4:pct<=25?3:pct<=50?2:pct<=75?1:0):0;
- const turno=ES.activo&&ES.turno==it.id,img=pj?urlRet(it.jugador):it.imagen,tir=pj?TIR[it.jugador]:null,nl=it.nombre.length+(turno?2:0),nc=nl>20?' l':nl>12?' m':'';
+ const ec=estCard(it),turno=ES.activo&&ES.turno==it.id,img=pj?urlRet(it.jugador):it.imagen,tir=pj?TIR[it.jugador]:null,nl=it.nombre.length+(turno?2:0),nc=nl>20?' l':nl>12?' m':'';
   const tb=it.tmp>0?'<div class="cbar t"><div class="fill azul" style="width:'+Math.min(100,it.tmp/Math.max(1,it.hpmax)*100)+'%"></div></div>':'';
   let bar;
   if(full&&pj)bar='<div class="cbar"><div class="fill rojo" style="width:'+cl(pct,0,100)+'%"></div><span>'+it.hp+'/'+it.hpmax+(it.tmp?' +'+it.tmp:'')+'</span></div>'+tb;
@@ -87,22 +88,22 @@ function carta(it,dm){
   else if(vi.b&&pct!=null)bar='<div class="cbar"><div class="fill rojo" style="width:'+cl(pct,0,100)+'%"></div>'+(vi.n&&it.hp!=null?'<span>'+it.hp+'/'+it.hpmax+(it.tmp?' +'+it.tmp:'')+'</span>':'')+'</div>'+(vi.n?tb:'');
   else if(vi.s)bar='<div class="cbarx"></div>';
   else bar='<div class="cbar"><span>?</span></div>';
- return '<div class="ccard '+(pj?'cpj':'ccr')+(turno?' turno':'')+(dm&&it.oculto?' ocultoDM':'')+'"><div class="cfoto"><div class="ph">'+(pj?'🧙':'👹')+'</div>'+
+ return '<div class="ccard '+(pj?'cpj':'ccr')+(turno?' turno':'')+(dm&&it.oculto?' ocultoDM':'')+ec.cls+'"'+ec.st+'><div class="cfoto"><div class="ph">'+(pj?'🧙':'👹')+'</div>'+
   (img?'<img src="'+esc(img)+'" alt="" onerror="this.style.display=\'none\'">':'')+
-  '<svg viewBox="0 0 100 120" preserveAspectRatio="none">'+sangreSvg(st)+'</svg><span class="cini">'+it.ini+'</span>'+(tir?'<div class="cdado">'+dadoHtml(tir,18)+'</div>':'')+
+  '<svg viewBox="0 0 100 120" preserveAspectRatio="none">'+sangreSvg(st)+'</svg>'+ec.fx+'<span class="cini">'+it.ini+'</span>'+(tir?'<div class="cdado">'+dadoHtml(tir,18)+'</div>':'')+
    (dm?(V3?vis3(it):(pj?'':'<button class="ojoC" title="Mostrar u ocultar su vida a los jugadores" onclick="verC('+it.id+')">'+(it.oculto?OJOC:OJOA)+'</button>')):'')+
-  '</div><div class="cnombre'+nc+'"><span>'+(turno?'▶ ':'')+esc(it.nombre)+'</span></div>'+bar+(dm?ctlDM(it):'')+(dm&&!pj?'<button class="cfbtn" onclick="verFicha('+it.id+')">📜 Ficha</button>':'')+(pj&&(dm||(it.jugador!=ME.id&&COMP.has(it.jugador)))?'<button class="cfbtn" onclick="verFichaPJ(\''+it.jugador+'\')">📜 Ficha</button>':'')+'</div>'}
+  '</div>'+ec.row+'<div class="cnombre'+nc+'"><span>'+(turno?'▶ ':'')+esc(it.nombre)+'</span></div>'+bar+(dm?ctlDM(it):'')+(dm&&!pj?'<button class="cfbtn" onclick="verFicha('+it.id+')">📜 Ficha</button>':'')+(pj&&(dm||(it.jugador!=ME.id&&COMP.has(it.jugador)))?'<button class="cfbtn" onclick="verFichaPJ(\''+it.jugador+'\')">📜 Ficha</button>':'')+'</div>'}
 function ctlDM(it){const id=it.id,pj=it.tipo=='pj';
  return '<details class="cdm" id="d'+id+'"><summary>⚙ Controles</summary>'+
   'Iniciativa <input type="number" id="in'+id+'" value="'+it.ini+'" style="width:60px" onchange="setIni('+id+',this.value)"><br>'+
   '<input type="number" id="hn'+id+'" min="1" placeholder="PV" style="width:60px"><button onclick="hpC('+id+',-1)">−</button><button onclick="hpC('+id+',1)">+</button>'+
   (pj?'':'<br>Nombre visible <input id="al'+id+'" value="'+esc(it.alias||'')+'" placeholder="'+esc(it.real)+'" onchange="setAlias('+id+',this.value)">')+
-  '<br><button onclick="quitarC('+id+')">✖ Quitar</button></details>'}
+  estCtl(it)+'<br><button onclick="quitarC('+id+')">✖ Quitar</button></details>'}
 function pintarGrid(){
  if(!ES.activo&&!DM){grid.innerHTML='';return}
  const a=document.activeElement;if(a&&grid.contains(a)&&a.tagName=='INPUT')return;
  const ab=[...grid.querySelectorAll('details[open]')].map(d=>d.id);
- grid.innerHTML=LISTA.map(it=>carta(it,DM)).join('')||'<i>No hay combatientes todavía.</i>';
+ HAYEST=LISTA.some(x=>x.est&&x.est.length);grid.innerHTML=LISTA.map(it=>carta(it,DM)).join('')||'<i>No hay combatientes todavía.</i>';
  ab.forEach(id=>{const e=document.getElementById(id);if(e)e.open=true})}
 
 /* ---------- acciones del DM ---------- */
@@ -157,6 +158,44 @@ async function anterior(){const l=LISTA;if(!l.length)return;let i=l.findIndex(x=
 async function terminar(){if(!confirm('¿Terminar el combate? Se quitan todos los combatientes.'))return;
  await sb.from('combatientes').delete().gte('id',0);await sb.rpc('tiradas_limpiar');
  q(sb.from('combate_estado').update({activo:false,ronda:1,turno:null,actualizado:ahora()}).eq('id',1))}
+
+/* ---------- estados (condiciones) ---------- */
+let EST_OK=false,HAYEST=false;
+async function probarEst(){const{error}=await sb.from('combatientes').select('estados,ver_est').limit(1);EST_OK=!error}
+/* efectos de una carta: clases, variables de color, capa sobre la foto y fila de chips (todo vacío si no hay estados) */
+function estCard(it){
+ const E=estEfec(it.est),D=E.dir;
+ if(!D.length)return{cls:'',st:'',fx:'',row:HAYEST?'<div class="cest"></div>':''};
+ const K=D.map(e=>e.k),ag=D.find(e=>e.k=='agotado'),n=ag?cl(ag.n,1,6):0,todos=K.concat(E.der),c1=ESTK[K[0]].c,c2=ESTK[K[1]||K[0]].c;
+ const cls=' est'+(K.includes('invisible')?' inv':'')+(K.includes('petrificado')?' pet':'')+(n?' agot':'')+(n>=6?' agm':'');
+ const st=' style="--e1:'+c1+';--e2:'+c2+(n?';--gs:'+(n*0.14).toFixed(2):'')+'"';
+ const fx=todos.slice(0,2).map(k=>'<div class="cfx fx-'+k+'"></div>').join('');
+ const chip=(k,i)=>{const S=ESTK[k],her=i>=K.length,ico=i>0;
+  return '<button class="echip'+(her?' her':'')+(ico?' ico':'')+'" style="--ec:'+S.c+'" title="'+esc(S.n)+'" onclick="verEstado('+it.id+',\''+k+'\')">'+S.ic+(ico?(k=='agotado'?'<b>'+n+'</b>':''):' '+esc(S.n)+(k=='agotado'?' '+n:''))+'</button>'};
+ const row='<div class="cest">'+todos.slice(0,6).map(chip).join('')+(todos.length>6?'<span class="echip ico">+'+(todos.length-6)+'</span>':'')+'</div>';
+ return{cls,st,fx,row}}
+/* tocar un chip: la regla completa del estado */
+function verEstado(id,k){const it=LISTA.find(x=>x.id==id),S=ESTK[k];if(!it||!S)return;
+ const e=(it.est||[]).find(x=>x.k==k);let h='<div class="sb">';
+ if(e){h+='<p><i>Estado aplicado'+(k=='agotado'?' · nivel '+cl(e.n,1,6):'')+'</i></p>';if(e.f)h+='<p><b>Fuente:</b> '+esc(e.f)+'</p>'}
+ else{const de=Object.keys(ESTINC).filter(s=>ESTINC[s].includes(k)&&(it.est||[]).some(x=>x.k==s)).map(s=>esc(ESTK[s].n));h+='<p><i>Heredado: lo trae '+de.join(', ')+'.</i></p>'}
+ h+='<p>'+esc(uni(S.d))+'</p>';
+ if(k=='agotado'&&e)h+='<p><b>Ahora:</b> '+esc(uni(estResumen(e)))+'</p>';
+ if(ESTINC[k])h+='<p><small>Incluye: '+ESTINC[k].map(x=>esc(ESTK[x].n)).join(', ')+'.</small></p>';
+ abrirHoja(S.ic+' '+esc(S.n),esc(it.nombre),h+'</div>')}
+/* controles del DM (dentro de ⚙ Controles) */
+function estCtl(it){if(!EST_OK)return '';
+ const id=it.id,est=it.est||[],act=new Set(est.map(e=>e.k)),ag=est.find(e=>e.k=='agotado'),n=ag?cl(ag.n,1,6):0;
+ let h='<div class="estp"><b>Estados</b><div class="estg">'+ESTADOS.filter(s=>s.k!='agotado').map(s=>'<button class="eb'+(act.has(s.k)?' on':'')+'" style="--ec:'+s.c+'" title="'+esc(s.n)+'" onclick="togEst('+id+',\''+s.k+'\')">'+s.ic+' '+esc(s.n)+'</button>').join('')+'</div>'+
+  '<div class="estag">😩 Agotado <button onclick="agotEst('+id+',-1)">−</button><b>'+n+'</b><button onclick="agotEst('+id+',1)">+</button></div>';
+ ['asustado','encantado','agarrado'].forEach(k=>{const e=est.find(x=>x.k==k);if(e)h+='<input class="estf" placeholder="'+ESTK[k].n+' por… (opcional)" value="'+esc(e.f||'')+'" onchange="fuenteEst('+id+',\''+k+'\',this.value)">'});
+ return h+'<label><input type="checkbox" style="width:auto" '+(it.vest===false?'':'checked')+' onchange="verEst('+id+',this.checked)"> Mostrar estados a los jugadores</label></div>'}
+const estDe=id=>{const c=CB.find(x=>x.id==id);return c?(c.estados||[]).map(e=>({...e})):null};
+function togEst(id,k){const a=estDe(id);if(!a)return;const i=a.findIndex(e=>e.k==k);if(i>=0)a.splice(i,1);else a.push({k});upd(id,{estados:a})}
+function agotEst(id,d){const a=estDe(id);if(!a)return;const i=a.findIndex(e=>e.k=='agotado'),n=cl((i>=0?a[i].n:0)+d,0,6);
+ if(n==0){if(i>=0)a.splice(i,1)}else if(i>=0)a[i].n=n;else a.push({k:'agotado',n});upd(id,{estados:a})}
+function fuenteEst(id,k,v){const a=estDe(id);if(!a)return;const e=a.find(x=>x.k==k);if(!e)return;v=v.trim().slice(0,40);if(v)e.f=v;else delete e.f;upd(id,{estados:a})}
+const verEst=(id,on)=>upd(id,{ver_est:on});
 
 /* ---------- encuentros guardados ---------- */
 let ENC=[];
@@ -449,7 +488,7 @@ function cerrarFicha(){const ov=document.getElementById('fichaOv');ov.style.disp
 document.addEventListener('keydown',e=>{if(e.key=='Escape')cerrarFicha()});
 
 (async()=>{
- ME=await cabecera('Combate');if(!ME)return;DM=!!ME.is_dm;if(!DM)initDados();else await probarV3();
+ ME=await cabecera('Combate');if(!ME)return;DM=!!ME.is_dm;if(!DM)initDados();else{await probarV3();await probarEst()}
  try{mi.open=localStorage.getItem('miCombate')!=='0';VC=localStorage.getItem('miConj')!=='0';VR=localStorage.getItem('miRasgos')!=='0'}catch(e){}
  if(DM){prep.style.display='block';const{data}=await sb.from('criaturas').select('id,nombre,tipo,imagen,datos');CR=(data||[]).sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));opcionesCR();await cargarEnc();loot.style.display='block';await ltIniciar()}
  await cargar();setInterval(()=>{if(!document.hidden)cargar()},4000)})();
