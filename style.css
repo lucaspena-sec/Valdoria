@@ -283,3 +283,13 @@ body.tv #vacio{background:none;border:0;color:#ccc;margin-top:30vh;font-size:3vw
 .escpl.susurro{background:#efe4ff;border-color:#7a4fb8;font-style:italic}
 .escpl.susurro b{color:#5a2f9a}
 .escth .ltmark{position:absolute;right:0;top:0;font-size:12px;background:#000b;padding:0 2px}
+/* personajes */
+.pjcard{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;border:3px solid #888;border-left-width:10px;background:#fffdf4;margin:8px 0;padding:8px}
+.pjcard.on{border-color:#c9a227;background:#fff4c2}
+.pjn{flex:1 1 170px;min-width:0;overflow-wrap:anywhere}
+.pjb{display:flex;gap:4px;flex-wrap:wrap}
+.pjb button{margin:0}
+.pjbadge{background:#c9a227;color:#000;font-size:11px;font-weight:bold;padding:1px 6px}
+#modalPJ{display:none;position:fixed;inset:0;z-index:80;background:#000a;align-items:center;justify-content:center;padding:10px}
+.mbox{background:#ece5cf;border:3px solid #7a1f1f;padding:12px;max-width:420px;width:100%}
+.mbox h3{margin-top:0;color:#7a1f1f}

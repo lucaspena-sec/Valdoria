@@ -1,4 +1,4 @@
-<!doctype html><html lang="es"><head><title>Valdoria - Combate</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=13"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=6"></script><script src="comun.js?v=10"></script>
+<!doctype html><html lang="es"><head><title>Valdoria - Combate</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=13"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=8"></script><script src="comun.js?v=10"></script>
 <style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
 <div class="win"><div id="cab"></div><div class="body">
 <div id="msg" class="err"></div>
@@ -41,12 +41,12 @@ function rollDados(s){const r=String(s||'').match(/(\d+)\s*d\s*(\d+)\s*([+\-]\s*
 /* ---------- datos ---------- */
 function cDM(c){const pj=c.tipo=='pj',f=pj?PF[c.jugador]:null,p=pj?PERF.find(x=>x.id==c.jugador):null;
  return{id:c.id,tipo:c.tipo,ini:c.ini,dex:c.dex,jugador:c.jugador,alias:c.alias,real:c.nombre,cid:c.criatura_id,vs:c.ver_sangre??c.visible,vb:c.ver_barra??c.visible,vn:c.ver_nums??false,
-  nombre:pj?((f&&f.datos&&f.datos.nombre)||(p&&p.username)||'?'):(c.alias||c.nombre),
+  nombre:pj?((f&&f.datos&&f.datos.nombre)||(p&&p.nombre)||(p&&p.username)||'?'):(c.alias||c.nombre),
   imagen:pj?null:c.imagen,hp:pj?(f?f.hp:0):c.hp,hpmax:pj?(f?f.hp_max:1):c.hp_max,tmp:pj&&f?f.hp_temp:0,oculto:!c.visible}}
 async function cargarDM(){
- const[e,c,f,p]=await Promise.all([sb.from('combate_estado').select('*').eq('id',1).maybeSingle(),sb.from('combatientes').select('*'),sb.from('fichas').select('user_id,hp,hp_max,hp_temp,datos'),sb.from('profiles').select('id,username,is_dm').order('username')]);
+ const[e,c,f,p]=await Promise.all([sb.from('combate_estado').select('*').eq('id',1).maybeSingle(),sb.from('combatientes').select('*'),sb.from('fichas').select('user_id,hp,hp_max,hp_temp,datos'),sb.from('profiles').select('id,username,nombre,is_dm,es_actual,borrado_en').order('username')]);
  if(e.error||c.error){aviso(e.error||c.error);return false}
- ES=e.data||{activo:false,ronda:1,turno:null};CB=c.data||[];PF={};(f.data||[]).forEach(x=>PF[x.user_id]=x);PERF=p.data||[];
+ ES=e.data||{activo:false,ronda:1,turno:null};CB=c.data||[];PF={};(f.data||[]).forEach(x=>PF[x.user_id]=x);PERF=(p.data||[]).filter(x=>x.es_actual!==false&&!x.borrado_en);
  LISTA=CB.map(cDM).sort(ord);return true}
 async function cargarJug(){
  if(V2){
@@ -116,7 +116,7 @@ function hpC(id,s){const n=parseInt(gv('hn'+id));if(!(n>0)){aviso({message:'Escr
  const c=CB.find(x=>x.id==id);if(!c)return;
  if(c.tipo=='pj')return q(sb.rpc('dm_hp',{p_user:c.jugador,p_delta:s*n}));
  upd(id,{hp:cl(c.hp+s*n,0,c.hp_max)})}
-const nomPJ=p=>(PF[p.id]&&PF[p.id].datos&&PF[p.id].datos.nombre)?PF[p.id].datos.nombre+' ('+p.username+')':p.username;
+const nomPJ=p=>(PF[p.id]&&PF[p.id].datos&&PF[p.id].datos.nombre)?PF[p.id].datos.nombre+' ('+p.username+')':(p.nombre&&p.nombre!==p.username?p.nombre+' ('+p.username+')':p.username);
 const dexPJ=id=>md(((PF[id]&&PF[id].datos&&PF[id].datos.car)||{}).des??10);
 function pintarPrep(){
  const a=document.activeElement;if(a&&prep.contains(a)&&a.tagName=='INPUT'&&a.type!='checkbox')return;

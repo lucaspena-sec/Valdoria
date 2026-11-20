@@ -1,4 +1,4 @@
-<!doctype html><html lang="es"><head><title>Valdoria - Panel DM</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=14"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=7"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
+<!doctype html><html lang="es"><head><title>Valdoria - Panel DM</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=14"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=8"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
 <div class="win"><div id="cab"></div><div class="body">
 <h2>Panel del DM</h2>
 <div class="navdm"><a class="btn" href="dm-catalogo.html">📚 Catálogo</a><a class="btn" href="dm-criaturas.html">🐺 Criaturas</a><a class="btn" href="dm-escenarios.html">🎬 Escenarios</a><a class="btn" href="dm-novedades.html">📰 Novedades</a><a class="btn" href="dm-registro.html">📋 Registro</a><button onclick="respaldo()">💾 Copia de seguridad</button></div>
@@ -21,13 +21,13 @@ fcat.innerHTML='<b>Categoría:</b> '+Object.keys(CAT).map(k=>'<label><input type
 frar.innerHTML='<b>Rareza:</b> '+Object.keys(RAR).map(k=>'<label><input type="checkbox" data-t="rar" value="'+k+'" onchange="filtrarSel()" style="width:auto"> '+RAR[k]+'</label>').join('');
 const color=n=>{let h=0;for(const ch of n)h=(h*31+ch.charCodeAt(0))>>>0;return PAL[h%PAL.length]};
 async function cargar(){
- const[u,i,t,fi,oc]=await Promise.all([sb.from('profiles').select('*').order('username'),sb.from('inventario').select('*').order('nombre'),sb.from('items').select('id,nombre,categoria,rareza').order('nombre'),sb.from('fichas').select('user_id,hp,hp_max,hp_temp'),sb.from('dm_ocultos').select('jugador')]);
+ const[u,i,t,fi,oc]=await Promise.all([sb.from('profiles').select('*').eq('es_actual',true).is('borrado_en',null).order('username'),sb.from('inventario').select('*').order('nombre'),sb.from('items').select('id,nombre,categoria,rareza').order('nombre'),sb.from('fichas').select('user_id,hp,hp_max,hp_temp'),sb.from('dm_ocultos').select('jugador')]);
  US=u.data||[];INV=i.data||[];IT=t.data||[];FI=fi.data||[];OC=new Set((oc.data||[]).map(r=>r.jugador));pintar()}
 function fichaHtml(x){const f=FI.find(z=>z.user_id==x.id);
  return '<div>'+(f?'❤ HP '+f.hp+'/'+f.hp_max+(f.hp_temp?' (+'+f.hp_temp+' temp)':''):'<i>Sin ficha todavía</i>')+' · ✦ Inspiración: <b>'+(x.inspiracion||0)+'</b> <button onclick="insp(\''+x.id+'\',-1)">−</button><button onclick="insp(\''+x.id+'\',1)">+</button><br>'+
   '<input type="number" id="h'+x.id+'" min="1" placeholder="Puntos de vida"><button onclick="hp(\''+x.id+'\',-1)">Daño</button> <button onclick="hp(\''+x.id+'\',1)">Curar</button> <a href="ficha.html?u='+x.id+'">Ver ficha</a></div>'}
 function tarjeta(x){const id=x.id,col=color(x.username),ocu=OC.has(id);
- const cab='<div class="pcab"><span class="pname" style="background:'+col+'">'+esc(x.username)+(x.is_dm?' (DM)':'')+'</span><button class="eye" title="'+(ocu?'Mostrar datos':'Ocultar datos')+'" onclick="ojo(\''+id+'\')">'+(ocu?OJOC:OJOA)+'</button><b>💰 '+x.gold+' po</b></div>';
+ const cab='<div class="pcab"><span class="pname" style="background:'+col+'">'+esc(x.username)+(x.nombre&&x.nombre!==x.username&&!x.is_dm?' · 🧙 '+esc(x.nombre):'')+(x.is_dm?' (DM)':'')+'</span><button class="eye" title="'+(ocu?'Mostrar datos':'Ocultar datos')+'" onclick="ojo(\''+id+'\')">'+(ocu?OJOC:OJOA)+'</button><b>💰 '+x.gold+' po</b></div>';
  if(ocu)return '<div class="pcard ocu" style="--pc:'+col+'">'+cab+'</div>';
  const its=INV.filter(y=>y.user_id==id);
  return '<div class="pcard" style="--pc:'+col+'">'+cab+
@@ -41,7 +41,7 @@ function tarjeta(x){const id=x.id,col=color(x.username),ocu=OC.has(id);
 function pintar(){
  const gd={},ab=[...document.querySelectorAll('#lista details[open]')].map(d=>d.id);
  document.querySelectorAll('#lista input,#lista select:not(.cat)').forEach(e=>{if(e.id)gd[e.id]=e.value});
- const b=bj.value.trim().toLowerCase(),l=US.filter(x=>!b||x.username.includes(b));
+ const b=bj.value.trim().toLowerCase(),l=US.filter(x=>!b||x.username.includes(b)||(x.nombre||'').toLowerCase().includes(b));
  lista.innerHTML=l.filter(x=>!OC.has(x.id)).concat(l.filter(x=>OC.has(x.id))).map(tarjeta).join('')||'<i>No hay jugadores.</i>';
  Object.keys(gd).forEach(k=>{const e=document.getElementById(k);if(e)e.value=gd[k]});
  ab.forEach(k=>{const e=document.getElementById(k);if(e)e.open=true});

@@ -1,0 +1,67 @@
+<!doctype html><html lang="es"><head><title>Valdoria - Personajes</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=16"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=8"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
+<div class="win"><div id="cab"></div><div class="body">
+<h2>🧙 Tus personajes</h2>
+<p>Elegí con qué personaje jugás. El que dejes activo es el que aparece en Tienda, Equipamiento, Ficha, Combate y Escenario.</p>
+<div id="msg" class="err"></div>
+<div id="lista"><i>Cargando…</i></div>
+<div class="box" id="nuevo"><h3>＋ Crear personaje nuevo</h3>
+<input id="nn" maxlength="40" placeholder="Nombre del personaje">
+<button onclick="crear()">Crear y usar</button><br><small id="cupo"></small><br><small>Un personaje nuevo empieza con 0 de oro y sin ítems.</small></div>
+</div></div>
+<div id="modalPJ" onclick="if(event.target===this)cerrar()"><div class="mbox">
+<h3>🗑 Borrar personaje</h3>
+<p id="mTxt"></p>
+<p><small>Se oculta con su ficha, ítems y oro. Después solo el DM puede recuperarlo.</small></p>
+<input type="password" id="mPass" placeholder="Tu contraseña" autocomplete="current-password" onkeydown="if(event.key==='Enter')confirmar()">
+<div class="err" id="mErr"></div>
+<button onclick="confirmar()"><b>Sí, borrar</b></button> <button onclick="cerrar()">Cancelar</button>
+</div></div>
+<script>
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>'&#'+c.charCodeAt(0)+';');
+const MAX=10,cambiar=new URLSearchParams(location.search).get('cambiar')==='1';
+let LIS=[],USR='',DEL=null;
+const aviso=(e,ok)=>{msg.className=e?'err':'ok';msg.textContent=e?(e.message||e):(ok||'')};
+async function cargar(){
+ const{data,error}=await sb.rpc('mis_personajes');
+ if(error){msg.className='err';msg.innerHTML=esc(error.message)+' — ¿corriste setup_personajes.sql? <a href="main.html">Continuar igual</a>';lista.innerHTML='';return false}
+ LIS=data||[];return true}
+function pintar(){
+ const cab=document.getElementById('cab');
+ cab.innerHTML='<div class="tb"><span>⚔ Personajes</span><span>👤 '+esc(USR)+'</span></div><div class="nav">'+(LIS.some(p=>p.activo)?'<a href="main.html">Inicio</a>':'')+'<a href="#" onclick="salir();return false">Salir</a></div>';
+ lista.innerHTML=LIS.map(p=>{
+  const d=[p.clase,p.nivel?'nivel '+p.nivel:'',p.esp].filter(Boolean).join(' · ')||'Ficha sin completar';
+  return '<div class="pjcard'+(p.activo?' on':'')+'"><div class="pjn"><b>'+esc(p.nombre)+'</b>'+(p.activo?' <span class="pjbadge">ACTIVO</span>':'')+'<br><small>'+esc(d)+' · 💰 '+p.oro+' po</small></div>'+
+  '<div class="pjb">'+(p.activo?'<button onclick="location.href=\'main.html\'"><b>▶ Continuar</b></button>':'<button onclick="usar(\''+p.id+'\')"><b>Usar</b></button>')+
+  '<button title="Cambiar el nombre" onclick="renombrar(\''+p.id+'\')">✏</button><button title="Borrar" onclick="pedirBorrar(\''+p.id+'\')">🗑</button></div></div>'}).join('')||'<div class="box"><i>No tenés personajes. Creá el primero abajo.</i></div>';
+ cupo.textContent=LIS.length+' de '+MAX+' personajes';
+ nuevo.style.display=LIS.length>=MAX?'none':'block'}
+async function usar(id){const{error}=await sb.rpc('cambiar_personaje',{p_id:id});if(error){aviso(error);return}location.href='main.html'}
+async function crear(){
+ const n=nn.value.trim();if(!n){aviso('Escribí el nombre del personaje.');return}
+ const{data,error}=await sb.rpc('crear_personaje',{p_nombre:n});if(error){aviso(error);return}
+ const r=await sb.rpc('cambiar_personaje',{p_id:data});
+ if(r.error){nn.value='';aviso('Se creó “'+n+'”, pero no pudo activarse: '+r.error.message);await cargar();pintar();return}
+ location.href='ficha.html'}
+async function renombrar(id){const p=LIS.find(x=>x.id==id),n=prompt('Nuevo nombre del personaje',p?p.nombre:'');if(n===null||!n.trim())return;
+ const{error}=await sb.rpc('renombrar_personaje',{p_id:id,p_nombre:n.trim().slice(0,40)});if(error){aviso(error);return}
+ aviso(null,'Listo.');await cargar();pintar()}
+function pedirBorrar(id){const p=LIS.find(x=>x.id==id);if(!p)return;DEL=id;
+ mTxt.innerHTML='¿Seguro que querés borrar a <b>'+esc(p.nombre)+'</b>? Para confirmar, escribí tu contraseña.';
+ mPass.value='';mErr.textContent='';modalPJ.style.display='flex';setTimeout(()=>mPass.focus(),50)}
+function cerrar(){modalPJ.style.display='none';DEL=null;mPass.value=''}
+async function confirmar(){
+ if(!DEL)return;const pass=mPass.value;if(!pass){mErr.textContent='Escribí tu contraseña.';return}
+ mErr.textContent='Verificando…';
+ const v=await sb.auth.signInWithPassword({email:mail(USR),password:pass});
+ if(v.error){mErr.textContent='Contraseña incorrecta.';return}
+ const id=DEL,{error}=await sb.rpc('borrar_personaje',{p_id:id});
+ if(error){mErr.textContent=error.message;return}
+ cerrar();aviso(null,'Personaje borrado. Si fue un error, pedile al DM que lo restaure.');await cargar();pintar()}
+(async()=>{
+ const{data:{session}}=await sb.auth.getSession();if(!session){location.href='index.html';return}
+ USR=(session.user.email||'').split('@')[0];
+ if(!(await cargar()))return;
+ if(LIS.some(p=>p.dm)){location.href='main.html';return}
+ if(!cambiar&&LIS.length==1&&LIS[0].activo){location.href='main.html';return}
+ pintar()})();
+</script></body></html>

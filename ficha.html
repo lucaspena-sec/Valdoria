@@ -1,4 +1,4 @@
-<!doctype html><html lang="es"><head><title>Valdoria - Ficha PJ</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=6"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=6"></script><script src="comun.js?v=6"></script>
+<!doctype html><html lang="es"><head><title>Valdoria - Ficha PJ</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=6"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=8"></script><script src="comun.js?v=6"></script>
 <style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
 <div class="win"><div id="cab"></div><div class="body">
 <div id="msg" class="err"></div><div id="banner"></div>
@@ -60,6 +60,7 @@ let S={hp:10,hpmax:10,tmp:0,insp:0,datos:DEF()},RO=false,UID=null;
 const set=(id,t)=>{const e=document.getElementById(id);if(e)e.textContent=t};
 const cl=(v,a,b)=>Math.max(a,Math.min(b,parseInt(v)||a));
 function aviso(error){msg.textContent=error?error.message:''}
+let tmN;function sincNombre(){if(RO)return;clearTimeout(tmN);tmN=setTimeout(()=>{const n=(S.datos.nombre||'').trim();if(n)sb.rpc('renombrar_personaje',{p_id:UID,p_nombre:n.slice(0,40)})},900)}
 let tmr;function guardarD(){if(RO)return;clearTimeout(tmr);tmr=setTimeout(async()=>{aviso((await sb.from('fichas').update({datos:S.datos}).eq('user_id',UID)).error)},600)}
 async function guardarH(){if(RO)return;aviso((await sb.from('fichas').update({hp:S.hp,hp_max:S.hpmax,hp_temp:S.tmp}).eq('user_id',UID)).error)}
 
@@ -111,7 +112,7 @@ function armar(){
  sal.innerHTML=AB.map(([k,n])=>'<div class="fila"><input type="checkbox" style="width:auto;margin:0" '+(S.datos.salv[k]?'checked':'')+' onchange="sv(\''+k+'\',this.checked)"> '+n+'<b id="sv_'+k+'"></b></div>').join('');
  hab.innerHTML=HAB.map(([n,a],i)=>'<div class="fila"><button id="hb'+i+'" onclick="hs('+i+')"></button> '+n+' <small>('+a.toUpperCase()+')</small><b id="hv'+i+'"></b></div>').join('');
  document.querySelectorAll('[data-k]').forEach(el=>{const k=el.dataset.k;el.value=S.datos[k]??'';
-  el.oninput=()=>{S.datos[k]=el.type=='number'?(parseInt(el.value)||0):el.value;calc();guardarD()}});
+  el.oninput=()=>{S.datos[k]=el.type=='number'?(parseInt(el.value)||0):el.value;calc();guardarD();if(k=='nombre')sincNombre()}});
  fhm.value=S.hpmax;
  fhm.oninput=()=>{S.hpmax=Math.max(1,parseInt(fhm.value)||1);S.hp=Math.min(S.hp,S.hpmax);pintarHp();guardarH()};
  ocv.checked=!!S.datos.ocultarVacias;calc();pintarHp();pintarMuerte();pintarCmb();pintarIns();FEAT.forEach(k=>pintarFeat(k));pintarCj();

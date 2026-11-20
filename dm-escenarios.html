@@ -1,4 +1,4 @@
-<!doctype html><html lang="es"><head><title>Valdoria - Escenarios DM</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=15"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=7"></script><script src="comun.js?v=12"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
+<!doctype html><html lang="es"><head><title>Valdoria - Escenarios DM</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=16"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=8"></script><script src="comun.js?v=12"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
 <div class="win"><div id="cab"></div><div class="body">
 <h2>🎬 Escenarios</h2>
 <a href="dm.html">← Volver al panel</a>
@@ -25,10 +25,10 @@ const misma=id=>ALL.filter(s=>s.escenario_id==sel&&(s.bloques||[]).some(b=>b.id=
 function editB(id,fn){misma(id).forEach(s=>{fn(s.bloques.find(x=>x.id==id));pend.add(s.id)})}
 
 async function cargar(){
- const[a,b,c,lo,pr,fi,cb]=await Promise.all([sb.from('escenarios').select('*').order('nombre'),sb.from('escenas').select('*').order('orden'),sb.from('escenario_estado').select('*').eq('id',1).maybeSingle(),sb.from('loots').select('id,nombre,datos').order('nombre'),sb.from('profiles').select('id,username,is_dm').order('username'),sb.from('fichas').select('user_id,hp'),sb.from('combatientes').select('jugador,tipo')]);
+ const[a,b,c,lo,pr,fi,cb]=await Promise.all([sb.from('escenarios').select('*').order('nombre'),sb.from('escenas').select('*').order('orden'),sb.from('escenario_estado').select('*').eq('id',1).maybeSingle(),sb.from('loots').select('id,nombre,datos').order('nombre'),sb.from('profiles').select('id,username,nombre,is_dm,es_actual,borrado_en').order('username'),sb.from('fichas').select('user_id,hp'),sb.from('combatientes').select('jugador,tipo')]);
  if(a.error||b.error){msg.textContent=(a.error||b.error).message+' — ¿corriste setup_escenarios.sql?';return}
  ES=a.data||[];ALL=b.data||[];if(c.data)EST=c.data;
- LOOTS=lo.data||[];JUG=(pr.data||[]).filter(x=>!x.is_dm);PF=fi.data||[];CBT=cb.data||[];
+ LOOTS=lo.data||[];JUG=(pr.data||[]).filter(x=>!x.is_dm&&x.es_actual!==false&&!x.borrado_en);PF=fi.data||[];CBT=cb.data||[];
  if(sel&&!ES.find(x=>x.id==sel))sel=null;
  recalc();pintar()}
 function recalc(){SC=ALL.filter(s=>s.escenario_id==sel).sort((x,y)=>x.orden-y.orden);if(vista>=SC.length)vista=Math.max(0,SC.length-1)}
@@ -67,7 +67,7 @@ function editorHtml(s){
 function bloqueHtml(b){
  const n=misma(b.id).length;
  return '<details class="escblq" '+(ABIERTOS.has(b.id)?'open':'')+' ontoggle="togB(\''+b.id+'\',this.open)"><summary><button class="ojo'+(b.v?' on':'')+'" title="'+(b.v?'Los jugadores lo ven':'Oculto para los jugadores')+'" onclick="visB(\''+b.id+'\')">'+(b.v?'👁':'🙈')+'</button> <b>'+esc(b.t)+'</b>'+(b.p?' <span class="pto" title="Susurro: solo lo ve este jugador">🤫 '+esc(nomJ(b.p))+'</span>':'')+(b.x?' <span class="pto">●</span>':'')+(n>1?' <span class="pto" title="Está en '+n+' fotos y se edita en todas a la vez">🔗 '+n+'</span>':'')+'</summary>'+
-  '<input value="'+esc(b.t)+'" oninput="tB(\''+b.id+'\',this.value)" placeholder="Nombre del bloque"><label>Visible para <select onchange="pB(\''+b.id+'\',this.value)"><option value="">👥 todos (si el ojo está abierto)</option>'+JUG.map(u=>'<option value="'+u.id+'"'+(b.p==u.id?' selected':'')+'>🤫 solo '+esc(u.username)+'</option>').join('')+'</select></label><textarea rows="6" oninput="xB(\''+b.id+'\',this.value)" placeholder="Escribí acá…">'+esc(b.x)+'</textarea>'+
+  '<input value="'+esc(b.t)+'" oninput="tB(\''+b.id+'\',this.value)" placeholder="Nombre del bloque"><label>Visible para <select onchange="pB(\''+b.id+'\',this.value)"><option value="">👥 todos (si el ojo está abierto)</option>'+JUG.map(u=>'<option value="'+u.id+'"'+(b.p==u.id?' selected':'')+'>🤫 solo '+esc(lblJ(u))+'</option>').join('')+'</select></label><textarea rows="6" oninput="xB(\''+b.id+'\',this.value)" placeholder="Escribí acá…">'+esc(b.x)+'</textarea>'+
   '<div class="escrow"><button onclick="movB(\''+b.id+'\',-1)">▲</button><button onclick="movB(\''+b.id+'\',1)">▼</button><button onclick="compB(\''+b.id+'\')">🔗 Compartir con otras fotos</button><button onclick="delB(\''+b.id+'\')">🗑 Quitar</button></div>'+
   (COMP===b.id?compHtml(b.id):'')+'</details>'}
 
@@ -158,7 +158,8 @@ async function peAplicar(){
  await flushYa();PE=null;msg.textContent='Listo: '+nuevos.length+' bloque'+(nuevos.length==1?'':'s')+' en '+dest.length+' foto'+(dest.length==1?'':'s')+(dest.length>1?' (vinculados 🔗)':'')+'.';pintar()}
 
 /* ---- susurros y loot vinculado a la escena ---- */
-const nomJ=id=>{const u=JUG.find(x=>x.id==id);return u?u.username:'(jugador)'};
+const lblJ=u=>u.username+(u.nombre&&u.nombre!==u.username?' · '+u.nombre:'');
+const nomJ=id=>{const u=JUG.find(x=>x.id==id);return u?lblJ(u):'(jugador)'};
 const barajar=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
 const lootDe=s=>s&&s.loot_id?LOOTS.find(l=>l.id==s.loot_id):null;
 function ltDef(p){const f=PF.find(x=>x.user_id==p.id),vivo=!!(f&&f.hp>0),enC=CBT.filter(c=>c.tipo=='pj');return enC.length?(vivo&&enC.some(c=>c.jugador==p.id)):vivo}
@@ -185,7 +186,7 @@ function ltPanel(l,s){
  const d=l.datos||{},o=d.oro||{},its=d.items||[];
  let h='<div><small>'+((o.monto)?'🪙 '+o.monto+(o.modo=='cada'?' a cada uno':' en partes iguales')+' · ':'')+(its.length?its.map(x=>(x.cant>1?x.cant+'× ':'')+esc(x.nombre)+(x.modo=='cada'?' (a cada uno)':'')).join(', '):'sin ítems')+'</small></div>';
  h+='<b>Para quién</b> <small>(sobrevivientes preseleccionados)</small>'+(JUG.map(p=>{const f=PF.find(x=>x.user_id==p.id),en=CBT.some(c=>c.tipo=='pj'&&c.jugador==p.id);
-  return '<label class="ltrow"><input type="checkbox" style="width:auto;margin:0" '+(ltOn(p)?'checked':'')+' onchange="ltTog(\''+p.id+'\',this.checked)"> <span class="pn">'+esc(p.username)+'</span><small>'+(en?'⚔ ':'')+(f?(f.hp>0?'❤ ':'💀 ')+f.hp:'sin ficha')+'</small></label>'}).join('')||'<br><i>No hay jugadores.</i>');
+  return '<label class="ltrow"><input type="checkbox" style="width:auto;margin:0" '+(ltOn(p)?'checked':'')+' onchange="ltTog(\''+p.id+'\',this.checked)"> <span class="pn">'+esc(lblJ(p))+'</span><small>'+(en?'⚔ ':'')+(f?(f.hp>0?'❤ ':'💀 ')+f.hp:'sin ficha')+'</small></label>'}).join('')||'<br><i>No hay jugadores.</i>');
  h+='<div class="ltrow" style="margin-top:6px"><button onclick="ltVista()">👁 Vista previa</button></div>';
  const P=LT.pre&&LT.sid==s.id?LT.pre:null;
  if(P)h+='<div class="ltpre"><b>👁 Vista previa</b>'+P.orden.map(u=>{const r=P.por[u];return '<div class="ltrow"><b class="pn">'+esc(nomJ(u))+'</b>'+(r.oro?'<span>🪙 '+r.oro+'</span>':'')+(r.items.length?'<span>'+ltAgr(r.items)+'</span>':'')+(!r.oro&&!r.items.length?'<i>nada</i>':'')+'</div>'}).join('')+
