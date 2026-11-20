@@ -21,13 +21,13 @@ fcat.innerHTML='<b>Categoría:</b> '+Object.keys(CAT).map(k=>'<label><input type
 frar.innerHTML='<b>Rareza:</b> '+Object.keys(RAR).map(k=>'<label><input type="checkbox" data-t="rar" value="'+k+'" onchange="filtrarSel()" style="width:auto"> '+RAR[k]+'</label>').join('');
 const color=n=>{let h=0;for(const ch of n)h=(h*31+ch.charCodeAt(0))>>>0;return PAL[h%PAL.length]};
 async function cargar(){
- const[u,i,t,fi,oc]=await Promise.all([sb.from('profiles').select('*').eq('es_actual',true).is('borrado_en',null).order('username'),sb.from('inventario').select('*').order('nombre'),sb.from('items').select('id,nombre,categoria,rareza').order('nombre'),sb.from('fichas').select('user_id,hp,hp_max,hp_temp'),sb.from('dm_ocultos').select('jugador')]);
+ const[u,i,t,fi,oc]=await Promise.all([sb.from('profiles').select('*').order('username'),sb.from('inventario').select('*').order('nombre'),sb.from('items').select('id,nombre,categoria,rareza').order('nombre'),sb.from('fichas').select('user_id,hp,hp_max,hp_temp'),sb.from('dm_ocultos').select('jugador')]);
  US=u.data||[];INV=i.data||[];IT=t.data||[];FI=fi.data||[];OC=new Set((oc.data||[]).map(r=>r.jugador));pintar()}
 function fichaHtml(x){const f=FI.find(z=>z.user_id==x.id);
  return '<div>'+(f?'❤ HP '+f.hp+'/'+f.hp_max+(f.hp_temp?' (+'+f.hp_temp+' temp)':''):'<i>Sin ficha todavía</i>')+' · ✦ Inspiración: <b>'+(x.inspiracion||0)+'</b> <button onclick="insp(\''+x.id+'\',-1)">−</button><button onclick="insp(\''+x.id+'\',1)">+</button><br>'+
   '<input type="number" id="h'+x.id+'" min="1" placeholder="Puntos de vida"><button onclick="hp(\''+x.id+'\',-1)">Daño</button> <button onclick="hp(\''+x.id+'\',1)">Curar</button> <a href="ficha.html?u='+x.id+'">Ver ficha</a></div>'}
-function tarjeta(x){const id=x.id,col=color(x.username),ocu=OC.has(id);
- const cab='<div class="pcab"><span class="pname" style="background:'+col+'">'+esc(x.username)+(x.nombre&&x.nombre!==x.username&&!x.is_dm?' · 🧙 '+esc(x.nombre):'')+(x.is_dm?' (DM)':'')+'</span><button class="eye" title="'+(ocu?'Mostrar datos':'Ocultar datos')+'" onclick="ojo(\''+id+'\')">'+(ocu?OJOC:OJOA)+'</button><b>💰 '+x.gold+' po</b></div>';
+function tarjeta(x,m){const id=x.id,col=color(x.username),ocu=OC.has(id);
+ const cab='<div class="pcab"><span class="pname" style="background:'+col+'">'+esc(x.username)+(x.nombre&&x.nombre!==x.username&&!x.is_dm?' · 🧙 '+esc(x.nombre):'')+(x.is_dm?' (DM)':'')+'</span>'+(m?(x.es_actual?' <span class="pto">✅ activo</span>':' <span class="pto">💤 inactivo</span>'):'')+'<button class="eye" title="'+(ocu?'Mostrar datos':'Ocultar datos')+'" onclick="ojo(\''+id+'\')">'+(ocu?OJOC:OJOA)+'</button><b>💰 '+x.gold+' po</b></div>';
  if(ocu)return '<div class="pcard ocu" style="--pc:'+col+'">'+cab+'</div>';
  const its=INV.filter(y=>y.user_id==id);
  return '<div class="pcard" style="--pc:'+col+'">'+cab+
@@ -38,11 +38,25 @@ function tarjeta(x){const id=x.id,col=color(x.username),ocu=OC.has(id);
   '<select id="l'+id+'"><option value="cofre">Al cofre</option><option value="mochila">A la mochila</option></select><br>'+
   '<select class="cat" id="c'+id+'"></select> <input type="number" id="q'+id+'" min="1" max="99" value="1" title="Cantidad" style="width:64px"> <button onclick="regalarCat(\''+id+'\')">Dar del catálogo</button><br>'+
   '<input id="n'+id+'" placeholder="O un ítem suelto: nombre"><input id="d'+id+'" placeholder="Descripción"><button onclick="regalar(\''+id+'\')">Dar ítem suelto</button></div>'}
+function grupoHtml(g){
+ const m=g.vivos.length>1||g.bor.length>0,col=color(g.u);
+ let h=g.vivos.length?tarjeta(g.vivos[0],m):'<div class="pcard ocu" style="--pc:'+col+'"><div class="pcab"><span class="pname" style="background:'+col+'">'+esc(g.u)+'</span> <i>sin personaje activo</i></div></div>';
+ const otros=g.vivos.slice(1);
+ if(otros.length)h+='<details id="oc'+g.cid+'" class="box"><summary><b>🧙 Otros personajes de '+esc(g.u)+' ('+otros.length+')</b></summary>'+otros.map(x=>tarjeta(x,true)).join('')+'</details>';
+ if(g.bor.length)h+='<details id="bo'+g.cid+'" class="box"><summary><b>🗑 Borrados de '+esc(g.u)+' ('+g.bor.length+')</b></summary>'+g.bor.map(x=>'<div class="fila" style="flex-wrap:wrap"><span>'+esc(x.nombre||x.username)+' <small>💰 '+x.gold+' po · borrado el '+new Date(x.borrado_en).toLocaleDateString('es-AR')+'</small></span> <button onclick="restaurar(\''+x.id+'\')">↩ Restaurar</button> <button onclick="eliminar(\''+x.id+'\')">❌ Eliminar</button></div>').join('')+'<small>Restaurar lo devuelve al jugador. Eliminar lo borra del todo con su ficha, ítems y oro.</small></details>';
+ return h}
 function pintar(){
  const gd={},ab=[...document.querySelectorAll('#lista details[open]')].map(d=>d.id);
  document.querySelectorAll('#lista input,#lista select:not(.cat)').forEach(e=>{if(e.id)gd[e.id]=e.value});
- const b=bj.value.trim().toLowerCase(),l=US.filter(x=>!b||x.username.includes(b)||(x.nombre||'').toLowerCase().includes(b));
- lista.innerHTML=l.filter(x=>!OC.has(x.id)).concat(l.filter(x=>OC.has(x.id))).map(tarjeta).join('')||'<i>No hay jugadores.</i>';
+ const b=bj.value.trim().toLowerCase(),G={};
+ US.forEach(x=>{(G[x.cuenta_id]=G[x.cuenta_id]||[]).push(x)});
+ const gr=Object.entries(G).map(([cid,a])=>{
+  const vivos=a.filter(x=>!x.borrado_en).sort((p,q)=>Number(!!q.es_actual)-Number(!!p.es_actual)||String(p.creado).localeCompare(String(q.creado))),bor=a.filter(x=>x.borrado_en);
+  return{cid,u:a[0].username,vivos,bor,act:vivos[0]}})
+  .filter(g=>!b||g.u.toLowerCase().includes(b)||g.vivos.concat(g.bor).some(x=>(x.nombre||'').toLowerCase().includes(b)));
+ const oc=g=>g.act&&OC.has(g.act.id)?1:0;
+ gr.sort((p,q)=>oc(p)-oc(q)||p.u.localeCompare(q.u));
+ lista.innerHTML=gr.map(grupoHtml).join('')||'<i>No hay jugadores.</i>';
  Object.keys(gd).forEach(k=>{const e=document.getElementById(k);if(e)e.value=gd[k]});
  ab.forEach(k=>{const e=document.getElementById(k);if(e)e.open=true});
  filtrarSel()}
@@ -55,7 +69,7 @@ function filtrarSel(){
 async function ojo(id){const ocu=OC.has(id);
  const{error}=ocu?await sb.from('dm_ocultos').delete().eq('jugador',id):await sb.from('dm_ocultos').insert({jugador:id});
  if(error){msg.textContent=error.message;return}ocu?OC.delete(id):OC.add(id);pintar()}
-async function ojos(ocultar){const ids=US.map(u=>u.id);
+async function ojos(ocultar){const ids=US.filter(u=>!u.borrado_en).map(u=>u.id);
  const{error}=ocultar?await sb.from('dm_ocultos').upsert(ids.map(j=>({jugador:j}))):await sb.from('dm_ocultos').delete().in('jugador',ids);
  if(error){msg.textContent=error.message;return}OC=ocultar?new Set(ids):new Set();pintar()}
 async function respaldo(){const o={fecha:new Date().toISOString()};
@@ -73,6 +87,8 @@ async function regalar(id){const n=g('n'+id).trim();if(!n){msg.textContent='Escr
 async function regalarCat(id){const it=parseInt(g('c'+id));if(!it){msg.textContent='Elegí un ítem de la lista.';return}
  const q=Math.min(99,Math.max(1,parseInt(g('q'+id))||1)),a={p_user:id,p_item:it,p_lugar:g('l'+id)};if(q>1)a.p_cant=q;fin((await sb.rpc('dm_dar_catalogo',a)).error)}
 async function hp(id,s){const v=parseInt(g('h'+id));if(!(v>0)){msg.textContent='Escribí un número mayor a 0.';return}fin((await sb.rpc('dm_hp',{p_user:id,p_delta:s*v})).error)}
+async function restaurar(id){fin((await sb.rpc('restaurar_personaje',{p_id:id})).error)}
+async function eliminar(id){const x=US.find(u=>u.id==id);if(!x||!confirm('¿Eliminar DEFINITIVAMENTE a “'+(x.nombre||x.username)+'” con su ficha, ítems y oro? No se puede deshacer.'))return;fin((await sb.rpc('eliminar_personaje',{p_id:id})).error)}
 async function insp(id,d){fin((await sb.rpc('dm_inspiracion',{p_user:id,p_delta:d})).error)}
 (async()=>{const p=await cabecera('Panel DM');if(!p)return;if(!p.is_dm){location.href='main.html';return}cargar()})();
 </script></body></html>
