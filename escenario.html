@@ -15,13 +15,13 @@
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>'&#'+c.charCodeAt(0)+';');
 const TV=new URLSearchParams(location.search).get('tv')==='1';
 if(TV){document.body.classList.add('tv');fs.style.display='block'}
-let ULT='',IMG='';
+let ULT='',IMG='',VISTOS=null;
 
 function pintar(d){
  if(!d.mostrando){vacio.style.display='block';escenaEl.style.display='none';IMG='';return}
  vacio.style.display='none';escenaEl.style.display='block';
  et.textContent=d.titulo||'';et.style.display=d.titulo?'block':'none';
- eb.innerHTML=(d.bloques||[]).map(b=>'<div class="escpl"><b>'+esc(b.t)+'</b>'+esc(b.x)+'</div>').join('');
+ eb.innerHTML=(d.bloques||[]).map(b=>'<div class="escpl'+(b.s?' susurro':'')+'"><b>'+(b.s?'🤫 ':'')+esc(b.t)+(b.s?' <small>(solo para vos)</small>':'')+'</b>'+esc(b.x)+'</div>').join('');
  if(d.imagen&&d.imagen!==IMG)cambiarImagen(d.imagen)}
 function cambiarImagen(u){
  const primera=!IMG;IMG=u;const pre=new Image();
@@ -29,8 +29,13 @@ function cambiarImagen(u){
  pre.onload=poner;pre.onerror=()=>{ei.src=u;ei.style.opacity=1};pre.src=u}
 async function ver(){
  if(document.hidden)return;
- const{data,error}=await sb.rpc('escenario_ver');
+ let r=await sb.rpc('escenario_ver',{p_tv:TV});
+ if(r.error)r=await sb.rpc('escenario_ver'); /* sin el SQL nuevo */
+ const{data,error}=r;
  if(error||!data)return;
+ const sus=(data.bloques||[]).filter(b=>b.s).map(b=>b.id);
+ if(VISTOS&&!TV&&sus.some(i=>!VISTOS.includes(i))&&navigator.vibrate)navigator.vibrate([120,80,120]);
+ VISTOS=sus;
  const k=JSON.stringify(data);if(k===ULT)return;ULT=k;pintar(data)}
 
 function abrirZoom(){if(!IMG)return;zi.src=IMG;zoom.className='';zoom.style.display='block';zoomx.style.display='block';zoom.scrollTop=0;zoom.scrollLeft=0}

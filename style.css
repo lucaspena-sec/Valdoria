@@ -279,4 +279,7 @@ body.tv #vacio{background:none;border:0;color:#ccc;margin-top:30vh;font-size:3vw
 .escpick img{display:block;width:100%;height:44px;object-fit:cover}
 .escpick b{position:absolute;left:0;top:0;background:#000b;color:#fff;font-size:11px;padding:0 4px}
 .escpick input{position:absolute;right:1px;bottom:1px;width:auto;margin:0;transform:scale(1.3)}
-
+/* susurros y loot de escena */
+.escpl.susurro{background:#efe4ff;border-color:#7a4fb8;font-style:italic}
+.escpl.susurro b{color:#5a2f9a}
+.escth .ltmark{position:absolute;right:0;top:0;font-size:12px;background:#000b;padding:0 2px}
