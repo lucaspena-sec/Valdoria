@@ -1,0 +1,33 @@
+<!doctype html><html lang="es"><head><title>Valdoria - Bestiario</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=19"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=9"></script><script src="comun.js?v=14"></script>
+<style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
+<div class="win"><div id="cab"></div><div class="body">
+<h2>📖 Bestiario</h2>
+<p><small>Acá aparecen las criaturas que ya descubriste. Lo que todavía no sabés figura como <span class="qq">???</span>.</small></p>
+<div id="msg" class="err"></div>
+<div id="grid" class="bgrid"><i>Cargando…</i></div>
+</div></div>
+<div id="fichaOv" onclick="if(event.target===this)cerrarFicha()"></div>
+<script>
+let LI=[],VISTO={};
+try{VISTO=JSON.parse(localStorage.getItem('besVisto')||'{}')}catch(e){}
+const guardarVisto=()=>{try{localStorage.setItem('besVisto',JSON.stringify(VISTO))}catch(e){}};
+async function cargar(){
+ const{data,error}=await sb.rpc('bestiario_lista');
+ if(error){msg.textContent=error.message+' — ¿corriste setup_bestiario.sql?';grid.innerHTML='';return}
+ LI=data||[];pintar()}
+function pintar(){
+ grid.innerHTML=LI.map(c=>{const nuevo=!(c.id in VISTO)||VISTO[c.id]<c.n;
+  return '<button class="bcard" onclick="abrir('+c.id+')">'+(nuevo?'<span class="bnuevo">nuevo</span>':'')+'<div class="bf"><div class="ph">👹</div>'+(c.imagen?'<img src="'+esc(c.imagen)+'" alt="" onerror="this.style.display=\'none\'">':'')+'</div><div class="bn">'+esc(c.nombre)+'</div></button>'}).join('')||'<i>Todavía no descubriste ninguna criatura.</i>'}
+async function abrir(id){
+ const{data,error}=await sb.rpc('bestiario_ficha',{p_id:id});
+ if(error){msg.textContent=error.message;return}
+ msg.textContent='';const c=LI.find(x=>x.id==id);if(c){VISTO[id]=c.n;guardarVisto();pintar()}
+ abrirHoja(esc(data.nombre),'📖 Bestiario',bloqueJ(data))}
+function abrirHoja(tit,pg,html){
+ const ov=document.getElementById('fichaOv');
+ ov.innerHTML='<div class="fcard"><div class="fcab"><b>'+tit+'</b><span>'+pg+'</span><button onclick="cerrarFicha()">✖</button></div><div class="fcuerpo">'+html+'</div></div>';
+ ov.style.display='flex';document.body.style.overflow='hidden'}
+function cerrarFicha(){const ov=document.getElementById('fichaOv');ov.style.display='none';ov.innerHTML='';document.body.style.overflow=''}
+document.addEventListener('keydown',e=>{if(e.key=='Escape')cerrarFicha()});
+(async()=>{const p=await cabecera('Bestiario');if(!p)return;await cargar();setInterval(()=>{if(!document.hidden)cargar()},15000)})();
+</script></body></html>

@@ -1,4 +1,4 @@
-<!doctype html><html lang="es"><head><title>Valdoria - Criaturas</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=6"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=8"></script><script src="comun.js?v=7"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
+<!doctype html><html lang="es"><head><title>Valdoria - Criaturas</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=19"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=9"></script><script src="comun.js?v=14"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
 <div class="win"><div id="cab"></div><div class="body">
 <h2>Criaturas</h2>
 <a href="dm.html">← Volver al panel de jugadores</a>
@@ -53,11 +53,12 @@ c_car.innerHTML=AB.map(([k,n])=>'<div class="cb"><small>'+n+'</small><input type
 c_salv.innerHTML=AB.map(([k,n])=>'<label><input type="checkbox" style="width:auto" id="cs_'+k+'"> '+n+'</label>').join('');
 grupos.innerHTML=GR.map(([k,t])=>'<h4>'+t+'</h4><div id="gr_'+k+'"></div><button onclick="addE(\''+k+'\')">+ Agregar</button>').join('');
 
+const revGet=id=>CR.find(x=>x.id==id),revRedraw=()=>pintar();
 async function cargar(){const{data,error}=await sb.from('criaturas').select('*');if(error){msg.textContent=error.message;return}CR=data||[];pintar()}
 function pintar(){
  const ab=[...document.querySelectorAll('#lista details[open]')].map(d=>d.id),b=fb.value.trim().toLowerCase();
  const l=CR.filter(c=>(!b||c.nombre.toLowerCase().includes(b))&&(!ftp.value||c.tipo==ftp.value)&&(!frz.value||c.rareza==frz.value)).sort((x,y)=>x.nombre.localeCompare(y.nombre,'es'));
- lista.innerHTML=l.map(c=>'<details id="cr'+c.id+'" class="box r-'+c.rareza+'" style="border-left:8px solid var(--rc)"><summary>'+(c.imagen?'<img class="mini" src="'+esc(c.imagen)+'" alt="">':'')+'<b>'+esc(c.nombre)+'</b> · '+esc(c.tipo)+' · '+RZ[c.rareza]+' · VD '+esc((c.datos||{}).vd||'?')+'</summary>'+bloque(c)+
+ lista.innerHTML=l.map(c=>'<details id="cr'+c.id+'" class="box r-'+c.rareza+'" style="border-left:8px solid var(--rc)"><summary>'+(c.imagen?'<img class="mini" src="'+esc(c.imagen)+'" alt="">':'')+'<b>'+esc(c.nombre)+'</b> · '+esc(c.tipo)+' · '+RZ[c.rareza]+' · VD '+esc((c.datos||{}).vd||'?')+'</summary>'+bloque(c,('revelado' in c)?{rev:revSet(c)}:{})+
   '<button onclick="editar('+c.id+')">Editar</button> <button onclick="dup('+c.id+')">Duplicar</button> <button onclick="borrar('+c.id+')">Eliminar</button></details>').join('')||'<i>No hay criaturas con esos filtros.</i>';
  ab.forEach(k=>{const e=document.getElementById(k);if(e)e.open=true})}
 function pintarHB(){c_hab.innerHTML=HAB.map(([n,a],i)=>'<div class="fila"><button onclick="hb('+i+')">'+SIM[HB[i]||0]+'</button> '+n+' <small>('+a.toUpperCase()+')</small></div>').join('')}

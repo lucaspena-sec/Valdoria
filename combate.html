@@ -1,4 +1,4 @@
-<!doctype html><html lang="es"><head><title>Valdoria - Combate</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=18"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=8"></script><script src="comun.js?v=13"></script>
+<!doctype html><html lang="es"><head><title>Valdoria - Combate</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=19"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=9"></script><script src="comun.js?v=14"></script>
 <style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
 <div class="win"><div id="cab"></div><div class="body">
 <div id="msg" class="err"></div>
@@ -92,7 +92,7 @@ function carta(it,dm){
   (img?'<img src="'+esc(img)+'" alt="" onerror="this.style.display=\'none\'">':'')+
   '<svg viewBox="0 0 100 120" preserveAspectRatio="none">'+sangreSvg(st)+'</svg>'+ec.fx+'<span class="cini">'+it.ini+'</span>'+(tir?'<div class="cdado">'+dadoHtml(tir,18)+'</div>':'')+
    (dm?(V3?vis3(it):(pj?'':'<button class="ojoC" title="Mostrar u ocultar su vida a los jugadores" onclick="verC('+it.id+')">'+(it.oculto?OJOC:OJOA)+'</button>')):'')+
-  '</div>'+ec.row+'<div class="cnombre'+nc+'"><span>'+(turno?'▶ ':'')+esc(it.nombre)+'</span></div>'+bar+(dm?ctlDM(it):'')+(dm&&!pj?'<button class="cfbtn" onclick="verFicha('+it.id+')">📜 Ficha</button>':'')+(pj&&(dm||(it.jugador!=ME.id&&COMP.has(it.jugador)))?'<button class="cfbtn" onclick="verFichaPJ(\''+it.jugador+'\')">📜 Ficha</button>':'')+'</div>'}
+  '</div>'+ec.row+'<div class="cnombre'+nc+'"><span>'+(turno?'▶ ':'')+esc(it.nombre)+'</span></div>'+bar+(dm?ctlDM(it):'')+(dm&&!pj?'<button class="cfbtn" onclick="verFicha('+it.id+')">📜 Ficha</button>':'')+(!dm&&!pj&&it.bes?'<button class="cfbtn" onclick="verBes('+it.bes+')">📖 Ficha</button>':'')+(pj&&(dm||(it.jugador!=ME.id&&COMP.has(it.jugador)))?'<button class="cfbtn" onclick="verFichaPJ(\''+it.jugador+'\')">📜 Ficha</button>':'')+'</div>'}
 function ctlDM(it){const id=it.id,pj=it.tipo=='pj';
  return '<details class="cdm" id="d'+id+'"><summary>⚙ Controles</summary>'+
   'Iniciativa <input type="number" id="in'+id+'" value="'+it.ini+'" style="width:60px" onchange="setIni('+id+',this.value)"><br>'+
@@ -522,7 +522,7 @@ function verFicha(id){
  const it=LISTA.find(x=>x.id==id);if(!it)return;
  const cr=CR.find(c=>c.id==it.cid);
  if(!cr){aviso({message:'Esa criatura ya no está en el bestiario.'});return}
- aviso(null);abrirHoja(esc(it.real||cr.nombre),'PG '+it.hp+'/'+it.hpmax,bloque(cr))}
+ aviso(null);abrirHoja(esc(it.real||cr.nombre),'PG '+it.hp+'/'+it.hpmax,bloque(cr,REV_OK?{rev:revSet(cr)}:{}))}
 async function verFichaPJ(uid){
  let f=null;
  if(DM)f=PF[uid];
@@ -531,12 +531,15 @@ async function verFichaPJ(uid){
  aviso(null);
  const d=f.datos||{},it=LISTA.find(x=>x.jugador==uid);
  abrirHoja(esc(d.nombre||(it&&it.nombre)||'Jugador'),'PG '+f.hp+'/'+f.hp_max+(f.hp_temp?' (+'+f.hp_temp+')':''),bloquePJ(f,{notas:DM,img:urlRet(uid)}))}
+let REV_OK=false;
+const revGet=id=>CR.find(x=>x.id==id),revRedraw=cid=>{const it=LISTA.find(x=>x.cid==cid);if(it)verFicha(it.id)};
+async function verBes(id){const{data,error}=await sb.rpc('bestiario_ficha',{p_id:id});if(error){aviso(error);return}aviso(null);abrirHoja(esc(data.nombre),'📖 Bestiario',bloqueJ(data))}
 function cerrarFicha(){const ov=document.getElementById('fichaOv');ov.style.display='none';ov.innerHTML='';document.body.style.overflow=''}
 document.addEventListener('keydown',e=>{if(e.key=='Escape')cerrarFicha()});
 
 (async()=>{
  ME=await cabecera('Combate');if(!ME)return;DM=!!ME.is_dm;if(!DM)initDados();else{await probarV3();await probarEst();await probarPG()}
  try{mi.open=localStorage.getItem('miCombate')!=='0';VC=localStorage.getItem('miConj')!=='0';VR=localStorage.getItem('miRasgos')!=='0'}catch(e){}
- if(DM){prep.style.display='block';const{data}=await sb.from('criaturas').select('id,nombre,tipo,imagen,datos');CR=(data||[]).sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));opcionesCR();await cargarEnc();loot.style.display='block';await ltIniciar()}
+ if(DM){prep.style.display='block';const pr=await sb.from('criaturas').select('revelado').limit(1);REV_OK=!pr.error;const{data}=await sb.from('criaturas').select('id,nombre,tipo,imagen,datos'+(REV_OK?',revelado':''));CR=(data||[]).sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));opcionesCR();await cargarEnc();loot.style.display='block';await ltIniciar()}
  await cargar();if(DM&&!ES.activo&&!CB.length)barrerSkins();setInterval(()=>{if(!document.hidden)cargar()},4000)})();
 </script></body></html>

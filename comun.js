@@ -167,20 +167,57 @@ function sangreSvg(s){if(!s)return'';const R='#a30f17',D='#7a0a10';let o='';
  return o}
 
 // ---- Ficha de criatura (la usan dm-criaturas y combate) ----
+// o.rev = Set de claves reveladas a los jugadores: si viene, se dibujan los casilleros del bestiario (solo DM)
 const pbVD=v=>{const p=String(v||'0').split('/'),n=p.length>1?p[0]/p[1]:+p[0];return n<5?2:n<9?3:n<13?4:n<17?5:n<21?6:n<25?7:n<29?8:9};
-function bloque(c){const d=c.datos||{},car=d.car||{},pb=pbVD(d.vd),m=k=>md(car[k]??10);
+function bloque(c,o){o=o||{};const R=o.rev||null,d=c.datos||{},car=d.car||{},pb=pbVD(d.vd),m=k=>md(car[k]??10);
  const ini=d.ini!=null&&d.ini!==''?+d.ini:m('des');
- const tabla='<table class="tb2"><tr>'+AB.map(([k])=>'<th>'+k.toUpperCase()+'</th>').join('')+'</tr><tr>'+AB.map(([k])=>'<td>'+(car[k]??10)+'<br>'+sgn(m(k))+'</td>').join('')+'</tr><tr>'+AB.map(([k])=>'<td><small>Salv.</small><br>'+sgn(m(k)+((d.salv||{})[k]?pb:0))+'</td>').join('')+'</tr></table>';
- const habs=HAB.map(([n,a],i)=>[n,a,(d.hab||[])[i]||0]).filter(x=>x[2]).map(x=>x[0]+' '+sgn(m(x[1])+pb*x[2])).join(', ');
- const ln=(t,v)=>v?'<p><b>'+t+'</b> '+esc(uni(v))+'</p>':'';
- const gr=(t,a)=>(a&&a.length)?'<h4>'+t+'</h4>'+a.map(e=>'<p><b><i>'+esc(e.n)+'.</i></b> '+esc(uni(e.t))+'</p>').join(''):'';
- return '<div class="sb">'+(c.imagen?'<img class="foto-cr" src="'+esc(c.imagen)+'" alt="">':'')+
-  '<p><i>'+esc(d.tamano||'')+' '+esc(c.tipo)+(d.alin?', '+esc(d.alin):'')+'</i></p>'+(d.desc?'<p style="white-space:pre-wrap">'+esc(uni(d.desc))+'</p>':'')+
-  '<p><b>CA</b> '+esc(d.ca)+(d.caNota?' ('+esc(d.caNota)+')':'')+' &nbsp; <b>Iniciativa</b> '+sgn(ini)+' ('+(10+ini)+')</p><p><b>PG</b> '+esc(d.pg)+(d.dados?' ('+esc(d.dados)+')':'')+'</p>'+
-  ln('Velocidad',d.vel)+tabla+ln('Habilidades',habs)+ln('Vulnerabilidades',d.vul)+ln('Resistencias',d.res)+ln('Inmunidades a daño',d.inmD)+ln('Inmunidades a estados',d.inmE)+ln('Sentidos',d.sentidos)+ln('Idiomas',d.idiomas)+
-  '<p><b>VD</b> '+esc(d.vd)+' (bonificador de competencia +'+pb+')</p>'+
-  gr('Rasgos',d.rasgos)+gr('Acciones',d.acciones)+gr('Acciones adicionales',d.adicionales)+gr('Reacciones',d.reacciones)+gr('Acciones legendarias',d.legendarias)+
+ const cb=k=>R?'<input type="checkbox" class="rv" data-c="'+c.id+'" data-k="'+esc(k)+'"'+(R.has(k)?' checked':'')+' onchange="revTog(this)" title="Que lo vean los jugadores"> ':'';
+ const tabla='<table class="tb2"><tr>'+AB.map(([k])=>'<th>'+k.toUpperCase()+'</th>').join('')+'</tr><tr>'+AB.map(([k])=>'<td>'+(car[k]??10)+'<br>'+sgn(m(k))+(R?'<br>'+cb('car.'+k):'')+'</td>').join('')+'</tr><tr>'+AB.map(([k])=>'<td><small>Salv.</small><br>'+sgn(m(k)+((d.salv||{})[k]?pb:0))+(R?'<br>'+cb('salv.'+k):'')+'</td>').join('')+'</tr></table>';
+ const hl=HAB.map(([n,a],i)=>[n,a,(d.hab||[])[i]||0,i]).filter(x=>x[2]),ht=x=>x[0]+' '+sgn(m(x[1])+pb*x[2]);
+ const habs=!hl.length?'':R?'<p><b>Habilidades</b></p>'+hl.map(x=>'<div>'+cb('hab.'+x[3])+esc(ht(x))+'</div>').join(''):'<p><b>Habilidades</b> '+esc(hl.map(ht).join(', '))+'</p>';
+ const ln=(t,v,k)=>v?'<p>'+(k?cb(k):'')+'<b>'+t+'</b> '+esc(uni(v))+'</p>':'';
+ const gr=(t,a,g)=>(a&&a.length)?'<h4>'+t+'</h4>'+a.map(e=>'<p>'+cb(g+'|'+e.n)+'<b><i>'+esc(e.n)+'.</i></b> '+esc(uni(e.t))+'</p>').join(''):'';
+ const top=R?'<div class="revtop"><label>'+cb('u')+'<b>Desbloqueada</b> (aparece en el Bestiario con su nombre y foto)</label><br><button onclick="revBulk('+c.id+',\'todo\')">Revelar todo</button> <button onclick="revBulk('+c.id+',\'basico\')">Solo lo básico</button> <button onclick="revBulk('+c.id+',\'nada\')">Ocultar todo</button><br><small>Tildá lo que los jugadores pueden ver. Las notas del DM nunca se muestran.</small></div>':'';
+ return '<div class="sb">'+top+(c.imagen?'<img class="foto-cr" src="'+esc(c.imagen)+'" alt="">':'')+
+  '<p>'+cb('tipo')+'<i>'+esc(d.tamano||'')+' '+esc(c.tipo)+(d.alin?', '+esc(d.alin):'')+'</i></p>'+(d.desc?'<p style="white-space:pre-wrap">'+cb('desc')+esc(uni(d.desc))+'</p>':'')+
+  '<p>'+cb('ca')+'<b>CA</b> '+esc(d.ca)+(d.caNota?' ('+esc(d.caNota)+')':'')+' &nbsp; '+cb('ini')+'<b>Iniciativa</b> '+sgn(ini)+' ('+(10+ini)+')</p><p>'+cb('pg')+'<b>PG</b> '+esc(d.pg)+(d.dados?' ('+esc(d.dados)+')':'')+'</p>'+
+  ln('Velocidad',d.vel,'vel')+tabla+habs+ln('Vulnerabilidades',d.vul,'vul')+ln('Resistencias',d.res,'res')+ln('Inmunidades a daño',d.inmD,'inmD')+ln('Inmunidades a estados',d.inmE,'inmE')+ln('Sentidos',d.sentidos,'sentidos')+ln('Idiomas',d.idiomas,'idiomas')+
+  '<p>'+cb('vd')+'<b>VD</b> '+esc(d.vd)+' (bonificador de competencia +'+pb+')</p>'+
+  gr('Rasgos',d.rasgos,'rasgos')+gr('Acciones',d.acciones,'acciones')+gr('Acciones adicionales',d.adicionales,'adicionales')+gr('Reacciones',d.reacciones,'reacciones')+gr('Acciones legendarias',d.legendarias,'legendarias')+
   (d.notas?'<h4>Notas del DM</h4><p style="white-space:pre-wrap">'+esc(uni(d.notas))+'</p>':'')+'<div style="clear:both"></div></div>'}
+
+// ---- Bestiario revelable: qué ve cada jugador de una criatura ----
+// revelado = {u:true (desbloqueada), k:[claves]}. Claves: tipo, desc, ca, ini, pg, vel, vd, vul, res, inmD, inmE, sentidos, idiomas,
+// car.fue…, salv.fue…, hab.<n>, y "rasgos|Nombre" (también acciones, adicionales, reacciones, legendarias).
+// Cada página que usa los casilleros define revGet(id) (devuelve la criatura) y revRedraw(id) (vuelve a dibujar la ficha).
+const REVG=['rasgos','acciones','adicionales','reacciones','legendarias'];
+function revSet(c){const r=c.revelado||{},s=new Set(r.k||[]);if(r.u)s.add('u');return s}
+function revClaves(c){const d=c.datos||{},k=['tipo','ca','ini','pg'];if(d.desc)k.push('desc');
+ ['vel','vd','vul','res','inmD','inmE','sentidos','idiomas'].forEach(x=>{if(d[x])k.push(x)});
+ AB.forEach(([a])=>k.push('car.'+a,'salv.'+a));(d.hab||[]).forEach((v,i)=>{if(v)k.push('hab.'+i)});
+ REVG.forEach(g=>(d[g]||[]).forEach(e=>k.push(g+'|'+e.n)));return k}
+async function revGuardar(c){const{error}=await sb.from('criaturas').update({revelado:c.revelado}).eq('id',c.id);
+ const m=document.getElementById('msg');if(m)m.textContent=error?error.message:'';return error}
+async function revTog(el){const c=revGet(+el.dataset.c);if(!c)return;const k=el.dataset.k,r=c.revelado=c.revelado||{};
+ if(k=='u')r.u=el.checked;else{const s=new Set(r.k||[]);if(el.checked)s.add(k);else s.delete(k);r.k=[...s]}
+ if(await revGuardar(c))el.checked=!el.checked}
+async function revBulk(id,modo){const c=revGet(id);if(!c)return;
+ c.revelado=modo=='todo'?{u:true,k:revClaves(c)}:modo=='basico'?{u:true,k:['tipo']}:{u:false,k:[]};
+ await revGuardar(c);revRedraw(id)}
+// Lo que ve un jugador (viene filtrado desde el servidor): lo que falta se muestra como ???
+function bloqueJ(f){const Q='<span class="qq">???</span>',has=k=>Object.prototype.hasOwnProperty.call(f,k),car=f.car||{},salv=f.salv||{},hab=f.hab||{},oc=f.oc||{};
+ const val=(k,fn)=>has(k)?(f[k]===null||f[k]===''?'—':esc(uni(fn?fn(f[k]):String(f[k])))):Q;
+ const ln=(t,k)=>'<p><b>'+t+'</b> '+val(k)+'</p>';
+ const tabla='<table class="tb2"><tr>'+AB.map(([k])=>'<th>'+k.toUpperCase()+'</th>').join('')+'</tr><tr>'+AB.map(([k])=>'<td>'+(k in car?car[k]+'<br>'+sgn(md(car[k])):Q)+'</td>').join('')+'</tr><tr>'+AB.map(([k])=>'<td><small>Salv.</small><br>'+(k in salv?sgn(salv[k]):Q)+'</td>').join('')+'</tr></table>';
+ const hl=Object.keys(hab).map(i=>esc(HAB[i][0]+' '+sgn(hab[i]))).concat(f.habOc>0?[Q]:[]);
+ const gr=(t,g)=>{const a=f[g]||[];return(a.length||oc[g])?'<h4>'+t+'</h4>'+a.map(e=>'<p><b><i>'+esc(e.n)+'.</i></b> '+esc(uni(e.t||''))+'</p>').join('')+(oc[g]?'<p><b><i>'+Q+'.</i></b> '+Q+'</p>':''):''};
+ return '<div class="sb">'+(f.imagen?'<img class="foto-cr" src="'+esc(f.imagen)+'" alt="">':'')+
+  '<p><i>'+(has('tipo')?esc((f.tamano||'')+' '+f.tipo+(f.alin?', '+f.alin:'')):Q)+'</i></p>'+(f.desc?'<p style="white-space:pre-wrap">'+esc(uni(f.desc))+'</p>':'')+
+  '<p><b>CA</b> '+(has('ca')?esc(f.ca)+(f.caNota?' ('+esc(f.caNota)+')':''):Q)+' &nbsp; <b>Iniciativa</b> '+(has('ini')?sgn(f.ini)+' ('+(10+f.ini)+')':Q)+'</p>'+
+  '<p><b>PG</b> '+(has('pg')?esc(f.pg)+(f.dados?' ('+esc(f.dados)+')':''):Q)+'</p>'+ln('Velocidad','vel')+tabla+
+  (hl.length?'<p><b>Habilidades</b> '+hl.join(', ')+'</p>':'')+ln('Vulnerabilidades','vul')+ln('Resistencias','res')+ln('Inmunidades a daño','inmD')+ln('Inmunidades a estados','inmE')+ln('Sentidos','sentidos')+ln('Idiomas','idiomas')+
+  '<p><b>VD</b> '+(has('vd')?esc(f.vd)+' (bonificador de competencia +'+pbVD(f.vd)+')':Q)+'</p>'+
+  gr('Rasgos','rasgos')+gr('Acciones','acciones')+gr('Acciones adicionales','adicionales')+gr('Reacciones','reacciones')+gr('Acciones legendarias','legendarias')+'<div style="clear:both"></div></div>'}
 
 // ---- Ficha de jugador, con el mismo formato que la de las criaturas (la usa combate) ----
 function bloquePJ(f,o){o=o||{};
