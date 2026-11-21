@@ -1,4 +1,4 @@
-<!doctype html><html lang="es"><head><title>Valdoria - Criaturas</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=19"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=9"></script><script src="comun.js?v=14"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
+<!doctype html><html lang="es"><head><title>Valdoria - Criaturas</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=20"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=10"></script><script src="comun.js?v=14"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
 <div class="win"><div id="cab"></div><div class="body">
 <h2>Criaturas</h2>
 <a href="dm.html">← Volver al panel de jugadores</a>
@@ -95,5 +95,5 @@ async function subir(inp,dest){const a=inp.files[0];if(!a)return;if(a.size>2e6){
  const{error}=await b.upload(n,a,{contentType:a.type});
  if(error){msg.textContent=error.message;return}
  document.getElementById(dest).value=b.getPublicUrl(n).data.publicUrl;msg.textContent='Foto subida. Tocá Guardar para aplicarla.'}
-(async()=>{const p=await cabecera('Criaturas');if(!p)return;if(!p.is_dm){location.href='main.html';return}cargar()})();
+(async()=>{const p=await cabecera('Criaturas');if(!p)return;if(!p.master){location.href='main.html';return}cargar()})();
 </script></body></html>

@@ -1,13 +1,15 @@
-<!doctype html><html lang="es"><head><title>Valdoria - Panel DM</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=14"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=8"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
+<!doctype html><html lang="es"><head><title>Valdoria - Panel DM</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=20"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=10"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
 <div class="win"><div id="cab"></div><div class="body">
 <h2>Panel del DM</h2>
-<div class="navdm"><a class="btn" href="dm-catalogo.html">📚 Catálogo</a><a class="btn" href="dm-criaturas.html">🐺 Criaturas</a><a class="btn" href="dm-escenarios.html">🎬 Escenarios</a><a class="btn" href="dm-novedades.html">📰 Novedades</a><a class="btn" href="dm-registro.html">📋 Registro</a><button onclick="respaldo()">💾 Copia de seguridad</button></div>
+<div class="navdm"><a class="btn" href="dm-catalogo.html">📚 Catálogo</a><a class="btn" href="dm-criaturas.html">🐺 Criaturas</a><a class="btn" href="dm-escenarios.html">🎬 Escenarios</a><a class="btn" href="dm-novedades.html">📰 Novedades</a><a class="btn" id="nvReg" href="dm-registro.html">📋 Registro</a><button id="nvResp" onclick="respaldo()">💾 Copia de seguridad</button></div>
 <div id="msg" class="err"></div>
-<div class="box"><input id="bj" placeholder="Buscar jugador" oninput="pintar()"><button onclick="ojos(true)">Ocultar todos</button> <button onclick="ojos(false)">Mostrar todos</button></div>
+<div id="mesaBox" class="box" style="display:none"></div>
+<div id="noDir" class="box" style="display:none">🎬 Ahora dirige la mesa otro DM. Mientras tanto podés crear y preparar tu contenido (catálogo, criaturas, escenarios) desde los botones de arriba.</div>
+<div id="jug"><div class="box"><input id="bj" placeholder="Buscar jugador" oninput="pintar()"><button onclick="ojos(true)">Ocultar todos</button> <button onclick="ojos(false)">Mostrar todos</button></div>
 <details class="box"><summary><b>🔎 Filtros para dar ítems del catálogo</b> <small id="fcnt"></small></summary>
 <input id="bi" placeholder="Buscar ítem por nombre" oninput="filtrarSel()">
 <div class="chk" id="fcat"></div><div class="chk" id="frar"></div></details>
-<div id="lista"></div>
+<div id="lista"></div></div>
 </div></div>
 <script>
 let FI=[],US=[],INV=[],IT=[],OC=new Set();
@@ -90,5 +92,20 @@ async function hp(id,s){const v=parseInt(g('h'+id));if(!(v>0)){msg.textContent='
 async function restaurar(id){fin((await sb.rpc('restaurar_personaje',{p_id:id})).error)}
 async function eliminar(id){const x=US.find(u=>u.id==id);if(!x||!confirm('¿Eliminar DEFINITIVAMENTE a “'+(x.nombre||x.username)+'” con su ficha, ítems y oro? No se puede deshacer.'))return;fin((await sb.rpc('eliminar_personaje',{p_id:id})).error)}
 async function insp(id,d){fin((await sb.rpc('dm_inspiracion',{p_user:id,p_delta:d})).error)}
-(async()=>{const p=await cabecera('Panel DM');if(!p)return;if(!p.is_dm){location.href='main.html';return}cargar()})();
+let ROL=null,SUBS=[];
+async function cargarMesa(){const[a,b]=await Promise.all([sb.rpc('mi_rol'),sb.rpc('subdms_lista')]);if(a.error)return;ROL=a.data;SUBS=b.data||[];pintarMesa()}
+function pintarMesa(){if(!ROL||!ROL.master)return;mesaBox.style.display='block';
+ const cu={};US.filter(u=>!u.borrado_en&&!u.is_dm).forEach(u=>{if(!cu[u.cuenta_id])cu[u.cuenta_id]=u.username});
+ let h='<b>🎬 Mesa dirigida por:</b> '+(ROL.director?'🎭 '+esc(ROL.director_nombre||'?'):'👑 DM principal');
+ if(!ROL.dm){if(ROL.dirige)h+=' <button onclick="mesa(null)">↩ Devolver el control al DM</button>';mesaBox.innerHTML=h;return}
+ const subs=Object.entries(cu).filter(([c])=>SUBS.includes(c));
+ h+='<br><select id="mesaSel"><option value="">👑 DM principal (yo)</option>'+subs.map(([c,n])=>'<option value="'+c+'"'+(c==ROL.director?' selected':'')+'>🎭 '+esc(n)+'</option>').join('')+'</select> <button onclick="mesa(g(\'mesaSel\')||null)">Cambiar</button>'+
+  '<details><summary><b>🎭 Sub-DMs</b> ('+subs.length+')</summary>'+Object.entries(cu).sort((a,b)=>a[1].localeCompare(b[1])).map(([c,n])=>'<div class="fila"><span>'+esc(n)+'</span><button style="margin-left:auto" onclick="subdm(\''+c+'\','+!SUBS.includes(c)+')">'+(SUBS.includes(c)?'Quitar rol':'Hacer sub-DM')+'</button></div>').join('')+'<small>Un sub-DM crea y comparte contenido y, cuando le pasás la mesa, la dirige. No puede borrar personajes ni ver el Registro.</small></details>';
+ mesaBox.innerHTML=h}
+async function mesa(c){const{error}=await sb.rpc('mesa_fijar',{p_cuenta:c});msg.textContent=error?error.message:'';if(!error&&!ROL.dm){location.reload();return}await cargarMesa()}
+async function subdm(c,on){if(!on&&!confirm('¿Quitarle el rol de sub-DM a esta cuenta?'))return;const{error}=await sb.rpc('dm_subdm',{p_cuenta:c,p_on:on});msg.textContent=error?error.message:'';await cargarMesa()}
+(async()=>{const p=await cabecera('Panel DM');if(!p)return;if(!p.master){location.href='main.html';return}
+ if(!p.is_dm){nvReg.style.display='none';nvResp.style.display='none'}
+ if(p.dirige)await cargar();else{jug.style.display='none';noDir.style.display='block'}
+ cargarMesa()})();
 </script></body></html>

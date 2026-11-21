@@ -1,4 +1,4 @@
-<!doctype html><html lang="es"><head><title>Valdoria - Escenarios DM</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=16"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=8"></script><script src="comun.js?v=12"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
+<!doctype html><html lang="es"><head><title>Valdoria - Escenarios DM</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=20"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=10"></script><script src="comun.js?v=12"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
 <div class="win"><div id="cab"></div><div class="body">
 <h2>🎬 Escenarios</h2>
 <a href="dm.html">← Volver al panel</a>
@@ -8,7 +8,7 @@
 <div id="panel"></div>
 </div></div>
 <script>
-const g=id=>document.getElementById(id);
+const g=id=>document.getElementById(id);let DIRIGE=false;
 const SUGERENCIAS=['Descripción del lugar','Introducción','Nudo','Desenlace','Texto para jugadores','Posibles enemigos','Notas secretas','Pistas','Tesoro','Diálogo'];
 const nuevoId=()=>'b'+Math.random().toString(36).slice(2,9);
 const nuevoBloque=t=>({id:nuevoId(),t,x:'',v:false});
@@ -240,7 +240,7 @@ async function borrarEscena(){const s=scn();if(!s||!confirm('¿Borrar esta escen
  sb.storage.from('escenarios').remove([archivo(s.imagen)]);await cargar()}
 
 /* ---- proyección ---- */
-async function setEstado(o){const{error}=await sb.from('escenario_estado').update({...o,actualizado:new Date().toISOString()}).eq('id',1);
+async function setEstado(o){if(!DIRIGE){msg.textContent='Solo el DM que dirige la mesa puede mostrar escenas a los jugadores.';return false}const{error}=await sb.from('escenario_estado').update({...o,actualizado:new Date().toISOString()}).eq('id',1);
  if(error){msg.textContent=error.message;return false}msg.textContent='';Object.assign(EST,o);return true}
 async function mostrar(){const s=scn();if(!s)return;await flushYa();if(await setEstado({escenario_id:sel,escena_id:s.id,mostrando:true}))pintar()}
 async function ocultar(){if(await setEstado({mostrando:false}))pintar()}
@@ -277,7 +277,7 @@ async function subirCambio(inp){
   sb.storage.from('escenarios').remove([vieja]);msg.textContent='';await cargar()}
  catch(e){msg.textContent='No se pudo cambiar la foto: '+(e.message||e)}}
 
-(async()=>{const p=await cabecera('Escenarios DM');if(!p)return;if(!p.is_dm){location.href='main.html';return}
+(async()=>{const p=await cabecera('Escenarios DM');if(!p)return;DIRIGE=!!p.dirige;if(!p.master){location.href='main.html';return}
  await cargar();
  const pr=ALL.find(s=>s.id==EST.escena_id);if(EST.mostrando&&pr){sel=pr.escenario_id;recalc();vista=Math.max(0,SC.findIndex(s=>s.id==pr.id));pintar()}})();
 </script></body></html>

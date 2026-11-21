@@ -349,3 +349,6 @@ body.tv #vacio{background:none;border:0;color:#ccc;margin-top:30vh;font-size:3vw
 .bcard .bn{margin-top:3px;font-size:13px;overflow-wrap:anywhere}
 .bnuevo{position:absolute;top:6px;right:6px;z-index:2;background:#d22;color:#fff;font-size:11px;padding:1px 6px;border-radius:8px}
 @media(min-width:700px){.bgrid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+
+/* sub-DM */
+.mesabar{background:#14110b;color:#ffd54a;padding:3px 8px;font-size:12px;border-bottom:1px solid #c9a227}

@@ -1,4 +1,4 @@
-<!doctype html><html lang="es"><head><title>Valdoria - Combate</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=19"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=9"></script><script src="comun.js?v=14"></script>
+<!doctype html><html lang="es"><head><title>Valdoria - Combate</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=20"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=10"></script><script src="comun.js?v=14"></script>
 <style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
 <div class="win"><div id="cab"></div><div class="body">
 <div id="msg" class="err"></div>
@@ -544,7 +544,7 @@ function cerrarFicha(){const ov=document.getElementById('fichaOv');ov.style.disp
 document.addEventListener('keydown',e=>{if(e.key=='Escape')cerrarFicha()});
 
 (async()=>{
- ME=await cabecera('Combate');if(!ME)return;DM=!!ME.is_dm;if(!DM)initDados();else{await probarV3();await probarEst();await probarPG();await probarFI()}
+ ME=await cabecera('Combate');if(!ME)return;DM=!!ME.dirige;if(!DM)initDados();else{await probarV3();await probarEst();await probarPG();await probarFI()}
  try{mi.open=localStorage.getItem('miCombate')!=='0';VC=localStorage.getItem('miConj')!=='0';VR=localStorage.getItem('miRasgos')!=='0'}catch(e){}
  if(DM){prep.style.display='block';const pr=await sb.from('criaturas').select('revelado').limit(1);REV_OK=!pr.error;const{data}=await sb.from('criaturas').select('id,nombre,tipo,imagen,datos'+(REV_OK?',revelado':''));CR=(data||[]).sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));opcionesCR();await cargarEnc();loot.style.display='block';await ltIniciar()}
  await cargar();if(DM&&!ES.activo&&!CB.length)barrerSkins();setInterval(()=>{if(!document.hidden)cargar()},4000)})();
