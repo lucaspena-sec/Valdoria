@@ -278,7 +278,7 @@ async function activarEnc(id,sumar){const e=ENC.find(x=>x.id==id);if(!e)return;
  if(!sumar){
   await sb.from('combatientes').delete().gte('id',0);await sb.rpc('tiradas_limpiar');
   await sb.from('combate_estado').update({activo:false,ronda:1,turno:null,actualizado:ahora()}).eq('id',1);
-  if(encPJ.checked)PERF.filter(p=>!p.is_dm&&PF[p.id]).forEach(p=>filas.push({tipo:'pj',jugador:p.id,criatura_id:null,nombre:p.username,alias:'',imagen:'',hp:1,hp_max:1,ini:tirar20(dexPJ(p.id)),dex:dexPJ(p.id),visible:true,...v3k(true,true,false)}))}
+  if(encPJ.checked)PERF.filter(p=>!p.is_dm&&PF[p.id]).forEach(p=>filas.push({tipo:'pj',jugador:p.id,criatura_id:null,nombre:p.username,alias:'',imagen:'',hp:1,hp_max:1,ini:tirar20(dexPJ(p.id)),dex:dexPJ(p.id),visible:true,...v3k(true,true,false),...pgk('prom')}))}
  const{error}=await sb.from('combatientes').insert(filas);if(error){aviso(error);return}
  await cargar();limpiarSkins(skins);
  if(falt.length)aviso({message:'Estas criaturas ya no están en el bestiario y se omitieron: '+falt.join(', ')});
