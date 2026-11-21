@@ -1,4 +1,4 @@
-<!doctype html><html lang="es"><head><title>Valdoria - Combate</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=21"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=10"></script><script src="comun.js?v=15"></script>
+<!doctype html><html lang="es"><head><title>Valdoria - Combate</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=22"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=11"></script><script src="comun.js?v=15"></script>
 <style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
 <div class="win"><div id="cab"></div><div class="body">
 <div id="msg" class="err"></div>
@@ -251,10 +251,11 @@ const verEst=(id,on)=>upd(id,{ver_est:on});
 
 /* ---------- encuentros guardados ---------- */
 let ENC=[];function refiltrarDM(){pintarEnc();ltPintar()}function recargarDM(){cargarEnc();ltRecargar()}
+async function dupEnc(id){const e=ENC.find(x=>x.id==id);if(!e)return;const{error}=await sb.from('encuentros').insert({nombre:e.nombre+' (copia)',datos:e.datos});aviso(error);cargarEnc()}
 async function cargarEnc(){const{data,error}=await sb.from('encuentros').select('*').order('nombre');if(error){aviso(error);return}ENC=data||[];pintarEnc()}
 const nomCR=x=>{const c=CR.find(y=>y.id==x.cid);return c?c.nombre:x.nombre};
 function pintarEnc(){encEl.innerHTML=ENC.filter(pasaF).map(e=>'<div class="box"><b>'+esc(e.nombre)+'</b><br><small>'+((e.datos.criaturas||[]).map(x=>esc(nomCR(x))+(x.cant>1?' ×'+x.cant:'')+(x.pg=='max'?' (PG máx.)':x.pg=='tirar'?' (PG tirados)':'')).join(', ')||'<i>vacío</i>')+'</small><br>'+
-  '<button onclick="activarEnc('+e.id+')">▶ Activar</button> <button onclick="activarEnc('+e.id+',true)" title="Agrega sus criaturas al combate en curso">➕ Sumar</button> '+(puedeEd(e)?'<button onclick="reemplazarEnc('+e.id+')" title="Reemplaza su contenido con lo que tenés armado ahora">⟳ Actualizar</button> <button onclick="renombrarEnc('+e.id+')">✎</button> <button onclick="borrarEnc('+e.id+')">🗑</button>':'')+chipDM('encuentros',e)+'</div>').join('')||'<i>Todavía no guardaste encuentros.</i>'}
+  '<button onclick="activarEnc('+e.id+')">▶ Activar</button> <button onclick="activarEnc('+e.id+',true)" title="Agrega sus criaturas al combate en curso">➕ Sumar</button> '+(puedeEd(e)?'<button onclick="reemplazarEnc('+e.id+')" title="Reemplaza su contenido con lo que tenés armado ahora">⟳ Actualizar</button> <button onclick="renombrarEnc('+e.id+')">✎</button> <button onclick="borrarEnc('+e.id+')">🗑</button>':'')+'<button onclick="dupEnc('+e.id+')" title="Duplicar (queda a tu nombre)">📄</button>'+chipDM('encuentros',e)+'</div>').join('')||'<i>Todavía no guardaste encuentros.</i>'}
 function entradasActuales(){const m={};
  CB.filter(c=>c.tipo=='criatura'&&c.criatura_id).forEach(c=>{const s=c.ver_sangre??c.visible,b=c.ver_barra??c.visible,n=c.ver_nums??false,k=c.criatura_id+'|'+(c.alias||'')+'|'+s+b+n+'|'+(c.pg_modo||'prom');
   (m[k]=m[k]||{cid:c.criatura_id,nombre:nomCR({cid:c.criatura_id,nombre:c.nombre.replace(/ \d+$/,'')}),alias:c.alias||'',visible:s||b,vs:s,vb:b,vn:n,pg:PG_OK?(c.pg_modo||'prom'):undefined,cant:0}).cant++});

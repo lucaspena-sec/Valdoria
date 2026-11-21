@@ -561,12 +561,12 @@ let YO=null,_NDM={};
 const _cuenta=()=>YO&&(YO.cuenta_id||YO.id);
 const esMio=x=>!x||!YO||!('creador' in x)||!x.creador||x.creador===_cuenta();
 const puedeEd=x=>esMio(x)||!!(YO&&YO.is_dm&&x.compartido);
-const notaMia=c=>esMio(c);
+const notaMia=c=>esMio(c)||!!(YO&&YO.espia);
 const filtroDM=()=>{try{return localStorage.getItem('fdm')||'todos'}catch(e){return 'todos'}};
 const pasaF=x=>{if(!x||!('creador' in x))return true;const f=filtroDM();return f=='todos'||(f=='mios'?esMio(x):!esMio(x))};
 async function cargarNombresDM(){const{data}=await sb.from('profiles').select('cuenta_id,username');_NDM={};(data||[]).forEach(r=>{if(!_NDM[r.cuenta_id])_NDM[r.cuenta_id]=r.username})}
 function chipDM(tab,x){if(!x||!('creador' in x))return '';
  if(esMio(x))return '<div class="chipdm"><button onclick="compartirDM(\''+tab+'\','+x.id+','+!x.compartido+')" title="Tocá para cambiarlo">'+(x.compartido?'👥 Compartido con los DM':'🔒 Privado')+'</button></div>';
- return '<div class="chipdm">🎭 De <b>'+esc(_NDM[x.creador]||'otro DM')+'</b> (compartido)</div>'}
+ return '<div class="chipdm">'+(x.compartido?'🎭 De <b>'+esc(_NDM[x.creador]||'otro DM')+'</b> (compartido)':'🕵 De <b>'+esc(_NDM[x.creador]||'otro DM')+'</b> · privado (solo lectura)')+'</div>'}
 function selFiltroDM(){const f=filtroDM();return '<select id="fdm" onchange="try{localStorage.setItem(\'fdm\',this.value)}catch(e){}refiltrarDM()">'+[['todos','👥 Todo lo que veo'],['mios','🙋 Solo lo mío'],['otros','🎭 Solo de otros DM']].map(([k,t])=>'<option value="'+k+'"'+(f==k?' selected':'')+'>'+t+'</option>').join('')+'</select>'}
 async function compartirDM(tab,id,on){const{error}=await sb.from(tab).update({compartido:on}).eq('id',id);const m=document.getElementById('msg');if(m)m.textContent=error?error.message:'';recargarDM()}

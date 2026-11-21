@@ -1,4 +1,4 @@
-<!doctype html><html lang="es"><head><title>Valdoria - Panel DM</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=20"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=10"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
+<!doctype html><html lang="es"><head><title>Valdoria - Panel DM</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=22"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=11"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
 <div class="win"><div id="cab"></div><div class="body">
 <h2>Panel del DM</h2>
 <div class="navdm"><a class="btn" href="dm-catalogo.html">📚 Catálogo</a><a class="btn" href="dm-criaturas.html">🐺 Criaturas</a><a class="btn" href="dm-escenarios.html">🎬 Escenarios</a><a class="btn" href="dm-novedades.html">📰 Novedades</a><a class="btn" id="nvReg" href="dm-registro.html">📋 Registro</a><button id="nvResp" onclick="respaldo()">💾 Copia de seguridad</button></div>
@@ -74,9 +74,7 @@ async function ojo(id){const ocu=OC.has(id);
 async function ojos(ocultar){const ids=US.filter(u=>!u.borrado_en).map(u=>u.id);
  const{error}=ocultar?await sb.from('dm_ocultos').upsert(ids.map(j=>({jugador:j}))):await sb.from('dm_ocultos').delete().in('jugador',ids);
  if(error){msg.textContent=error.message;return}OC=ocultar?new Set(ids):new Set();pintar()}
-async function respaldo(){const o={fecha:new Date().toISOString()};
- for(const n of ['profiles','inventario','fichas','items','mercaderes','oferta','criaturas','noticias','alertas','loots','escenarios','escenas','escenario_estado']){
-  const{data,error}=await sb.from(n).select('*');if(error){msg.textContent=n+': '+error.message;return}o[n]=data}
+async function respaldo(){const r=await sb.rpc('respaldo_dm');if(r.error){msg.textContent=r.error.message+' — ¿corriste setup_subdm_c.sql?';return}const o={fecha:new Date().toISOString(),...r.data};
  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(o,null,1)],{type:'application/json'}));
  a.download='valdoria-respaldo-'+new Date().toISOString().slice(0,10)+'.json';a.click()}
 const g=id=>document.getElementById(id).value;
@@ -100,8 +98,10 @@ function pintarMesa(){if(!ROL||!ROL.master)return;mesaBox.style.display='block';
  if(!ROL.dm){if(ROL.dirige)h+=' <button onclick="mesa(null)">↩ Devolver el control al DM</button>';mesaBox.innerHTML=h;return}
  const subs=Object.entries(cu).filter(([c])=>SUBS.includes(c));
  h+='<br><select id="mesaSel"><option value="">👑 DM principal (yo)</option>'+subs.map(([c,n])=>'<option value="'+c+'"'+(c==ROL.director?' selected':'')+'>🎭 '+esc(n)+'</option>').join('')+'</select> <button onclick="mesa(g(\'mesaSel\')||null)">Cambiar</button>'+
-  '<details><summary><b>🎭 Sub-DMs</b> ('+subs.length+')</summary>'+Object.entries(cu).sort((a,b)=>a[1].localeCompare(b[1])).map(([c,n])=>'<div class="fila"><span>'+esc(n)+'</span><button style="margin-left:auto" onclick="subdm(\''+c+'\','+!SUBS.includes(c)+')">'+(SUBS.includes(c)?'Quitar rol':'Hacer sub-DM')+'</button></div>').join('')+'<small>Un sub-DM crea y comparte contenido y, cuando le pasás la mesa, la dirige. No puede borrar personajes ni ver el Registro.</small></details>';
+  '<details><summary><b>🎭 Sub-DMs</b> ('+subs.length+')</summary>'+Object.entries(cu).sort((a,b)=>a[1].localeCompare(b[1])).map(([c,n])=>'<div class="fila"><span>'+esc(n)+'</span><button style="margin-left:auto" onclick="subdm(\''+c+'\','+!SUBS.includes(c)+')">'+(SUBS.includes(c)?'Quitar rol':'Hacer sub-DM')+'</button></div>').join('')+'<small>Un sub-DM crea y comparte contenido y, cuando le pasás la mesa, la dirige. No puede borrar personajes ni ver el Registro.</small></details>'+(ROL.espia?'<br>🕵 Modo espía activo <button onclick="espiaOff()">Desactivar</button>':'<br><button onclick="espiar()">🕵 Ver contenido no compartido</button> <small>(30 min, solo lectura, queda en el Registro)</small>');
  mesaBox.innerHTML=h}
+async function espiar(){if(!confirm('¿Seguro que querés espiar contenido que los otros DM NO compartieron?\n\nSe habilita por 30 minutos, es de solo lectura y queda anotado en el Registro.'))return;const{error}=await sb.rpc('espiar_on',{p_min:30});if(error){msg.textContent=error.message;return}location.reload()}
+async function espiaOff(){await sb.rpc('espiar_off');location.reload()}
 async function mesa(c){const{error}=await sb.rpc('mesa_fijar',{p_cuenta:c});msg.textContent=error?error.message:'';if(!error&&!ROL.dm){location.reload();return}await cargarMesa()}
 async function subdm(c,on){let tr=false;if(!on){if(!confirm('¿Quitarle el rol de sub-DM a esta cuenta?'))return;tr=confirm('¿Querés quedarte con el contenido que creó?\nAceptar = pasa a ser tuyo\nCancelar = queda a su nombre')}const{error}=await sb.rpc('dm_subdm',{p_cuenta:c,p_on:on,p_transferir:tr});msg.textContent=error?error.message:'';await cargarMesa()}
 (async()=>{const p=await cabecera('Panel DM');if(!p)return;if(!p.master){location.href='main.html';return}
