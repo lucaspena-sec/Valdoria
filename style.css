@@ -334,3 +334,4 @@ body.tv #vacio{background:none;border:0;color:#ccc;margin-top:30vh;font-size:3vw
 .estag{display:flex;align-items:center;gap:4px;margin:3px 0}
 .estag button{padding:0 8px;margin:0}
 .estf{padding:3px;margin:2px 0;font-size:12px}
+.skinp{margin-top:6px;border-top:1px dotted #888;padding-top:4px;font-size:12px}

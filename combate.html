@@ -1,4 +1,4 @@
-<!doctype html><html lang="es"><head><title>Valdoria - Combate</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=17"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=8"></script><script src="comun.js?v=13"></script>
+<!doctype html><html lang="es"><head><title>Valdoria - Combate</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=18"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=8"></script><script src="comun.js?v=13"></script>
 <style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
 <div class="win"><div id="cab"></div><div class="body">
 <div id="msg" class="err"></div>
@@ -19,7 +19,7 @@
    <input id="crq" placeholder="Buscar criatura" oninput="opcionesCR()"><select id="crs"></select>
    <label>Cantidad <input type="number" id="cant" min="1" max="20" value="1" style="width:60px"></label>
    <label>Iniciativa <input type="number" id="cini" placeholder="auto" style="width:70px"></label><br>
-   <label><input type="checkbox" id="tpg" style="width:auto"> Tirar los PG con los dados</label><br>
+   <label><input type="checkbox" id="tpg" style="width:auto" onchange="if(this.checked)pgmax.checked=false"> Tirar los PG con los dados</label> <label><input type="checkbox" id="pgmax" style="width:auto" onchange="if(this.checked)tpg.checked=false"> PG máx.</label><br>
    <button onclick="agregarC()">+ Agregar criatura</button></div>
  </div></details>
 <details id="loot" class="box" style="display:none"><summary><b>🎁 Loot</b></summary><div id="lootBody"></div></details>
@@ -98,7 +98,7 @@ function ctlDM(it){const id=it.id,pj=it.tipo=='pj';
   'Iniciativa <input type="number" id="in'+id+'" value="'+it.ini+'" style="width:60px" onchange="setIni('+id+',this.value)"><br>'+
   '<input type="number" id="hn'+id+'" min="1" placeholder="PV" style="width:60px"><button onclick="hpC('+id+',-1)">−</button><button onclick="hpC('+id+',1)">+</button>'+
   (pj?'':'<br>Nombre visible <input id="al'+id+'" value="'+esc(it.alias||'')+'" placeholder="'+esc(it.real)+'" onchange="setAlias('+id+',this.value)">')+
-  estCtl(it)+'<br><button onclick="quitarC('+id+')">✖ Quitar</button></details>'}
+  crCtl(it)+estCtl(it)+'<br><button onclick="quitarC('+id+')">✖ Quitar</button></details>'}
 function pintarGrid(){
  if(!ES.activo&&!DM){grid.innerHTML='';return}
  const a=document.activeElement;if(a&&grid.contains(a)&&a.tagName=='INPUT')return;
@@ -112,7 +112,7 @@ const upd=(id,o)=>q(sb.from('combatientes').update(o).eq('id',id));
 const setIni=(id,v)=>upd(id,{ini:parseInt(v)||0});
 const setAlias=(id,v)=>upd(id,{alias:v.trim()});
 function verC(id){const c=CB.find(x=>x.id==id);if(c)upd(id,{visible:!c.visible})}
-function quitarC(id){if(confirm('¿Quitar del combate?'))q(sb.from('combatientes').delete().eq('id',id))}
+async function quitarC(id){if(!confirm('¿Quitar del combate?'))return;const c=CB.find(x=>x.id==id),im=c?c.imagen:'';await q(sb.from('combatientes').delete().eq('id',id));limpiarSkins([im])}
 function hpC(id,s){const n=parseInt(gv('hn'+id));if(!(n>0)){aviso({message:'Escribí un número mayor a 0.'});return}
  const c=CB.find(x=>x.id==id);if(!c)return;
  if(c.tipo=='pj')return q(sb.rpc('dm_hp',{p_user:c.jugador,p_delta:s*n}));
@@ -134,9 +134,9 @@ function opcionesCR(){const b=crq.value.trim().toLowerCase(),v=crs.value;
  crs.innerHTML=CR.filter(c=>!b||c.nombre.toLowerCase().includes(b)).map(c=>'<option value="'+c.id+'">'+esc(c.nombre)+' · '+esc(c.tipo)+' · VD '+esc((c.datos||{}).vd||'?')+'</option>').join('')||'<option value="">(sin resultados)</option>';
  if([...crs.options].some(o=>o.value==v))crs.value=v}
 async function agregarC(){const c=CR.find(x=>x.id==parseInt(crs.value));if(!c){aviso({message:'Elegí una criatura de la lista.'});return}
- const n=cl(cant.value,1,20),d=c.datos||{},dex=md((d.car||{}).des??10),filas=[];
- for(let i=1;i<=n;i++){const hp=Math.max(1,tpg.checked?(rollDados(d.dados)||d.pg||1):(d.pg||1)),ini=cini.value.trim()===''?tirar20(dex):(parseInt(cini.value)||0);
-  filas.push({tipo:'criatura',criatura_id:c.id,nombre:n>1?c.nombre+' '+i:c.nombre,imagen:c.imagen||'',hp,hp_max:hp,ini,dex,visible:true,...v3k(true,true,false)})}
+ const n=cl(cant.value,1,20),d=c.datos||{},dex=md((d.car||{}).des??10),filas=[],modo=pgmax.checked?'max':tpg.checked?'tirar':'prom';
+ for(let i=1;i<=n;i++){const hp=pgCalc(d,modo),ini=cini.value.trim()===''?tirar20(dex):(parseInt(cini.value)||0);
+  filas.push({tipo:'criatura',criatura_id:c.id,nombre:n>1?c.nombre+' '+i:c.nombre,imagen:c.imagen||'',hp,hp_max:hp,ini,dex,visible:true,...v3k(true,true,false),...pgk(modo)})}
  await q(sb.from('combatientes').insert(filas))}
 const ahora=()=>new Date().toISOString();
 async function iniciar(){const vivos=LISTA.filter(x=>!(x.tipo=='criatura'&&x.hp<=0));if(!vivos.length){aviso({message:'Agregá combatientes primero.'});return}
@@ -155,9 +155,55 @@ async function anterior(){const l=LISTA;if(!l.length)return;let i=l.findIndex(x=
  do{i--;if(i<0){i=l.length-1;ronda=Math.max(1,ronda-1)}n++}while(n<=l.length&&l[i].tipo=='criatura'&&l[i].hp<=0);
  await sb.rpc('tiradas_limpiar');
  await q(sb.from('combate_estado').update({turno:l[i].id,ronda,actualizado:ahora()}).eq('id',1))}
-async function terminar(){if(!confirm('¿Terminar el combate? Se quitan todos los combatientes.'))return;
+async function terminar(){if(!confirm('¿Terminar el combate? Se quitan todos los combatientes.'))return;const skins=CB.map(c=>c.imagen);
  await sb.from('combatientes').delete().gte('id',0);await sb.rpc('tiradas_limpiar');
- q(sb.from('combate_estado').update({activo:false,ronda:1,turno:null,actualizado:ahora()}).eq('id',1))}
+ await q(sb.from('combate_estado').update({activo:false,ronda:1,turno:null,actualizado:ahora()}).eq('id',1));limpiarSkins(skins)}
+
+/* ---------- PG por criatura, y foto temporal (skin) ---------- */
+let PG_OK=false,SKALL=true;
+async function probarPG(){const{error}=await sb.from('combatientes').select('pg_modo').limit(1);PG_OK=!error}
+const pgk=m=>PG_OK?{pg_modo:m}:{};
+function maxDados(s){let t=0,ok=false;const r=String(s||'').replace(/(\d+)\s*d\s*(\d+)/gi,(m,n,c)=>{t+=n*c;ok=true;return ''});
+ if(!ok)return 0;(r.match(/[+\-]\s*\d+/g)||[]).forEach(x=>{t+=parseInt(x.replace(/\s/g,''))});return Math.max(1,t)}
+function pgCalc(d,m){d=d||{};
+ if(m=='max')return Math.max(1,maxDados(d.dados)||d.pg||1);
+ if(m=='tirar')return Math.max(1,rollDados(d.dados)||d.pg||1);
+ return Math.max(1,d.pg||1)}
+const setPgModo=(id,m)=>upd(id,{pg_modo:m});
+function pgAplicar(id){const c=CB.find(x=>x.id==id);if(!c)return;const cr=CR.find(x=>x.id==c.criatura_id);
+ if(!cr){aviso({message:'Esa criatura ya no está en el bestiario.'});return}
+ if(!confirm('¿Recalcular los PG de '+(c.alias||c.nombre)+'? Se pierde el daño que ya tiene.'))return;
+ const hp=pgCalc(cr.datos,c.pg_modo||'prom');upd(id,{hp,hp_max:hp})}
+/* skin: la foto subida vive en el almacén "items" con nombre skin-… y se borra cuando ya nadie la usa */
+const esSkin=u=>/\/items\/skin-[^\/?]+(\?.*)?$/.test(u||'');
+const skinNom=u=>decodeURIComponent(u.split('/').pop().split('?')[0]);
+async function limpiarSkins(urls){
+ try{const usadas=new Set(CB.map(c=>c.imagen)),n=[...new Set((urls||[]).filter(u=>esSkin(u)&&!usadas.has(u)).map(skinNom))];
+  if(n.length)await sb.storage.from('items').remove(n)}catch(e){}}
+async function barrerSkins(){
+ try{const b=sb.storage.from('items'),{data}=await b.list('',{limit:100,search:'skin-'});
+  const n=(data||[]).map(x=>x.name).filter(x=>/^skin-/.test(x));if(n.length)await b.remove(n)}catch(e){}}
+async function comprimirFoto(file,max){
+ let bmp;try{bmp=await createImageBitmap(file,{imageOrientation:'from-image'})}catch(e){bmp=await new Promise((ok,no)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=()=>no(new Error('formato de imagen no válido'));i.src=URL.createObjectURL(file)})}
+ const W=bmp.width||bmp.naturalWidth,H=bmp.height||bmp.naturalHeight,r=Math.min(1,max/Math.max(W,H)),w=Math.max(1,Math.round(W*r)),h=Math.max(1,Math.round(H*r));
+ const c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');x.fillStyle='#000';x.fillRect(0,0,w,h);x.drawImage(bmp,0,0,w,h);
+ return new Promise((ok,no)=>c.toBlob(b=>b?ok(b):no(new Error('no se pudo comprimir')),'image/jpeg',.85))}
+const idsSkin=c=>SKALL?CB.filter(x=>x.tipo=='criatura'&&x.criatura_id==c.criatura_id).map(x=>x.id):[c.id];
+async function skinSubir(id,inp){const f=inp.files[0];inp.value='';const c=CB.find(x=>x.id==id);if(!f||!c)return;
+ try{aviso({message:'Subiendo foto…'});
+  const blob=await comprimirFoto(f,800),nom='skin-'+(crypto.randomUUID?crypto.randomUUID():Date.now()+'-'+Math.random().toString(36).slice(2))+'.jpg',b=sb.storage.from('items');
+  const up=await b.upload(nom,blob,{contentType:'image/jpeg'});if(up.error)throw up.error;
+  const url=b.getPublicUrl(nom).data.publicUrl,ids=idsSkin(c),viejas=CB.filter(x=>ids.includes(x.id)).map(x=>x.imagen);
+  const r=await sb.from('combatientes').update({imagen:url}).in('id',ids);if(r.error)throw r.error;
+  aviso(null);await cargar();limpiarSkins(viejas)}
+ catch(e){aviso({message:'No se pudo cambiar la foto: '+(e.message||e)})}}
+async function skinQuitar(id){const c=CB.find(x=>x.id==id);if(!c)return;
+ const cr=CR.find(x=>x.id==c.criatura_id),orig=cr?(cr.imagen||''):'',ids=idsSkin(c),viejas=CB.filter(x=>ids.includes(x.id)).map(x=>x.imagen);
+ const r=await sb.from('combatientes').update({imagen:orig}).in('id',ids);aviso(r.error);await cargar();limpiarSkins(viejas)}
+function crCtl(it){if(it.tipo=='pj')return '';
+ const id=it.id,c=CB.find(x=>x.id==id)||{},m=c.pg_modo||'prom';let h='';
+ if(PG_OK)h+='<br>PG <select id="pm'+id+'" onchange="setPgModo('+id+',this.value)">'+[['prom','Promedio'],['tirar','Tirar dados'],['max','Máximo']].map(([k,t])=>'<option value="'+k+'"'+(m==k?' selected':'')+'>'+t+'</option>').join('')+'</select> <button title="Vuelve a calcular los PG de esta criatura con ese modo" onclick="pgAplicar('+id+')">⟳</button>';
+ return h+'<div class="skinp"><b>Foto solo para este combate</b><br><button onclick="this.nextElementSibling.click()">📷 Cambiar</button><input type="file" accept="image/*" style="display:none" onchange="skinSubir('+id+',this)"> <button onclick="skinQuitar('+id+')">↩ Original</button><label style="display:block"><input type="checkbox" style="width:auto" '+(SKALL?'checked':'')+' onchange="SKALL=this.checked;this.blur()"> A todas las copias de esta criatura</label></div>'}
 
 /* ---------- estados (condiciones) ---------- */
 let EST_OK=false,HAYEST=false;
@@ -201,11 +247,11 @@ const verEst=(id,on)=>upd(id,{ver_est:on});
 let ENC=[];
 async function cargarEnc(){const{data,error}=await sb.from('encuentros').select('*').order('nombre');if(error){aviso(error);return}ENC=data||[];pintarEnc()}
 const nomCR=x=>{const c=CR.find(y=>y.id==x.cid);return c?c.nombre:x.nombre};
-function pintarEnc(){encEl.innerHTML=ENC.map(e=>'<div class="box"><b>'+esc(e.nombre)+'</b><br><small>'+((e.datos.criaturas||[]).map(x=>esc(nomCR(x))+(x.cant>1?' ×'+x.cant:'')).join(', ')||'<i>vacío</i>')+'</small><br>'+
+function pintarEnc(){encEl.innerHTML=ENC.map(e=>'<div class="box"><b>'+esc(e.nombre)+'</b><br><small>'+((e.datos.criaturas||[]).map(x=>esc(nomCR(x))+(x.cant>1?' ×'+x.cant:'')+(x.pg=='max'?' (PG máx.)':x.pg=='tirar'?' (PG tirados)':'')).join(', ')||'<i>vacío</i>')+'</small><br>'+
   '<button onclick="activarEnc('+e.id+')">▶ Activar</button> <button onclick="activarEnc('+e.id+',true)" title="Agrega sus criaturas al combate en curso">➕ Sumar</button> <button onclick="reemplazarEnc('+e.id+')" title="Reemplaza su contenido con lo que tenés armado ahora">⟳ Actualizar</button> <button onclick="renombrarEnc('+e.id+')">✎</button> <button onclick="borrarEnc('+e.id+')">🗑</button></div>').join('')||'<i>Todavía no guardaste encuentros.</i>'}
 function entradasActuales(){const m={};
- CB.filter(c=>c.tipo=='criatura'&&c.criatura_id).forEach(c=>{const s=c.ver_sangre??c.visible,b=c.ver_barra??c.visible,n=c.ver_nums??false,k=c.criatura_id+'|'+(c.alias||'')+'|'+s+b+n;
-  (m[k]=m[k]||{cid:c.criatura_id,nombre:nomCR({cid:c.criatura_id,nombre:c.nombre.replace(/ \d+$/,'')}),alias:c.alias||'',visible:s||b,vs:s,vb:b,vn:n,cant:0}).cant++});
+ CB.filter(c=>c.tipo=='criatura'&&c.criatura_id).forEach(c=>{const s=c.ver_sangre??c.visible,b=c.ver_barra??c.visible,n=c.ver_nums??false,k=c.criatura_id+'|'+(c.alias||'')+'|'+s+b+n+'|'+(c.pg_modo||'prom');
+  (m[k]=m[k]||{cid:c.criatura_id,nombre:nomCR({cid:c.criatura_id,nombre:c.nombre.replace(/ \d+$/,'')}),alias:c.alias||'',visible:s||b,vs:s,vb:b,vn:n,pg:PG_OK?(c.pg_modo||'prom'):undefined,cant:0}).cant++});
  return Object.values(m)}
 async function guardarEnc(){const ent=entradasActuales();if(!ent.length){aviso({message:'Armá primero el combate con al menos una criatura.'});return}
  const n=prompt('Nombre del encuentro (por ejemplo: Emboscada en el camino)');if(!n||!n.trim())return;
@@ -220,20 +266,21 @@ async function borrarEnc(id){const e=ENC.find(x=>x.id==id);if(!confirm('¿Elimin
 function filasEnc(e,existentes){const filas=[],falt=[];
  (e.datos.criaturas||[]).forEach(x=>{const c=CR.find(y=>y.id==x.cid);if(!c){falt.push(x.nombre);return}
   const d=c.datos||{},dex=md((d.car||{}).des??10),ya=existentes.filter(z=>z.criatura_id==c.id).length;
-  const vs0=x.vs??(x.visible!==false),vb0=x.vb??(x.visible!==false),vn0=x.vn??false;
-   for(let i=1;i<=x.cant;i++){const hp=Math.max(1,tpg.checked?(rollDados(d.dados)||d.pg||1):(d.pg||1));
-   filas.push({tipo:'criatura',jugador:null,criatura_id:c.id,nombre:(x.cant>1||ya>0)?c.nombre+' '+(ya+i):c.nombre,alias:x.alias||'',imagen:c.imagen||'',hp,hp_max:hp,ini:tirar20(dex),dex,visible:vs0||vb0,...v3k(vs0,vb0,vn0)})}});
+  const vs0=x.vs??(x.visible!==false),vb0=x.vb??(x.visible!==false),vn0=x.vn??false,modo=x.pg||(pgmax.checked?'max':tpg.checked?'tirar':'prom');
+   for(let i=1;i<=x.cant;i++){const hp=pgCalc(d,modo);
+   filas.push({tipo:'criatura',jugador:null,criatura_id:c.id,nombre:(x.cant>1||ya>0)?c.nombre+' '+(ya+i):c.nombre,alias:x.alias||'',imagen:c.imagen||'',hp,hp_max:hp,ini:tirar20(dex),dex,visible:vs0||vb0,...v3k(vs0,vb0,vn0),...pgk(modo)})}});
  return{filas,falt}}
 async function activarEnc(id,sumar){const e=ENC.find(x=>x.id==id);if(!e)return;
  if(!sumar&&CB.length&&!confirm('Esto reemplaza el combate actual por «'+e.nombre+'». ¿Seguir?'))return;
  const{filas,falt}=filasEnc(e,sumar?CB:[]);
  if(!filas.length){aviso({message:'Ese encuentro no tiene criaturas disponibles en el bestiario.'});return}
+ const skins=sumar?[]:CB.map(c=>c.imagen);
  if(!sumar){
   await sb.from('combatientes').delete().gte('id',0);await sb.rpc('tiradas_limpiar');
   await sb.from('combate_estado').update({activo:false,ronda:1,turno:null,actualizado:ahora()}).eq('id',1);
   if(encPJ.checked)PERF.filter(p=>!p.is_dm&&PF[p.id]).forEach(p=>filas.push({tipo:'pj',jugador:p.id,criatura_id:null,nombre:p.username,alias:'',imagen:'',hp:1,hp_max:1,ini:tirar20(dexPJ(p.id)),dex:dexPJ(p.id),visible:true,...v3k(true,true,false)}))}
  const{error}=await sb.from('combatientes').insert(filas);if(error){aviso(error);return}
- await cargar();
+ await cargar();limpiarSkins(skins);
  if(falt.length)aviso({message:'Estas criaturas ya no están en el bestiario y se omitieron: '+falt.join(', ')});
  if(!sumar&&encIni.checked)iniciar()}
 
@@ -488,8 +535,8 @@ function cerrarFicha(){const ov=document.getElementById('fichaOv');ov.style.disp
 document.addEventListener('keydown',e=>{if(e.key=='Escape')cerrarFicha()});
 
 (async()=>{
- ME=await cabecera('Combate');if(!ME)return;DM=!!ME.is_dm;if(!DM)initDados();else{await probarV3();await probarEst()}
+ ME=await cabecera('Combate');if(!ME)return;DM=!!ME.is_dm;if(!DM)initDados();else{await probarV3();await probarEst();await probarPG()}
  try{mi.open=localStorage.getItem('miCombate')!=='0';VC=localStorage.getItem('miConj')!=='0';VR=localStorage.getItem('miRasgos')!=='0'}catch(e){}
  if(DM){prep.style.display='block';const{data}=await sb.from('criaturas').select('id,nombre,tipo,imagen,datos');CR=(data||[]).sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));opcionesCR();await cargarEnc();loot.style.display='block';await ltIniciar()}
- await cargar();setInterval(()=>{if(!document.hidden)cargar()},4000)})();
+ await cargar();if(DM&&!ES.activo&&!CB.length)barrerSkins();setInterval(()=>{if(!document.hidden)cargar()},4000)})();
 </script></body></html>
