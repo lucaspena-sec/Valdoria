@@ -184,7 +184,7 @@ function bloque(c,o){o=o||{};const R=o.rev||null,d=c.datos||{},car=d.car||{},pb=
   ln('Velocidad',d.vel,'vel')+tabla+habs+ln('Vulnerabilidades',d.vul,'vul')+ln('Resistencias',d.res,'res')+ln('Inmunidades a daño',d.inmD,'inmD')+ln('Inmunidades a estados',d.inmE,'inmE')+ln('Sentidos',d.sentidos,'sentidos')+ln('Idiomas',d.idiomas,'idiomas')+
   '<p>'+cb('vd')+'<b>VD</b> '+esc(d.vd)+' (bonificador de competencia +'+pb+')</p>'+
   gr('Rasgos',d.rasgos,'rasgos')+gr('Acciones',d.acciones,'acciones')+gr('Acciones adicionales',d.adicionales,'adicionales')+gr('Reacciones',d.reacciones,'reacciones')+gr('Acciones legendarias',d.legendarias,'legendarias')+
-  (d.notas?'<h4>Notas del DM</h4><p style="white-space:pre-wrap">'+esc(uni(d.notas))+'</p>':'')+'<div style="clear:both"></div></div>'}
+  (d.notas&&notaMia(c)?'<h4>Notas del DM</h4><p style="white-space:pre-wrap">'+esc(uni(d.notas))+'</p>':'')+'<div style="clear:both"></div></div>'}
 
 // ---- Bestiario revelable: qué ve cada jugador de una criatura ----
 // revelado = {u:true (desbloqueada), k:[claves]}. Claves: tipo, desc, ca, ini, pg, vel, vd, vul, res, inmD, inmE, sentidos, idiomas,
@@ -554,3 +554,19 @@ function estLista(est){const E=estEfec(est);return E.dir.concat(E.der.map(k=>({k
 function estResumen(e){const s=ESTK[e.k];if(!s)return '';
  if(e.k=='agotado'){const n=Math.max(1,Math.min(6,parseInt(e.n)||1));return '−'+2*n+' a toda tirada de d20 y −'+5*n+' pies de velocidad'+(n>=6?' (¡muere!)':'')}
  return s.r}
+
+// ===== Sub-DM: autor, compartir y filtro (Etapa B) =====
+// Cada página DM asigna YO=<perfil> y define refiltrarDM() y recargarDM(). Sin setup_subdm_b.sql nada de esto aparece.
+let YO=null,_NDM={};
+const _cuenta=()=>YO&&(YO.cuenta_id||YO.id);
+const esMio=x=>!x||!YO||!('creador' in x)||!x.creador||x.creador===_cuenta();
+const puedeEd=x=>esMio(x)||!!(YO&&YO.is_dm&&x.compartido);
+const notaMia=c=>esMio(c);
+const filtroDM=()=>{try{return localStorage.getItem('fdm')||'todos'}catch(e){return 'todos'}};
+const pasaF=x=>{if(!x||!('creador' in x))return true;const f=filtroDM();return f=='todos'||(f=='mios'?esMio(x):!esMio(x))};
+async function cargarNombresDM(){const{data}=await sb.from('profiles').select('cuenta_id,username');_NDM={};(data||[]).forEach(r=>{if(!_NDM[r.cuenta_id])_NDM[r.cuenta_id]=r.username})}
+function chipDM(tab,x){if(!x||!('creador' in x))return '';
+ if(esMio(x))return '<div class="chipdm"><button onclick="compartirDM(\''+tab+'\','+x.id+','+!x.compartido+')" title="Tocá para cambiarlo">'+(x.compartido?'👥 Compartido con los DM':'🔒 Privado')+'</button></div>';
+ return '<div class="chipdm">🎭 De <b>'+esc(_NDM[x.creador]||'otro DM')+'</b> (compartido)</div>'}
+function selFiltroDM(){const f=filtroDM();return '<select id="fdm" onchange="try{localStorage.setItem(\'fdm\',this.value)}catch(e){}refiltrarDM()">'+[['todos','👥 Todo lo que veo'],['mios','🙋 Solo lo mío'],['otros','🎭 Solo de otros DM']].map(([k,t])=>'<option value="'+k+'"'+(f==k?' selected':'')+'>'+t+'</option>').join('')+'</select>'}
+async function compartirDM(tab,id,on){const{error}=await sb.from(tab).update({compartido:on}).eq('id',id);const m=document.getElementById('msg');if(m)m.textContent=error?error.message:'';recargarDM()}

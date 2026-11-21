@@ -1,10 +1,10 @@
-<!doctype html><html lang="es"><head><title>Valdoria - Catálogo DM</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=20"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=10"></script><script src="comun.js?v=11"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
+<!doctype html><html lang="es"><head><title>Valdoria - Catálogo DM</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=21"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=10"></script><script src="comun.js?v=15"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
 <div class="win"><div id="cab"></div><div class="body">
 <h2>Catálogo y mercaderes</h2>
 <a href="dm.html">← Volver al panel de jugadores</a>
 <div id="msg" class="err"></div>
 <h3>Mercaderes</h3><button onclick="nuevoM()">+ Nuevo mercader</button><div id="merc"></div>
-<h3>Catálogo de ítems</h3><button onclick="editar(0)">+ Nuevo ítem</button> <button onclick="pf.style.display='block'">📋 Pegar ficha</button> <input id="bq" placeholder="Buscar ítem por nombre" oninput="pintar()">
+<h3>Catálogo de ítems</h3><button onclick="editar(0)">+ Nuevo ítem</button> <button onclick="pf.style.display='block'">📋 Pegar ficha</button> <input id="bq" placeholder="Buscar ítem por nombre" oninput="pintar()"> <span id="fdmBox"></span>
 <div id="pf" class="box" style="display:none"><textarea id="pf_t" rows="8" placeholder="Pegá acá el texto de la ficha del ítem. Podés pegar varios ítems juntos."></textarea><button onclick="leerFichaItem()">Leer ficha</button> <button onclick="pf.style.display='none'">Cancelar</button><br><small>Si es uno solo, se abre el editor con los datos cargados para revisar. Si pegás varios, te los muestro en una lista para guardarlos de una vez.</small><div id="pf_l"></div></div>
 <div id="ed" class="box" style="display:none">
  <input type="hidden" id="e_id">
@@ -54,19 +54,21 @@ async function cargar(){
 async function q(p){const{error}=await p;msg.textContent=error?error.message:'';await cargar()}
 function pintar(){
  const abiertos=[...document.querySelectorAll('details[open]')].map(d=>d.id),bq_=bq.value.trim().toLowerCase();
- merc.innerHTML=ME.map(m=>{
+ merc.innerHTML=ME.filter(pasaF).map(m=>{
   const of=OF.filter(o=>o.mercader_id==m.id).map(o=>IT.find(i=>i.id==o.item_id)).filter(Boolean);
   const libres=IT.filter(i=>!of.includes(i));
-  return '<details id="me'+m.id+'" class="box"><summary><b>'+esc(m.nombre)+'</b> '+(m.activo?'🟢 visible':'🔴 oculto')+' ('+of.length+' ítems)</summary>'+
+  const H='<details id="me'+m.id+'" class="box"><summary><b>'+esc(m.nombre)+'</b> '+(m.activo?'🟢 visible':'🔴 oculto')+' ('+of.length+' ítems)</summary>'+
    '<input id="mn'+m.id+'" value="'+esc(m.nombre)+'" placeholder="Nombre"><input id="mt'+m.id+'" value="'+esc(m.titulo)+'" placeholder="Oficio"><input id="mi'+m.id+'" value="'+esc(m.imagen)+'" placeholder="URL de la foto">Subir foto: <input type="file" accept="image/*" onchange="subir(this,\'mi'+m.id+'\')">'+
    '<br><button onclick="gMer('+m.id+')">Guardar</button> <button onclick="actMer('+m.id+','+!m.activo+')">'+(m.activo?'Ocultar a los jugadores':'Mostrar a los jugadores')+'</button> <button onclick="borMer('+m.id+')">Eliminar</button>'+
    '<h4>Ofrece:</h4>'+(of.map(i=>{const o=OF.find(z=>z.mercader_id==m.id&&z.item_id==i.id);return '<div>'+esc(i.nombre)+' ('+i.precio+' po) Stock: <input type="number" min="0" style="width:70px" id="st'+m.id+'_'+i.id+'" value="'+(o.stock??'')+'" placeholder="∞"> <button onclick="gStock('+m.id+','+i.id+')">Guardar</button> <button onclick="quitar('+m.id+','+i.id+')">Quitar</button></div>'}).join('')||'<i>Nada todavía</i>')+
-   '<br><select id="ad'+m.id+'">'+libres.map(i=>'<option value="'+i.id+'">'+esc(i.nombre)+' ['+CATN[i.categoria]+' / '+i.rareza+']</option>').join('')+'</select> <input type="number" min="0" id="as'+m.id+'" placeholder="Stock (vacío = ilimitado)"> <button onclick="agregar('+m.id+')">Agregar a su tienda</button></details>'}).join('')||'<i>Sin mercaderes.</i>';
- catalogo.innerHTML=Object.keys(CATN).map(c=>{const del=IT.filter(i=>i.categoria==c&&(!bq_||i.nombre.toLowerCase().includes(bq_)));
+   '<br><select id="ad'+m.id+'">'+libres.map(i=>'<option value="'+i.id+'">'+esc(i.nombre)+' ['+CATN[i.categoria]+' / '+i.rareza+']</option>').join('')+'</select> <input type="number" min="0" id="as'+m.id+'" placeholder="Stock (vacío = ilimitado)"> <button onclick="agregar('+m.id+')">Agregar a su tienda</button></details>';
+  const cab=chipDM('mercaderes',m);
+  return puedeEd(m)?H.replace('</summary>','</summary>'+cab):'<details id="me'+m.id+'" class="box"><summary><b>'+esc(m.nombre)+'</b> '+(m.activo?'🟢 visible':'🔴 oculto')+' ('+of.length+' ítems)</summary>'+cab+'<h4>Ofrece:</h4>'+(of.map(i=>esc(i.nombre)+' ('+i.precio+' po)').join('<br>')||'<i>Nada todavía</i>')+'</details>'}).join('')||'<i>Sin mercaderes.</i>';
+ catalogo.innerHTML=Object.keys(CATN).map(c=>{const del=IT.filter(i=>i.categoria==c&&pasaF(i)&&(!bq_||i.nombre.toLowerCase().includes(bq_)));
   return '<details id="c'+c+'" class="box"><summary><b>'+CATN[c]+'</b> ('+IT.filter(i=>i.categoria==c).length+')</summary>'+
   Object.keys(RARP).map(r=>{const l=del.filter(i=>i.rareza==r);
    return '<div class="rg r-'+r+'"><b>'+RARP[r]+':</b> '+(l.map(i=>'<details id="i'+i.id+'" class="box r-'+r+'" style="border-left:8px solid var(--rc)"><summary>'+(i.imagen?'<img class="mini" src="'+esc(i.imagen)+'" alt="">':'')+esc(i.nombre)+' · '+i.precio+' po</summary>'+
-    tarjetaItem({...i,datos:{...i.datos,cat:i.categoria}})+'<button onclick="editar('+i.id+')">Editar</button> <button onclick="dup('+i.id+')">Duplicar</button> <button onclick="borrar('+i.id+')">Eliminar</button></details>').join('')||'<i>—</i>')+'</div>'}).join('')+'</details>'}).join('');
+    tarjetaItem({...i,datos:{...i.datos,cat:i.categoria}})+chipDM('items',i)+(puedeEd(i)?'<button onclick="editar('+i.id+')">Editar</button> ':'')+'<button onclick="dup('+i.id+')">Duplicar</button>'+(puedeEd(i)?' <button onclick="borrar('+i.id+')">Eliminar</button>':'')+'</details>').join('')||'<i>—</i>')+'</div>'}).join('')+'</details>'}).join('');
  abiertos.forEach(id=>{const d=document.getElementById(id);if(d)d.open=true});
 }
 const nuevoM=()=>q(sb.from('mercaderes').insert({nombre:'Nuevo mercader',activo:false}));
@@ -123,5 +125,6 @@ async function subir(inp,dest){const a=inp.files[0];if(!a)return;if(a.size>2e6){
  const{error}=await b.upload(n,a,{contentType:a.type});
  if(error){msg.textContent=error.message;return}
  document.getElementById(dest).value=b.getPublicUrl(n).data.publicUrl;msg.textContent='Foto subida. Tocá Guardar para aplicarla.'}
-(async()=>{const p=await cabecera('Catálogo DM');if(!p)return;if(!p.master){location.href='main.html';return}cargar()})();
+function refiltrarDM(){pintar()}function recargarDM(){cargar()}
+(async()=>{const p=await cabecera('Catálogo DM');if(!p)return;if(!p.master){location.href='main.html';return}YO=p;fdmBox.innerHTML=selFiltroDM();await cargarNombresDM();cargar()})();
 </script></body></html>

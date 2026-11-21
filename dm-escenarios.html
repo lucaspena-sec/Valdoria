@@ -1,4 +1,4 @@
-<!doctype html><html lang="es"><head><title>Valdoria - Escenarios DM</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=20"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=10"></script><script src="comun.js?v=12"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
+<!doctype html><html lang="es"><head><title>Valdoria - Escenarios DM</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=21"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=10"></script><script src="comun.js?v=15"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
 <div class="win"><div id="cab"></div><div class="body">
 <h2>🎬 Escenarios</h2>
 <a href="dm.html">← Volver al panel</a>
@@ -8,7 +8,7 @@
 <div id="panel"></div>
 </div></div>
 <script>
-const g=id=>document.getElementById(id);let DIRIGE=false;
+const g=id=>document.getElementById(id);let DIRIGE=false;function refiltrarDM(){pintar()}function recargarDM(){cargar()}
 const SUGERENCIAS=['Descripción del lugar','Introducción','Nudo','Desenlace','Texto para jugadores','Posibles enemigos','Notas secretas','Pistas','Tesoro','Diálogo'];
 const nuevoId=()=>'b'+Math.random().toString(36).slice(2,9);
 const nuevoBloque=t=>({id:nuevoId(),t,x:'',v:false});
@@ -37,13 +37,13 @@ function pintar(){
  const p=ALL.find(s=>s.id==EST.escena_id),en=EST.mostrando&&p;
  estado.innerHTML=(en?'📺 <b>En pantalla:</b> '+esc(nomEsc(p.escenario_id))+' · '+esc(p.titulo||'(sin título)')+' <button onclick="ocultar()">⬛ Ocultar</button>':'⬛ Los jugadores no están viendo ninguna escena.')+
   '<br><a href="escenario.html" target="_blank">👁 Ver como jugador</a> · <a href="escenario.html?tv=1" target="_blank">🖥 Modo TV (para la mesa)</a>';
- lista.innerHTML='<div class="escrow">'+ES.map(e=>'<button class="chipE'+(e.id==sel?' on':'')+'" onclick="abrir('+e.id+')">'+esc(e.nombre)+' <small>('+ALL.filter(s=>s.escenario_id==e.id).length+')</small></button>').join('')+'<button onclick="nuevoEsc()">＋ Nuevo escenario</button></div>';
+ lista.innerHTML='<div class="escrow">'+ES.filter(pasaF).map(e=>'<button class="chipE'+(e.id==sel?' on':'')+'" onclick="abrir('+e.id+')">'+esc(e.nombre)+' <small>('+ALL.filter(s=>s.escenario_id==e.id).length+')</small></button>').join('')+'<button onclick="nuevoEsc()">＋ Nuevo escenario</button> '+selFiltroDM()+'</div>';
  panel.innerHTML=sel?panelHtml():'<p><i>'+(ES.length?'Elegí un escenario o creá uno nuevo.':'Todavía no tenés escenarios. Creá el primero con “＋ Nuevo escenario”.')+'</i></p>';
  afterPaint()}
 
 function panelHtml(){
  const s=scn(),proy=EST.mostrando&&s&&EST.escena_id==s.id;
- let h='<div class="box"><b>'+esc(nomEsc(sel))+'</b> <button onclick="renombrarEsc()" title="Renombrar">✏</button> <button onclick="borrarEsc()" title="Borrar el escenario">🗑</button><br>'+
+ const E_=ES.find(x=>x.id==sel),ro=!puedeEd(E_);let h=ro?'<div class="box"><b>'+esc(nomEsc(sel))+'</b>'+chipDM('escenarios',E_)+'<small>Solo lectura: lo creó otro DM. Si dirigís la mesa, podés proyectarlo.</small></div>':'<div class="box"><b>'+esc(nomEsc(sel))+'</b>'+chipDM('escenarios',E_)+' <button onclick="renombrarEsc()" title="Renombrar">✏</button> <button onclick="borrarEsc()" title="Borrar el escenario">🗑</button><br>'+
   '<button onclick="fi.click()">📷 Agregar fotos</button><input type="file" id="fi" accept="image/*" multiple style="display:none" onchange="subirFotos(this)"> <span id="sub"></span></div>';
  if(!SC.length)return h+'<p><i>Este escenario todavía no tiene fotos. Tocá “📷 Agregar fotos” y elegí varias de una vez.</i></p>';
  h+='<div class="escctl"><button class="flecha" onclick="ir(-1)">◀</button><b>'+(vista+1)+' / '+SC.length+'</b><button class="flecha" onclick="ir(1)">▶</button></div>';
@@ -51,7 +51,7 @@ function panelHtml(){
  h+='<div class="escprev" id="prev"><img src="'+esc(s.imagen)+'" alt="">'+(proy?'<span class="escbadge">📺 EN PANTALLA</span>':'')+'</div>';
  h+='<div class="escrow"><button onclick="mostrar()">📺 Mostrar esta escena</button><button onclick="ocultar()">⬛ Ocultar</button></div>';
  h+='<div class="escstrip">'+SC.map((x,i)=>'<div class="escth'+(i==vista?' on':'')+((EST.mostrando&&EST.escena_id==x.id)?' live':'')+'" onclick="irA('+i+')"><img src="'+esc(x.imagen)+'" loading="lazy" alt=""><b>'+(i+1)+'</b>'+(x.loot_id?'<span class="ltmark">🎁</span>':'')+'</div>').join('')+'</div>';
- return h+editorHtml(s)}
+ return h+(ro?'':editorHtml(s))}
 
 function editorHtml(s){
  const bq=s.bloques||[],vacios=ALL.filter(x=>x.escenario_id==sel).reduce((n,x)=>n+(x.bloques||[]).filter(b=>!(b.x||'').trim()).length,0);
@@ -278,6 +278,6 @@ async function subirCambio(inp){
  catch(e){msg.textContent='No se pudo cambiar la foto: '+(e.message||e)}}
 
 (async()=>{const p=await cabecera('Escenarios DM');if(!p)return;DIRIGE=!!p.dirige;if(!p.master){location.href='main.html';return}
- await cargar();
+ YO=p;await cargarNombresDM();await cargar();
  const pr=ALL.find(s=>s.id==EST.escena_id);if(EST.mostrando&&pr){sel=pr.escenario_id;recalc();vista=Math.max(0,SC.findIndex(s=>s.id==pr.id));pintar()}})();
 </script></body></html>

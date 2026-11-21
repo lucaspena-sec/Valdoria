@@ -1,4 +1,4 @@
-<!doctype html><html lang="es"><head><title>Valdoria - Combate</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=20"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=10"></script><script src="comun.js?v=14"></script>
+<!doctype html><html lang="es"><head><title>Valdoria - Combate</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=21"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=10"></script><script src="comun.js?v=15"></script>
 <style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
 <div class="win"><div id="cab"></div><div class="body">
 <div id="msg" class="err"></div>
@@ -10,7 +10,7 @@
 <div class="box"><h4>📁 Encuentros guardados</h4>
   <label><input type="checkbox" id="encPJ" style="width:auto" checked> Incluir a todos los jugadores con ficha</label>
   <label><input type="checkbox" id="encIni" style="width:auto" checked> Iniciar al activar</label>
-  <div id="encEl"></div>
+  <div id="fdmBox"></div><div id="encEl"></div>
   <button onclick="guardarEnc()">💾 Guardar lo armado como encuentro</button>
   <br><small>Se guardan las criaturas que tenés cargadas ahora (con su cantidad, nombre visible y ojo). Al activarlo, la iniciativa se tira de nuevo y los PG se tiran o se promedian según la casilla de Criaturas.</small></div>
  <div class="prep2">
@@ -250,11 +250,11 @@ function fuenteEst(id,k,v){const a=estDe(id);if(!a)return;const e=a.find(x=>x.k=
 const verEst=(id,on)=>upd(id,{ver_est:on});
 
 /* ---------- encuentros guardados ---------- */
-let ENC=[];
+let ENC=[];function refiltrarDM(){pintarEnc();ltPintar()}function recargarDM(){cargarEnc();ltRecargar()}
 async function cargarEnc(){const{data,error}=await sb.from('encuentros').select('*').order('nombre');if(error){aviso(error);return}ENC=data||[];pintarEnc()}
 const nomCR=x=>{const c=CR.find(y=>y.id==x.cid);return c?c.nombre:x.nombre};
-function pintarEnc(){encEl.innerHTML=ENC.map(e=>'<div class="box"><b>'+esc(e.nombre)+'</b><br><small>'+((e.datos.criaturas||[]).map(x=>esc(nomCR(x))+(x.cant>1?' ×'+x.cant:'')+(x.pg=='max'?' (PG máx.)':x.pg=='tirar'?' (PG tirados)':'')).join(', ')||'<i>vacío</i>')+'</small><br>'+
-  '<button onclick="activarEnc('+e.id+')">▶ Activar</button> <button onclick="activarEnc('+e.id+',true)" title="Agrega sus criaturas al combate en curso">➕ Sumar</button> <button onclick="reemplazarEnc('+e.id+')" title="Reemplaza su contenido con lo que tenés armado ahora">⟳ Actualizar</button> <button onclick="renombrarEnc('+e.id+')">✎</button> <button onclick="borrarEnc('+e.id+')">🗑</button></div>').join('')||'<i>Todavía no guardaste encuentros.</i>'}
+function pintarEnc(){encEl.innerHTML=ENC.filter(pasaF).map(e=>'<div class="box"><b>'+esc(e.nombre)+'</b><br><small>'+((e.datos.criaturas||[]).map(x=>esc(nomCR(x))+(x.cant>1?' ×'+x.cant:'')+(x.pg=='max'?' (PG máx.)':x.pg=='tirar'?' (PG tirados)':'')).join(', ')||'<i>vacío</i>')+'</small><br>'+
+  '<button onclick="activarEnc('+e.id+')">▶ Activar</button> <button onclick="activarEnc('+e.id+',true)" title="Agrega sus criaturas al combate en curso">➕ Sumar</button> '+(puedeEd(e)?'<button onclick="reemplazarEnc('+e.id+')" title="Reemplaza su contenido con lo que tenés armado ahora">⟳ Actualizar</button> <button onclick="renombrarEnc('+e.id+')">✎</button> <button onclick="borrarEnc('+e.id+')">🗑</button>':'')+chipDM('encuentros',e)+'</div>').join('')||'<i>Todavía no guardaste encuentros.</i>'}
 function entradasActuales(){const m={};
  CB.filter(c=>c.tipo=='criatura'&&c.criatura_id).forEach(c=>{const s=c.ver_sangre??c.visible,b=c.ver_barra??c.visible,n=c.ver_nums??false,k=c.criatura_id+'|'+(c.alias||'')+'|'+s+b+n+'|'+(c.pg_modo||'prom');
   (m[k]=m[k]||{cid:c.criatura_id,nombre:nomCR({cid:c.criatura_id,nombre:c.nombre.replace(/ \d+$/,'')}),alias:c.alias||'',visible:s||b,vs:s,vb:b,vn:n,pg:PG_OK?(c.pg_modo||'prom'):undefined,cant:0}).cant++});
@@ -444,7 +444,7 @@ function ltPintar(){
  h+='<div class="ltrow" style="margin-top:8px"><button onclick="ltVista()">👁 Vista previa</button><button onclick="ltGuardar()">💾 '+(LT.edit?'Actualizar “'+esc(LT.edit.nombre)+'”':'Guardar como loot')+'</button>'+(LT.edit?'<button onclick="ltSoltar()">Nuevo</button>':'')+'</div>';
  h+='<div id="ltPre">'+ltPreHtml()+'</div><div id="ltInf">'+LT.inf+'</div>';
  h+='<h4>📦 Loots preparados</h4><label><input type="checkbox" style="width:auto" '+(LT.ask?'':'checked')+' onchange="ltAsk(this.checked)"> Dar sin confirmar</label>';
- h+=LT.saved===null?'<br><i>Para guardar loots corré setup_loot.sql en Supabase.</i>':(LT.saved.length?LT.saved.map(l=>{const d=l.datos||{},n=(d.items||[]).length;return '<div class="ltrow"><b class="pn">'+esc(l.nombre)+' <small>'+((d.oro&&d.oro.monto)?'🪙 '+d.oro.monto+' · ':'')+n+' ítem'+(n==1?'':'s')+'</small></b><button onclick="ltDar('+l.id+')">▶ Dar</button><button onclick="ltCargar('+l.id+')" title="Cargar para editar">✏</button><button onclick="ltDup('+l.id+')" title="Duplicar">📄</button><button onclick="ltBorrar('+l.id+')" title="Borrar">🗑</button></div>'}).join(''):'<br><i>Todavía no guardaste loots.</i>');
+ h+=LT.saved===null?'<br><i>Para guardar loots corré setup_loot.sql en Supabase.</i>':(LT.saved.length?LT.saved.filter(pasaF).map(l=>{const d=l.datos||{},n=(d.items||[]).length;return '<div class="ltrow"><b class="pn">'+esc(l.nombre)+' <small>'+((d.oro&&d.oro.monto)?'🪙 '+d.oro.monto+' · ':'')+n+' ítem'+(n==1?'':'s')+'</small></b><button onclick="ltDar('+l.id+')">▶ Dar</button>'+(puedeEd(l)?'<button onclick="ltCargar('+l.id+')" title="Cargar para editar">✏</button>':'')+'<button onclick="ltDup('+l.id+')" title="Duplicar">📄</button>'+(puedeEd(l)?'<button onclick="ltBorrar('+l.id+')" title="Borrar">🗑</button>':'')+chipDM('loots',l)+'</div>'}).join(''):'<br><i>Todavía no guardaste loots.</i>');
  el.innerHTML=h;ltRes()}
 function ltTog(u,on){LT.sel[u]=on;ltInval();ltPintar()}
 function ltTodos(on){ltJug().forEach(p=>LT.sel[p.id]=on);ltInval();ltPintar()}
@@ -546,6 +546,6 @@ document.addEventListener('keydown',e=>{if(e.key=='Escape')cerrarFicha()});
 (async()=>{
  ME=await cabecera('Combate');if(!ME)return;DM=!!ME.dirige;if(!DM)initDados();else{await probarV3();await probarEst();await probarPG();await probarFI()}
  try{mi.open=localStorage.getItem('miCombate')!=='0';VC=localStorage.getItem('miConj')!=='0';VR=localStorage.getItem('miRasgos')!=='0'}catch(e){}
- if(DM){prep.style.display='block';const pr=await sb.from('criaturas').select('revelado').limit(1);REV_OK=!pr.error;const{data}=await sb.from('criaturas').select('id,nombre,tipo,imagen,datos'+(REV_OK?',revelado':''));CR=(data||[]).sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));opcionesCR();await cargarEnc();loot.style.display='block';await ltIniciar()}
+ if(DM){prep.style.display='block';const pr=await sb.from('criaturas').select('revelado').limit(1);REV_OK=!pr.error;const{data}=await sb.from('criaturas').select('id,nombre,tipo,imagen,datos'+(REV_OK?',revelado':''));CR=(data||[]).sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));opcionesCR();YO=ME;await cargarNombresDM();fdmBox.innerHTML=selFiltroDM();await cargarEnc();loot.style.display='block';await ltIniciar()}
  await cargar();if(DM&&!ES.activo&&!CB.length)barrerSkins();setInterval(()=>{if(!document.hidden)cargar()},4000)})();
 </script></body></html>

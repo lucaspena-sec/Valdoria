@@ -103,7 +103,7 @@ function pintarMesa(){if(!ROL||!ROL.master)return;mesaBox.style.display='block';
   '<details><summary><b>🎭 Sub-DMs</b> ('+subs.length+')</summary>'+Object.entries(cu).sort((a,b)=>a[1].localeCompare(b[1])).map(([c,n])=>'<div class="fila"><span>'+esc(n)+'</span><button style="margin-left:auto" onclick="subdm(\''+c+'\','+!SUBS.includes(c)+')">'+(SUBS.includes(c)?'Quitar rol':'Hacer sub-DM')+'</button></div>').join('')+'<small>Un sub-DM crea y comparte contenido y, cuando le pasás la mesa, la dirige. No puede borrar personajes ni ver el Registro.</small></details>';
  mesaBox.innerHTML=h}
 async function mesa(c){const{error}=await sb.rpc('mesa_fijar',{p_cuenta:c});msg.textContent=error?error.message:'';if(!error&&!ROL.dm){location.reload();return}await cargarMesa()}
-async function subdm(c,on){if(!on&&!confirm('¿Quitarle el rol de sub-DM a esta cuenta?'))return;const{error}=await sb.rpc('dm_subdm',{p_cuenta:c,p_on:on});msg.textContent=error?error.message:'';await cargarMesa()}
+async function subdm(c,on){let tr=false;if(!on){if(!confirm('¿Quitarle el rol de sub-DM a esta cuenta?'))return;tr=confirm('¿Querés quedarte con el contenido que creó?\nAceptar = pasa a ser tuyo\nCancelar = queda a su nombre')}const{error}=await sb.rpc('dm_subdm',{p_cuenta:c,p_on:on,p_transferir:tr});msg.textContent=error?error.message:'';await cargarMesa()}
 (async()=>{const p=await cabecera('Panel DM');if(!p)return;if(!p.master){location.href='main.html';return}
  if(!p.is_dm){nvReg.style.display='none';nvResp.style.display='none'}
  if(p.dirige)await cargar();else{jug.style.display='none';noDir.style.display='block'}
