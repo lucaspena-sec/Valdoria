@@ -42,7 +42,7 @@ function rollDados(s){const r=String(s||'').match(/(\d+)\s*d\s*(\d+)\s*([+\-]\s*
 function cDM(c){const pj=c.tipo=='pj',f=pj?PF[c.jugador]:null,p=pj?PERF.find(x=>x.id==c.jugador):null;
  return{id:c.id,tipo:c.tipo,ini:c.ini,dex:c.dex,jugador:c.jugador,alias:c.alias,real:c.nombre,cid:c.criatura_id,vs:c.ver_sangre??c.visible,vb:c.ver_barra??c.visible,vn:c.ver_nums??false,
   nombre:pj?((f&&f.datos&&f.datos.nombre)||(p&&p.nombre)||(p&&p.username)||'?'):(c.alias||c.nombre),
-  imagen:pj?null:c.imagen,hp:pj?(f?f.hp:0):c.hp,hpmax:pj?(f?f.hp_max:1):c.hp_max,tmp:pj&&f?f.hp_temp:0,oculto:!c.visible,est:c.estados||[],vest:c.ver_est??true}}
+  imagen:pj?null:c.imagen,hp:pj?(f?f.hp:0):c.hp,hpmax:pj?(f?f.hp_max:1):c.hp_max,tmp:pj&&f?f.hp_temp:0,oculto:!c.visible,est:c.estados||[],vest:c.ver_est??true,vfi:c.ver_ficha??true}}
 async function cargarDM(){
  const[e,c,f,p]=await Promise.all([sb.from('combate_estado').select('*').eq('id',1).maybeSingle(),sb.from('combatientes').select('*'),sb.from('fichas').select('user_id,hp,hp_max,hp_temp,datos'),sb.from('profiles').select('id,username,nombre,is_dm,es_actual,borrado_en').order('username')]);
  if(e.error||c.error){aviso(e.error||c.error);return false}
@@ -110,7 +110,9 @@ function pintarGrid(){
 async function q(p){const{error}=await p;aviso(error);await cargar()}
 const upd=(id,o)=>q(sb.from('combatientes').update(o).eq('id',id));
 const setIni=(id,v)=>upd(id,{ini:parseInt(v)||0});
-const setAlias=(id,v)=>upd(id,{alias:v.trim()});
+function setAlias(id,v){v=v.trim();const c=CB.find(x=>x.id==id),o={alias:v},oculta=!!(v&&FI_OK&&c&&c.ver_ficha!==false);
+ if(oculta)o.ver_ficha=false;
+ upd(id,o).then(()=>{if(oculta)aviso({message:'Le cambiaste el nombre: su ficha del bestiario quedó oculta a los jugadores. Destildá 🎭 cuando quieras revelarla.'})})}
 function verC(id){const c=CB.find(x=>x.id==id);if(c)upd(id,{visible:!c.visible})}
 async function quitarC(id){if(!confirm('¿Quitar del combate?'))return;const c=CB.find(x=>x.id==id),im=c?c.imagen:'';await q(sb.from('combatientes').delete().eq('id',id));limpiarSkins([im])}
 function hpC(id,s){const n=parseInt(gv('hn'+id));if(!(n>0)){aviso({message:'Escribí un número mayor a 0.'});return}
@@ -136,7 +138,7 @@ function opcionesCR(){const b=crq.value.trim().toLowerCase(),v=crs.value;
 async function agregarC(){const c=CR.find(x=>x.id==parseInt(crs.value));if(!c){aviso({message:'Elegí una criatura de la lista.'});return}
  const n=cl(cant.value,1,20),d=c.datos||{},dex=md((d.car||{}).des??10),filas=[],modo=pgmax.checked?'max':tpg.checked?'tirar':'prom';
  for(let i=1;i<=n;i++){const hp=pgCalc(d,modo),ini=cini.value.trim()===''?tirar20(dex):(parseInt(cini.value)||0);
-  filas.push({tipo:'criatura',criatura_id:c.id,nombre:n>1?c.nombre+' '+i:c.nombre,imagen:c.imagen||'',hp,hp_max:hp,ini,dex,visible:true,...v3k(true,true,false),...pgk(modo)})}
+  filas.push({tipo:'criatura',criatura_id:c.id,nombre:n>1?c.nombre+' '+i:c.nombre,imagen:c.imagen||'',hp,hp_max:hp,ini,dex,visible:true,...v3k(true,true,false),...pgk(modo),...fik(true)})}
  await q(sb.from('combatientes').insert(filas))}
 const ahora=()=>new Date().toISOString();
 async function iniciar(){const vivos=LISTA.filter(x=>!(x.tipo=='criatura'&&x.hp<=0));if(!vivos.length){aviso({message:'Agregá combatientes primero.'});return}
@@ -160,7 +162,10 @@ async function terminar(){if(!confirm('¿Terminar el combate? Se quitan todos lo
  await q(sb.from('combate_estado').update({activo:false,ronda:1,turno:null,actualizado:ahora()}).eq('id',1));limpiarSkins(skins)}
 
 /* ---------- PG por criatura, y foto temporal (skin) ---------- */
-let PG_OK=false,SKALL=true;
+let PG_OK=false,SKALL=true,FI_OK=false;
+async function probarFI(){const{error}=await sb.from('combatientes').select('ver_ficha').limit(1);FI_OK=!error}
+const fik=v=>FI_OK?{ver_ficha:v}:{};
+const ocultaFicha=(id,on)=>upd(id,{ver_ficha:!on});
 async function probarPG(){const{error}=await sb.from('combatientes').select('pg_modo').limit(1);PG_OK=!error}
 const pgk=m=>PG_OK?{pg_modo:m}:{};
 function maxDados(s){let t=0,ok=false;const r=String(s||'').replace(/(\d+)\s*d\s*(\d+)/gi,(m,n,c)=>{t+=n*c;ok=true;return ''});
@@ -194,14 +199,15 @@ async function skinSubir(id,inp){const f=inp.files[0];inp.value='';const c=CB.fi
   const blob=await comprimirFoto(f,800),nom='skin-'+(crypto.randomUUID?crypto.randomUUID():Date.now()+'-'+Math.random().toString(36).slice(2))+'.jpg',b=sb.storage.from('items');
   const up=await b.upload(nom,blob,{contentType:'image/jpeg'});if(up.error)throw up.error;
   const url=b.getPublicUrl(nom).data.publicUrl,ids=idsSkin(c),viejas=CB.filter(x=>ids.includes(x.id)).map(x=>x.imagen);
-  const r=await sb.from('combatientes').update({imagen:url}).in('id',ids);if(r.error)throw r.error;
-  aviso(null);await cargar();limpiarSkins(viejas)}
+  const r=await sb.from('combatientes').update({imagen:url,...fik(false)}).in('id',ids);if(r.error)throw r.error;
+  aviso(FI_OK?{message:'Foto cambiada. La ficha del bestiario quedó oculta a los jugadores: destildá 🎭 cuando quieras revelarla.'}:null);await cargar();limpiarSkins(viejas)}
  catch(e){aviso({message:'No se pudo cambiar la foto: '+(e.message||e)})}}
 async function skinQuitar(id){const c=CB.find(x=>x.id==id);if(!c)return;
  const cr=CR.find(x=>x.id==c.criatura_id),orig=cr?(cr.imagen||''):'',ids=idsSkin(c),viejas=CB.filter(x=>ids.includes(x.id)).map(x=>x.imagen);
  const r=await sb.from('combatientes').update({imagen:orig}).in('id',ids);aviso(r.error);await cargar();limpiarSkins(viejas)}
 function crCtl(it){if(it.tipo=='pj')return '';
  const id=it.id,c=CB.find(x=>x.id==id)||{},m=c.pg_modo||'prom';let h='';
+ if(FI_OK)h+='<label style="display:block"><input type="checkbox" style="width:auto" '+(it.vfi===false?'checked':'')+' onchange="ocultaFicha('+id+',this.checked);this.blur()"> 🎭 Ocultar la ficha del bestiario a los jugadores</label>';
  if(PG_OK)h+='<br>PG <select id="pm'+id+'" onchange="setPgModo('+id+',this.value)">'+[['prom','Promedio'],['tirar','Tirar dados'],['max','Máximo']].map(([k,t])=>'<option value="'+k+'"'+(m==k?' selected':'')+'>'+t+'</option>').join('')+'</select> <button title="Vuelve a calcular los PG de esta criatura con ese modo" onclick="pgAplicar('+id+')">⟳</button>';
  return h+'<div class="skinp"><b>Foto solo para este combate</b><br><button onclick="this.nextElementSibling.click()">📷 Cambiar</button><input type="file" accept="image/*" style="display:none" onchange="skinSubir('+id+',this)"> <button onclick="skinQuitar('+id+')">↩ Original</button><label style="display:block"><input type="checkbox" style="width:auto" '+(SKALL?'checked':'')+' onchange="SKALL=this.checked;this.blur()"> A todas las copias de esta criatura</label></div>'}
 
@@ -268,7 +274,7 @@ function filasEnc(e,existentes){const filas=[],falt=[];
   const d=c.datos||{},dex=md((d.car||{}).des??10),ya=existentes.filter(z=>z.criatura_id==c.id).length;
   const vs0=x.vs??(x.visible!==false),vb0=x.vb??(x.visible!==false),vn0=x.vn??false,modo=x.pg||(pgmax.checked?'max':tpg.checked?'tirar':'prom');
    for(let i=1;i<=x.cant;i++){const hp=pgCalc(d,modo);
-   filas.push({tipo:'criatura',jugador:null,criatura_id:c.id,nombre:(x.cant>1||ya>0)?c.nombre+' '+(ya+i):c.nombre,alias:x.alias||'',imagen:c.imagen||'',hp,hp_max:hp,ini:tirar20(dex),dex,visible:vs0||vb0,...v3k(vs0,vb0,vn0),...pgk(modo)})}});
+   filas.push({tipo:'criatura',jugador:null,criatura_id:c.id,nombre:(x.cant>1||ya>0)?c.nombre+' '+(ya+i):c.nombre,alias:x.alias||'',imagen:c.imagen||'',hp,hp_max:hp,ini:tirar20(dex),dex,visible:vs0||vb0,...v3k(vs0,vb0,vn0),...pgk(modo),...fik(!x.alias)})}});
  return{filas,falt}}
 async function activarEnc(id,sumar){const e=ENC.find(x=>x.id==id);if(!e)return;
  if(!sumar&&CB.length&&!confirm('Esto reemplaza el combate actual por «'+e.nombre+'». ¿Seguir?'))return;
@@ -278,7 +284,7 @@ async function activarEnc(id,sumar){const e=ENC.find(x=>x.id==id);if(!e)return;
  if(!sumar){
   await sb.from('combatientes').delete().gte('id',0);await sb.rpc('tiradas_limpiar');
   await sb.from('combate_estado').update({activo:false,ronda:1,turno:null,actualizado:ahora()}).eq('id',1);
-  if(encPJ.checked)PERF.filter(p=>!p.is_dm&&PF[p.id]).forEach(p=>filas.push({tipo:'pj',jugador:p.id,criatura_id:null,nombre:p.username,alias:'',imagen:'',hp:1,hp_max:1,ini:tirar20(dexPJ(p.id)),dex:dexPJ(p.id),visible:true,...v3k(true,true,false),...pgk('prom')}))}
+  if(encPJ.checked)PERF.filter(p=>!p.is_dm&&PF[p.id]).forEach(p=>filas.push({tipo:'pj',jugador:p.id,criatura_id:null,nombre:p.username,alias:'',imagen:'',hp:1,hp_max:1,ini:tirar20(dexPJ(p.id)),dex:dexPJ(p.id),visible:true,...v3k(true,true,false),...pgk('prom'),...fik(true)}))}
  const{error}=await sb.from('combatientes').insert(filas);if(error){aviso(error);return}
  await cargar();limpiarSkins(skins);
  if(falt.length)aviso({message:'Estas criaturas ya no están en el bestiario y se omitieron: '+falt.join(', ')});
@@ -538,7 +544,7 @@ function cerrarFicha(){const ov=document.getElementById('fichaOv');ov.style.disp
 document.addEventListener('keydown',e=>{if(e.key=='Escape')cerrarFicha()});
 
 (async()=>{
- ME=await cabecera('Combate');if(!ME)return;DM=!!ME.is_dm;if(!DM)initDados();else{await probarV3();await probarEst();await probarPG()}
+ ME=await cabecera('Combate');if(!ME)return;DM=!!ME.is_dm;if(!DM)initDados();else{await probarV3();await probarEst();await probarPG();await probarFI()}
  try{mi.open=localStorage.getItem('miCombate')!=='0';VC=localStorage.getItem('miConj')!=='0';VR=localStorage.getItem('miRasgos')!=='0'}catch(e){}
  if(DM){prep.style.display='block';const pr=await sb.from('criaturas').select('revelado').limit(1);REV_OK=!pr.error;const{data}=await sb.from('criaturas').select('id,nombre,tipo,imagen,datos'+(REV_OK?',revelado':''));CR=(data||[]).sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));opcionesCR();await cargarEnc();loot.style.display='block';await ltIniciar()}
  await cargar();if(DM&&!ES.activo&&!CB.length)barrerSkins();setInterval(()=>{if(!document.hidden)cargar()},4000)})();
