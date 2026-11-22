@@ -7,17 +7,22 @@
 <p>Ingresá con tu usuario y contraseña, o creá tu cuenta de aventurero.</p>
 <label>Usuario<input id="u" autocapitalize="none" autocomplete="username"></label>
 <label>Contraseña (mín. 6)<input id="p" type="password" autocomplete="current-password"></label>
-<label>Código de acceso <small>(solo para crear una cuenta nueva)</small><input id="codigo" autocomplete="off" autocapitalize="none"></label>
+<div id="regExtra" style="display:none"><label>Repetí la contraseña<input id="p2" type="password" autocomplete="new-password"></label>
+<label>Código de acceso <small>(te lo pasó el DM)</small><input id="codigo" autocomplete="off" autocapitalize="none"></label></div>
 <div class="err" id="e"></div>
-<button onclick="entrar()">Ingresar</button> <button onclick="crear()">Crear cuenta</button>
+<span id="bLogin"><button onclick="entrar()">Ingresar</button> <button onclick="modo(true)">Crear cuenta</button></span>
+<span id="bReg" style="display:none"><button onclick="crear()">Crear mi cuenta</button> <button onclick="modo(false)">← Ya tengo cuenta</button></span>
 </div></div>
 <script>
 const e=m=>document.getElementById('e').textContent=m;
 (async()=>{const{data:{session}}=await sb.auth.getSession();if(session)location.href='personajes.html'})();
+function modo(r){regExtra.style.display=r?'block':'none';bLogin.style.display=r?'none':'inline';bReg.style.display=r?'inline':'none';e('');p2.value='';codigo.value='';p.autocomplete=r?'new-password':'current-password'}
+document.addEventListener('keydown',ev=>{if(ev.key==='Enter')regExtra.style.display==='block'?crear():entrar()});
 async function entrar(){e('');const{error}=await sb.auth.signInWithPassword({email:mail(u.value),password:p.value});
  if(error)return e('Usuario o contraseña incorrectos.');location.href='personajes.html'}
 async function crear(){e('');if(limpio(u.value).length<3)return e('El usuario necesita 3 letras o más (sin espacios).');
  if(p.value.length<6)return e('La contraseña necesita 6 caracteres o más.');
+ if(p.value!==p2.value)return e('Las contraseñas no coinciden.');
  if(!codigo.value.trim())return e('Escribí el código de acceso que te pasó el DM.');
  const pr=await sb.rpc('acceso_probar',{p_codigo:codigo.value.trim(),p_usuario:limpio(u.value)});
  if(pr.error)return e('No se pudo verificar el código: '+pr.error.message);
