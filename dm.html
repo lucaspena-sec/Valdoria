@@ -1,8 +1,9 @@
 <!doctype html><html lang="es"><head><title>Valdoria - Panel DM</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=22"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=12"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
 <div class="win"><div id="cab"></div><div class="body">
 <h2>Panel del DM</h2>
-<div class="navdm"><a class="btn" href="dm-catalogo.html">📚 Catálogo</a><a class="btn" href="dm-criaturas.html">🐺 Criaturas</a><a class="btn" href="dm-escenarios.html">🎬 Escenarios</a><a class="btn" href="dm-novedades.html">📰 Novedades</a><a class="btn" id="nvReg" href="dm-registro.html">📋 Registro</a><button id="nvResp" onclick="respaldo()">💾 Copia de seguridad</button></div>
+<div class="navdm"><a class="btn" href="dm-catalogo.html">📚 Catálogo</a><a class="btn" href="dm-criaturas.html">🐺 Criaturas</a><a class="btn" href="dm-escenarios.html">🎬 Escenarios</a><a class="btn" href="dm-novedades.html">📰 Novedades</a><a class="btn" id="nvReg" href="dm-registro.html">📋 Registro</a><button id="nvResp" onclick="respaldo()">💾 Copia de seguridad</button><button id="nvRest" onclick="rsf.click()">📥 Restaurar copia</button><input type="file" id="rsf" accept=".json,application/json" style="display:none" onchange="restaurarCopia(this)"></div>
 <div id="msg" class="err"></div>
+<div id="rsOut"></div>
 <div id="mesaBox" class="box" style="display:none"></div>
 <div id="accBox" class="box" style="display:none"></div>
 <div id="noDir" class="box" style="display:none">🎬 Ahora dirige la mesa otro DM. Mientras tanto podés crear y preparar tu contenido (catálogo, criaturas, escenarios) desde los botones de arriba.</div>
@@ -79,6 +80,26 @@ async function respaldo(){const r=await sb.rpc('respaldo_dm');if(r.error){msg.te
  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(o,null,1)],{type:'application/json'}));
  a.download='valdoria-respaldo-'+new Date().toISOString().slice(0,10)+'.json';a.click()}
 const g=id=>document.getElementById(id).value;
+const RS_ORDEN=[['profiles','Jugadores (perfiles)'],['fichas','Fichas'],['inventario','Inventarios'],['items','Ítems del catálogo'],['mercaderes','Mercaderes'],['oferta','Ofertas de mercaderes'],['criaturas','Criaturas'],['encuentros','Encuentros'],['noticias','Noticias'],['alertas','Alertas'],['loots','Loots'],['escenarios','Escenarios'],['escenas','Escenas'],['subdms','Sub-DMs'],['conjuros_biblioteca','Biblioteca de conjuros']];
+async function restaurarCopia(inp){
+ const f=inp.files[0];inp.value='';if(!f)return;
+ let o;try{o=JSON.parse(await f.text())}catch(e){msg.className='err';msg.textContent='Ese archivo no es una copia válida (no se pudo leer el JSON).';return}
+ const hay=RS_ORDEN.filter(([t])=>Array.isArray(o[t])&&o[t].length);
+ if(!hay.length){msg.className='err';msg.textContent='La copia no tiene datos para restaurar.';return}
+ const fecha=o.fecha?new Date(o.fecha).toLocaleString('es-AR'):'(sin fecha)';
+ if(!confirm('Copia del '+fecha+':\n\n'+hay.map(([t,n])=>'• '+n+': '+o[t].length).join('\n')+'\n\nSolo se agrega lo que FALTA: lo que ya existe no se toca. Las cuentas (usuarios y claves) tienen que existir; lo que dependa de una cuenta que no está se omite.\n\n¿Restaurar?'))return;
+ msg.className='ok';const res=[];
+ for(const [t,n] of hay){
+  let ins=0,om=0,mot='';
+  for(let i=0;i<o[t].length;i+=200){
+   msg.textContent='Restaurando '+n+'… '+Math.min(i+200,o[t].length)+' de '+o[t].length;
+   const{data,error}=await sb.rpc('restaurar_tabla',{p_tabla:t,p_filas:o[t].slice(i,i+200)});
+   if(error){msg.className='err';msg.textContent=n+': '+error.message+' — ¿corriste setup_restaurar.sql? Se frenó acá.';rsOut.innerHTML=resumenRS(res);return}
+   ins+=data.ins;om+=data.omit;if(!mot&&data.motivo)mot=data.motivo}
+  res.push([n,ins,om,mot])}
+ await sb.rpc('restaurar_anotar',{p_detalle:res.map(r=>r[0]+' +'+r[1]).join(', ')});
+ msg.className='ok';msg.textContent='Listo. Esto fue lo que se hizo:';rsOut.innerHTML=resumenRS(res);cargar()}
+function resumenRS(res){return '<div class="box">'+res.map(r=>'<div>'+esc(r[0])+': <b>'+r[1]+' agregadas</b>'+(r[2]?' · '+r[2]+' omitidas (ya existían o les falta algo)':'')+(r[3]?'<br><small>Primer motivo: '+esc(r[3])+'</small>':'')+'</div>').join('')+'</div>'}
 function val(id){const v=parseInt(g('m'+id));if(!(v>=0)){msg.textContent='Escribí una cantidad válida.';return null}msg.textContent='';return v}
 async function fin(error){msg.textContent=error?error.message:'';cargar()}
 async function oro(id,s){const v=val(id);if(v===null)return;fin((await sb.rpc('dm_oro',{p_user:id,p_delta:s*v})).error)}
@@ -130,7 +151,7 @@ async function espiaOff(){await sb.rpc('espiar_off');location.reload()}
 async function mesa(c){const{error}=await sb.rpc('mesa_fijar',{p_cuenta:c});msg.textContent=error?error.message:'';if(!error&&!ROL.dm){location.reload();return}await cargarMesa()}
 async function subdm(c,on){let tr=false;if(!on){if(!confirm('¿Quitarle el rol de sub-DM a esta cuenta?'))return;tr=confirm('¿Querés quedarte con el contenido que creó?\nAceptar = pasa a ser tuyo\nCancelar = queda a su nombre')}const{error}=await sb.rpc('dm_subdm',{p_cuenta:c,p_on:on,p_transferir:tr});msg.textContent=error?error.message:'';await cargarMesa()}
 (async()=>{const p=await cabecera('Panel DM');if(!p)return;if(!p.master){location.href='main.html';return}
- if(!p.is_dm){nvReg.style.display='none';nvResp.style.display='none'}
+ if(!p.is_dm){nvReg.style.display='none';nvResp.style.display='none';nvRest.style.display='none'}
  if(p.dirige)await cargar();else{jug.style.display='none';noDir.style.display='block'}
  cargarMesa();if(p.is_dm)cargarAcc()})();
 </script></body></html>
