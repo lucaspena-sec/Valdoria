@@ -1,0 +1,18 @@
+<!doctype html><html lang="es"><head><title>Valdoria - Solicitud pendiente</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=22"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=12"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
+<div class="win" style="max-width:460px;margin-top:20px">
+<div class="tb"><span>⏳ Solicitud de ingreso</span></div>
+<div class="body">
+<h2>Tu solicitud espera aprobación</h2>
+<p>El DM tiene que aceptar la cuenta <b id="us"></b>. Esta página se actualiza sola.</p>
+<div id="msg" class="err"></div>
+<button onclick="revisar()">Revisar ahora</button> <button onclick="salir()">Salir</button>
+</div></div>
+<script>
+let tm=null;
+async function revisar(){
+ const{data,error}=await sb.rpc('mi_solicitud');if(error||!data)return;
+ if(!data.existe){clearInterval(tm);msg.textContent='El DM rechazó tu solicitud.';await sb.auth.signOut();setTimeout(()=>location.href='index.html',3500);return}
+ if(!data.pendiente)location.href='personajes.html'}
+(async()=>{const{data:{session}}=await sb.auth.getSession();if(!session){location.href='index.html';return}
+ us.textContent=(session.user.email||'').split('@')[0];revisar();tm=setInterval(()=>{if(!document.hidden)revisar()},15000)})();
+</script></body></html>

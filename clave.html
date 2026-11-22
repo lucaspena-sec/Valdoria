@@ -1,0 +1,24 @@
+<!doctype html><html lang="es"><head><title>Valdoria - Mi clave</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=22"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=12"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
+<div class="win"><div id="cab"></div><div class="body">
+<h2>🔑 Mi clave</h2>
+<p>Elegí una clave nueva. Si el DM te restableció la clave, en “clave actual” escribí la temporal que te pasó.</p>
+<div id="msg" class="err"></div>
+<label>Clave actual<input id="ac" type="password" autocomplete="current-password"></label>
+<label>Clave nueva (mín. 6)<input id="nv" type="password" autocomplete="new-password"></label>
+<label>Repetí la clave nueva<input id="nv2" type="password" autocomplete="new-password"></label>
+<button onclick="cambiar()">Cambiar clave</button>
+</div></div>
+<script>
+const aviso=(e,ok)=>{msg.className=e?'err':'ok';msg.textContent=e?(e.message||e):(ok||'')};
+async function cambiar(){
+ const a=ac.value,n=nv.value;
+ if(n.length<6)return aviso('La clave nueva necesita 6 caracteres o más.');
+ if(n!==nv2.value)return aviso('Las claves nuevas no coinciden.');
+ if(n===a)return aviso('La clave nueva tiene que ser distinta de la actual.');
+ const{data:{session}}=await sb.auth.getSession();if(!session){location.href='index.html';return}
+ const us=(session.user.email||'').split('@')[0];
+ const v=await sb.auth.signInWithPassword({email:mail(us),password:a});if(v.error)return aviso('La clave actual es incorrecta.');
+ const r=await sb.auth.updateUser({password:n});if(r.error)return aviso(r);
+ await sb.rpc('clave_cambiada');aviso(null,'Listo: tu clave se cambió.');setTimeout(()=>location.href='main.html',1200)}
+cabecera('Mi clave');
+</script></body></html>

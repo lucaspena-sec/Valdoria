@@ -1,4 +1,4 @@
-<!doctype html><html lang="es"><head><title>Red de Valdoria</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=6"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=8"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
+<!doctype html><html lang="es"><head><title>Red de Valdoria</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=6"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=12"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
 <div class="win" style="max-width:460px;margin-top:20px">
 <div class="tb"><span>⚔ Red de Valdoria - Acceso</span></div>
 <div class="marquee"><span>★ Bienvenido, aventurero, a la Red de Valdoria ★ Ingresá tus datos para continuar ★</span></div>
@@ -7,6 +7,7 @@
 <p>Ingresá con tu usuario y contraseña, o creá tu cuenta de aventurero.</p>
 <label>Usuario<input id="u" autocapitalize="none" autocomplete="username"></label>
 <label>Contraseña (mín. 6)<input id="p" type="password" autocomplete="current-password"></label>
+<label>Código de acceso <small>(solo para crear una cuenta nueva)</small><input id="codigo" autocomplete="off" autocapitalize="none"></label>
 <div class="err" id="e"></div>
 <button onclick="entrar()">Ingresar</button> <button onclick="crear()">Crear cuenta</button>
 </div></div>
@@ -16,7 +17,12 @@ const e=m=>document.getElementById('e').textContent=m;
 async function entrar(){e('');const{error}=await sb.auth.signInWithPassword({email:mail(u.value),password:p.value});
  if(error)return e('Usuario o contraseña incorrectos.');location.href='personajes.html'}
 async function crear(){e('');if(limpio(u.value).length<3)return e('El usuario necesita 3 letras o más (sin espacios).');
- const{error}=await sb.auth.signUp({email:mail(u.value),password:p.value,options:{data:{username:limpio(u.value)}}});
+ if(p.value.length<6)return e('La contraseña necesita 6 caracteres o más.');
+ if(!codigo.value.trim())return e('Escribí el código de acceso que te pasó el DM.');
+ const pr=await sb.rpc('acceso_probar',{p_codigo:codigo.value.trim(),p_usuario:limpio(u.value)});
+ if(pr.error)return e('No se pudo verificar el código: '+pr.error.message);
+ if(!pr.data.ok)return e({cerrado:'El registro está cerrado por ahora.',bloqueado:'Demasiados intentos fallidos. Probá en unos minutos.',codigo:'Código de acceso incorrecto.',existe:'Ese usuario ya existe o está esperando aprobación.',usuario:'El usuario necesita 3 letras o más (sin espacios).'}[pr.data.motivo]||'No se pudo crear la cuenta.');
+ const{error}=await sb.auth.signUp({email:mail(u.value),password:p.value,options:{data:{username:limpio(u.value),ticket:pr.data.ticket}}});
  if(error)return e(error.message.includes('registered')?'Ese usuario ya existe.':'No se pudo crear: '+error.message);
  location.href='personajes.html'}
 </script></body></html>
