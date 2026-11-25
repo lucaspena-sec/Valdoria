@@ -70,8 +70,20 @@ function oroDar(){const m=parseInt(monto.value);if(!(m>0)||!pj.value.trim())retu
 function oroTirar(){const m=parseInt(monto.value);if(!(m>0))return aviso({message:'Poné un monto mayor a 0.'});
  if(confirm('¿Seguro que querés tirar '+m+' po? No se recuperan.'))oroOp('tirar_oro',{p_monto:m})}
 function mostrarRet(){ret.style.display='block';ret.src=sb.storage.from('retratos').getPublicUrl(P.id+'.jpg').data.publicUrl+'?t='+Date.now()}
-async function subir(){const a=f.files[0];if(!a)return;if(a.size>2e6)return aviso({message:'La imagen pesa más de 2 MB.'});
- const{error}=await sb.storage.from('retratos').upload(P.id+'.jpg',a,{upsert:true,contentType:a.type});
- aviso(error);if(!error)mostrarRet()}
+/* achica la foto a 800 px (JPEG) antes de subirla */
+async function comprimirFoto(file,max){
+ let bmp;try{bmp=await createImageBitmap(file,{imageOrientation:'from-image'})}catch(e){bmp=await new Promise((ok,no)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=()=>no(new Error('formato de imagen no válido'));i.src=URL.createObjectURL(file)})}
+ const W=bmp.width||bmp.naturalWidth,H=bmp.height||bmp.naturalHeight,r=Math.min(1,max/Math.max(W,H)),w=Math.max(1,Math.round(W*r)),h=Math.max(1,Math.round(H*r));
+ const c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');x.fillStyle='#000';x.fillRect(0,0,w,h);x.drawImage(bmp,0,0,w,h);
+ return new Promise((ok,no)=>c.toBlob(b=>b?ok(b):no(new Error('no se pudo comprimir')),'image/jpeg',.85))}
+async function subir(){const a=f.files[0];if(!a)return;
+ try{aviso(null,'Subiendo foto…');
+  const blob=await comprimirFoto(a,800);
+  /* caché corta (60 s): así el retrato nuevo se ve pronto también en el combate */
+  const{error}=await sb.storage.from('retratos').upload(P.id+'.jpg',blob,{upsert:true,contentType:'image/jpeg',cacheControl:'60'});
+  if(error)throw error;
+  aviso(null,'Foto actualizada.');mostrarRet()}
+ catch(e){aviso({message:'No se pudo subir la foto: '+(e.message||e)})}
+ f.value=''}
 (async()=>{P=await cabecera('Equipamiento');if(!P)return;mostrarRet();cargar()})();
 </script></body></html>
