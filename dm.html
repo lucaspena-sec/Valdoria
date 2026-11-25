@@ -3,6 +3,7 @@
 <h2>Panel del DM</h2>
 <div class="navdm"><a class="btn" href="dm-catalogo.html">📚 Catálogo</a><a class="btn" href="dm-criaturas.html">🐺 Criaturas</a><a class="btn" href="dm-escenarios.html">🎬 Escenarios</a><a class="btn" href="dm-novedades.html">📰 Novedades</a><a class="btn" id="nvReg" href="dm-registro.html">📋 Registro</a><button id="nvResp" onclick="respaldo()">💾 Copia de seguridad</button><button id="nvRest" onclick="rsf.click()">📥 Restaurar copia</button><input type="file" id="rsf" accept=".json,application/json" style="display:none" onchange="restaurarCopia(this)"></div>
 <div id="msg" class="err"></div>
+<div id="cpAviso" class="box" style="display:none"></div>
 <div id="rsOut"></div>
 <div id="mesaBox" class="box" style="display:none"></div>
 <div id="accBox" class="box" style="display:none"></div>
@@ -78,7 +79,14 @@ async function ojos(ocultar){const ids=US.filter(u=>!u.borrado_en).map(u=>u.id);
  if(error){msg.textContent=error.message;return}OC=ocultar?new Set(ids):new Set();pintar()}
 async function respaldo(){const r=await sb.rpc('respaldo_dm');if(r.error){msg.textContent=r.error.message+' — ¿corriste setup_subdm_c.sql?';return}const o={fecha:new Date().toISOString(),...r.data};
  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(o,null,1)],{type:'application/json'}));
- a.download='valdoria-respaldo-'+new Date().toISOString().slice(0,10)+'.json';a.click()}
+ a.download='valdoria-respaldo-'+new Date().toISOString().slice(0,10)+'.json';a.click();avisoCopia()}
+async function avisoCopia(){
+ const{data,error}=await sb.from('registro').select('fecha').eq('tipo','copia').order('id',{ascending:false}).limit(1);
+ if(error)return;
+ const f=data&&data[0]?new Date(data[0].fecha):null,d=f?Math.floor((Date.now()-f)/864e5):null;
+ if(f&&d<7){cpAviso.style.display='none';return}
+ cpAviso.style.display='block';
+ cpAviso.innerHTML='💾 '+(f?'Hace <b>'+d+' día'+(d==1?'':'s')+'</b> que no hacés una copia de seguridad.':'Todavía no hay copias de seguridad registradas.')+' <button onclick="respaldo()">Hacer copia ahora</button>'}
 const g=id=>document.getElementById(id).value;
 const RS_ORDEN=[['profiles','Jugadores (perfiles)'],['fichas','Fichas'],['inventario','Inventarios'],['items','Ítems del catálogo'],['mercaderes','Mercaderes'],['oferta','Ofertas de mercaderes'],['criaturas','Criaturas'],['encuentros','Encuentros'],['noticias','Noticias'],['alertas','Alertas'],['loots','Loots'],['escenarios','Escenarios'],['escenas','Escenas'],['subdms','Sub-DMs'],['conjuros_biblioteca','Biblioteca de conjuros']];
 async function restaurarCopia(inp){
@@ -153,5 +161,5 @@ async function subdm(c,on){let tr=false;if(!on){if(!confirm('¿Quitarle el rol d
 (async()=>{const p=await cabecera('Panel DM');if(!p)return;if(!p.master){location.href='main.html';return}
  if(!p.is_dm){nvReg.style.display='none';nvResp.style.display='none';nvRest.style.display='none'}
  if(p.dirige)await cargar();else{jug.style.display='none';noDir.style.display='block'}
- cargarMesa();if(p.is_dm)cargarAcc()})();
+ cargarMesa();if(p.is_dm){cargarAcc();avisoCopia()}})();
 </script></body></html>

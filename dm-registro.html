@@ -4,23 +4,38 @@
 <a href="dm.html">← Volver al panel de jugadores</a>
 <div id="msg" class="err"></div>
 <select id="fu" onchange="cargar()"></select>
-<select id="ft" onchange="cargar()"><option value="">Todos los tipos</option><option value="compra">🛒 Compras</option><option value="regalo">🎁 Regalos entre jugadores</option><option value="descarte">🗑 Descartes</option><option value="oro">💰 Oro entre jugadores / tirado</option><option value="dm">👑 Acciones del DM</option><option value="personaje">🧙 Personajes (crear / borrar)</option></select>
-<small>Se muestran los últimos 200 movimientos.</small>
+<select id="ft" onchange="cargar()"><option value="">Todos los tipos</option><option value="compra">🛒 Compras</option><option value="regalo">🎁 Regalos entre jugadores</option><option value="descarte">🗑 Descartes</option><option value="oro">💰 Oro entre jugadores / tirado</option><option value="dm">👑 Acciones del DM</option><option value="personaje">🧙 Personajes (crear / borrar)</option><option value="copia">💾 Copias de seguridad</option></select>
+<input id="fb" placeholder="Buscar texto o jugador" oninput="buscar()">
+<small id="cnt"></small>
 <div id="lista"></div>
+<div class="ctr"><button id="bmas" onclick="cargar(true)" style="display:none">Cargar 100 más</button></div>
 </div></div>
 <script>
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>'&#'+c.charCodeAt(0)+';');
-const IC={compra:'🛒',regalo:'🎁',descarte:'🗑',oro:'💰',dm:'👑',personaje:'🧙'};
+const IC={compra:'🛒',regalo:'🎁',descarte:'🗑',oro:'💰',dm:'👑',personaje:'🧙',copia:'💾'};
 async function iniciar(){
  const{data}=await sb.from('profiles').select('id,username,nombre,borrado_en').order('username');
  fu.innerHTML='<option value="">Todos los jugadores</option>'+(data||[]).map(u=>'<option value="'+u.id+'">'+esc(u.username)+(u.nombre&&u.nombre!==u.username?' · '+esc(u.nombre):'')+(u.borrado_en?' (borrado)':'')+'</option>').join('');
  cargar()}
-async function cargar(){
- let q=sb.from('registro').select('*').order('id',{ascending:false}).limit(200);
+const PAG=100;let REG=[],TOK=0,FIN=false,tb;
+function buscar(){clearTimeout(tb);tb=setTimeout(()=>cargar(),350)}
+function consulta(desde){
+ let q=sb.from('registro').select('*').order('id',{ascending:false}).range(desde,desde+PAG-1);
  if(fu.value)q=q.eq('usuario_id',fu.value);
  if(ft.value)q=q.eq('tipo',ft.value);
- const{data,error}=await q;
+ const t=fb.value.replace(/[,()%*"\\]/g,' ').replace(/\s+/g,' ').trim();
+ if(t)q=q.or('detalle.ilike."%'+t+'%",usuario.ilike."%'+t+'%"');
+ return q}
+async function cargar(mas){
+ const tk=++TOK,desde=mas?REG.length:0;
+ const{data,error}=await consulta(desde);
+ if(tk!==TOK)return;
  if(error){msg.textContent=error.message;return}
- lista.innerHTML=(data||[]).map(r=>'<div class="box"><small>'+new Date(r.fecha).toLocaleString('es-AR')+'</small><br>'+(IC[r.tipo]||'•')+' <b>'+esc(r.usuario)+'</b>: '+esc(r.detalle)+'</div>').join('')||'<i>Todavía no hay movimientos.</i>'}
+ msg.textContent='';
+ REG=mas?REG.concat(data||[]):(data||[]);FIN=(data||[]).length<PAG;pintar()}
+function pintar(){
+ lista.innerHTML=REG.map(r=>'<div class="box"><small>'+new Date(r.fecha).toLocaleString('es-AR')+'</small><br>'+(IC[r.tipo]||'•')+' <b>'+esc(r.usuario)+'</b>: '+esc(r.detalle)+'</div>').join('')||'<i>No hay movimientos con esos filtros.</i>';
+ cnt.textContent=REG.length?'Mostrando '+REG.length+' movimiento'+(REG.length==1?'':'s')+(FIN?' (no hay más).':'.'):'';
+ bmas.style.display=FIN?'none':'inline-block'}
 (async()=>{const p=await cabecera('Registro DM');if(!p)return;if(!p.is_dm){location.href='main.html';return}iniciar()})();
 </script></body></html>
