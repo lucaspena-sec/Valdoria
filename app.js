@@ -3,6 +3,9 @@ const SUPABASE_URL = 'https://ljvjkpdyczpltqnrpwam.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_gGf6x3H7-b0hqsm8YZ6f_g_ulNay1Sd';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+// Escapa texto para meterlo en HTML (lo usan todas las páginas)
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>'&#'+c.charCodeAt(0)+';');
+
 // Unidad de distancia que prefiere ver cada persona en este dispositivo: 'ft' (pies) o 'm' (metros)
 const getU=()=>{try{return localStorage.getItem('unidad')||'ft'}catch(e){return 'ft'}};
 function cambiarUnidad(v){try{localStorage.setItem('unidad',v)}catch(e){}if(typeof reUnidad=='function')reUnidad();else location.reload()}
