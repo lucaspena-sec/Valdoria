@@ -1,4 +1,4 @@
-<!doctype html><html lang="es"><head><title>Valdoria - Escenarios DM</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=23"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=13"></script><script src="comun.js?v=16"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
+<!doctype html><html lang="es"><head><title>Valdoria - Escenarios DM</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=23"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=14"></script><script src="rt.js?v=1"></script><script src="comun.js?v=17"></script><script src="parsers.js?v=1"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
 <div class="win"><div id="cab"></div><div class="body">
 <h2>🎬 Escenarios</h2>
 <a href="dm.html">← Volver al panel</a>
@@ -90,6 +90,7 @@ async function flush(){
  for(const id of ids){const s=ALL.find(x=>x.id==id);if(!s)continue;
   const{error}=await sb.from('escenas').update({titulo:s.titulo,mostrar_titulo:s.mostrar_titulo,bloques:s.bloques}).eq('id',id);
   if(error){msg.textContent=error.message;return}}
+ if(EST.mostrando&&ids.includes(EST.escena_id))rtPing('escenario');
  if(g('gd'))g('gd').textContent='💾 guardado'}
 const flushYa=()=>{clearTimeout(tmr);return flush()};
 function setTit(v){const s=scn();s.titulo=v;pend.add(s.id);mod()}
@@ -227,7 +228,7 @@ async function borrarEsc(){
  const arch=SC.map(s=>archivo(s.imagen)).filter(Boolean);
  const{error}=await sb.from('escenarios').delete().eq('id',sel);if(error){msg.textContent=error.message;return}
  if(arch.length)sb.storage.from('escenarios').remove(arch);
- sel=null;await cargar()}
+ sel=null;await cargar();rtPing('escenario')}
 
 /* ---- escenas ---- */
 async function mover(d){const s=scn(),j=vista+d;if(!s||j<0||j>=SC.length)return;const t=SC[j];
@@ -237,11 +238,11 @@ async function mover(d){const s=scn(),j=vista+d;if(!s||j<0||j>=SC.length)return;
  vista=j;await cargar()}
 async function borrarEscena(){const s=scn();if(!s||!confirm('¿Borrar esta escena y su foto? No se puede deshacer.'))return;
  const{error}=await sb.from('escenas').delete().eq('id',s.id);if(error){msg.textContent=error.message;return}
- sb.storage.from('escenarios').remove([archivo(s.imagen)]);await cargar()}
+ sb.storage.from('escenarios').remove([archivo(s.imagen)]);await cargar();rtPing('escenario')}
 
 /* ---- proyección ---- */
 async function setEstado(o){if(!DIRIGE){msg.textContent='Solo el DM que dirige la mesa puede mostrar escenas a los jugadores.';return false}const{error}=await sb.from('escenario_estado').update({...o,actualizado:new Date().toISOString()}).eq('id',1);
- if(error){msg.textContent=error.message;return false}msg.textContent='';Object.assign(EST,o);return true}
+ if(error){msg.textContent=error.message;return false}msg.textContent='';Object.assign(EST,o);rtPing('escenario');return true}
 async function mostrar(){const s=scn();if(!s)return;await flushYa();if(await setEstado({escenario_id:sel,escena_id:s.id,mostrando:true}))pintar()}
 async function ocultar(){if(await setEstado({mostrando:false}))pintar()}
 async function irA(i){if(i<0||i>=SC.length)return;vista=i;pintar();if(vivo&&EST.mostrando&&EST.escenario_id==sel)await mostrar()}
@@ -274,10 +275,10 @@ async function subirCambio(inp){
  const f=inp.files[0];inp.value='';const s=scn();if(!f||!s)return;
  try{const u=await subirUna(f),vieja=archivo(s.imagen);
   const{error}=await sb.from('escenas').update({imagen:u}).eq('id',s.id);if(error)throw error;
-  sb.storage.from('escenarios').remove([vieja]);msg.textContent='';await cargar()}
+  sb.storage.from('escenarios').remove([vieja]);msg.textContent='';await cargar();rtPing('escenario')}
  catch(e){msg.textContent='No se pudo cambiar la foto: '+(e.message||e)}}
 
 (async()=>{const p=await cabecera('Escenarios DM');if(!p)return;DIRIGE=!!p.dirige;if(!p.master){location.href='main.html';return}
- YO=p;await cargarNombresDM();await cargar();
+ YO=p;rtIniciar('dm-esc',function(){});await cargarNombresDM();await cargar();
  const pr=ALL.find(s=>s.id==EST.escena_id);if(EST.mostrando&&pr){sel=pr.escenario_id;recalc();vista=Math.max(0,SC.findIndex(s=>s.id==pr.id));pintar()}})();
 </script></body></html>

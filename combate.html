@@ -1,4 +1,4 @@
-<!doctype html><html lang="es"><head><title>Valdoria - Combate</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=23"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=13"></script><script src="comun.js?v=16"></script>
+<!doctype html><html lang="es"><head><title>Valdoria - Combate</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=23"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=14"></script><script src="rt.js?v=1"></script><script src="comun.js?v=17"></script>
 <style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
 <div class="win"><div id="cab"></div><div class="body">
 <div id="msg" class="err"></div>
@@ -107,7 +107,7 @@ function pintarGrid(){
  ab.forEach(id=>{const e=document.getElementById(id);if(e)e.open=true})}
 
 /* ---------- acciones del DM ---------- */
-async function q(p){const{error}=await p;aviso(error);await cargar()}
+async function q(p){const{error}=await p;aviso(error);await cargar();rtPing('combate')}
 const upd=(id,o)=>q(sb.from('combatientes').update(o).eq('id',id));
 const setIni=(id,v)=>upd(id,{ini:parseInt(v)||0});
 function setAlias(id,v){v=v.trim();const c=CB.find(x=>x.id==id),o={alias:v},oculta=!!(v&&FI_OK&&c&&c.ver_ficha!==false);
@@ -152,7 +152,7 @@ async function siguiente(){if(!LISTA.length)return;
  const b=document.getElementById('sigBtn');if(b)b.disabled=true;
  const r=await rpcPasar();if(b)b.disabled=false;
  if(r.error){aviso(r.error);return}
- aviso(null);await cargar()}
+ aviso(null);await cargar();rtPing('combate')}
 async function liberarTurno(id){
  if(!(ES.activo&&ES.turno==id&&CB.length>1))return true;
  const r=await rpcPasar();if(r.error){aviso(r.error);return false}return true}
@@ -160,7 +160,7 @@ async function pasarTurno(){
  const b=document.getElementById('pasarBtn');if(b)b.disabled=true;
  const{error}=await rpcPasar();
  if(error){aviso(error);if(b)b.disabled=false;return}
- aviso(null);await cargar()}
+ aviso(null);await cargar();rtPing('combate')}
 async function anterior(){const l=LISTA;if(!l.length)return;let i=l.findIndex(x=>x.id==ES.turno),ronda=ES.ronda,n=0;
  do{i--;if(i<0){i=l.length-1;ronda=Math.max(1,ronda-1)}n++}while(n<=l.length&&l[i].tipo=='criatura'&&l[i].hp<=0);
  await sb.rpc('tiradas_limpiar');
@@ -208,11 +208,11 @@ async function skinSubir(id,inp){const f=inp.files[0];inp.value='';const c=CB.fi
   const up=await b.upload(nom,blob,{contentType:'image/jpeg'});if(up.error)throw up.error;
   const url=b.getPublicUrl(nom).data.publicUrl,ids=idsSkin(c),viejas=CB.filter(x=>ids.includes(x.id)).map(x=>x.imagen);
   const r=await sb.from('combatientes').update({imagen:url,...fik(false)}).in('id',ids);if(r.error)throw r.error;
-  aviso(FI_OK?{message:'Foto cambiada. La ficha del bestiario quedó oculta a los jugadores: destildá 🎭 cuando quieras revelarla.'}:null);await cargar();limpiarSkins(viejas)}
+  aviso(FI_OK?{message:'Foto cambiada. La ficha del bestiario quedó oculta a los jugadores: destildá 🎭 cuando quieras revelarla.'}:null);await cargar();rtPing('combate');limpiarSkins(viejas)}
  catch(e){aviso({message:'No se pudo cambiar la foto: '+(e.message||e)})}}
 async function skinQuitar(id){const c=CB.find(x=>x.id==id);if(!c)return;
  const cr=CR.find(x=>x.id==c.criatura_id),orig=cr?(cr.imagen||''):'',ids=idsSkin(c),viejas=CB.filter(x=>ids.includes(x.id)).map(x=>x.imagen);
- const r=await sb.from('combatientes').update({imagen:orig}).in('id',ids);aviso(r.error);await cargar();limpiarSkins(viejas)}
+ const r=await sb.from('combatientes').update({imagen:orig}).in('id',ids);aviso(r.error);await cargar();rtPing('combate');limpiarSkins(viejas)}
 function crCtl(it){if(it.tipo=='pj')return '';
  const id=it.id,c=CB.find(x=>x.id==id)||{},m=c.pg_modo||'prom';let h='';
  if(FI_OK)h+='<label style="display:block"><input type="checkbox" style="width:auto" '+(it.vfi===false?'checked':'')+' onchange="ocultaFicha('+id+',this.checked);this.blur()"> 🎭 Ocultar la ficha del bestiario a los jugadores</label>';
@@ -295,7 +295,7 @@ async function activarEnc(id,sumar){const e=ENC.find(x=>x.id==id);if(!e)return;
   await sb.from('combate_estado').update({activo:false,ronda:1,turno:null,actualizado:ahora()}).eq('id',1);
   if(encPJ.checked)PERF.filter(p=>!p.is_dm&&PF[p.id]).forEach(p=>filas.push({tipo:'pj',jugador:p.id,criatura_id:null,nombre:p.username,alias:'',imagen:'',hp:1,hp_max:1,ini:tirar20(dexPJ(p.id)),dex:dexPJ(p.id),visible:true,...v3k(true,true,false),...pgk('prom'),...fik(true)}))}
  const{error}=await sb.from('combatientes').insert(filas);if(error){aviso(error);return}
- await cargar();limpiarSkins(skins);
+ await cargar();rtPing('combate');limpiarSkins(skins);
  if(falt.length)aviso({message:'Estas criaturas ya no están en el bestiario y se omitieron: '+falt.join(', ')});
  if(!sumar&&encIni.checked)iniciar()}
 
@@ -325,13 +325,13 @@ function pintarMio(){
  if(VR&&grs.length)h+='<h4>Rasgos y talentos</h4>'+grs.map(([k,t,a])=>'<details id="mr_'+k+'" class="box"><summary><b>'+t+'</b> ('+a.length+')</summary>'+a.map((e,i)=>'<details id="mrf_'+k+i+'"><summary><b>'+esc(e.n||'(sin nombre)')+'</b></summary><p style="white-space:pre-wrap">'+esc(uni(e.t||''))+'</p></details>').join('')+'</details>').join('');
  miBody.innerHTML=h;ab.forEach(id=>{const e=document.getElementById(id);if(e)e.open=true})}
 async function setComp(on){if(!F)return;pend=true;const{error}=await sb.from('fichas').update({compartida:on}).eq('user_id',ME.id);pend=false;
- if(error){aviso(error);F.compartida=!on;pintarMio();return}F.compartida=on;aviso(null);cargar()}
+ if(error){aviso(error);F.compartida=!on;pintarMio();return}F.compartida=on;aviso(null);cargar();rtPing('combate')}
 const RG=[['rasgosEsp','Rasgos de especie'],['dotes','Dotes'],['rasgosClase','Rasgos de clase'],['rasgosSub','Rasgos de subclase']];
 function verSec(k,v){if(k=='miConj')VC=v;else VR=v;try{localStorage.setItem(k,v?'1':'0')}catch(e){}if(document.activeElement)document.activeElement.blur();pintarMio()}
 function mCambiar(t,s){const n=parseInt(gv(t=='hp'?'mh':'mt'));if(!(n>0)||!F)return;
  if(t=='hp'){if(s>0)F.hp=Math.min(F.hp_max,F.hp+n);else{const a=Math.min(F.hp_temp,n);F.hp_temp-=a;F.hp=Math.max(0,F.hp-(n-a))}}else F.hp_temp=Math.max(0,F.hp_temp+s*n);
  pintarMio();guardarHp()}
-async function guardarHp(){aviso((await sb.from('fichas').update({hp:F.hp,hp_temp:F.hp_temp}).eq('user_id',ME.id)).error)}
+async function guardarHp(){aviso((await sb.from('fichas').update({hp:F.hp,hp_temp:F.hp_temp}).eq('user_id',ME.id)).error);rtPing('combate')}
 function mMu(k,i){F.datos=F.datos||{};const m=F.datos.muerte=F.datos.muerte||{ok:0,fail:0};m[k]=m[k]==i+1?i:i+1;pintarMio();guardarParcial()}
 function mCmb(i,s){const c=F.datos.cmb[i];c.act=cl(c.act+s,0,c.max);pintarMio();guardarParcial()}
 let tm;function guardarParcial(){pend=true;clearTimeout(tm);tm=setTimeout(async()=>{
@@ -396,7 +396,7 @@ async function tirarDados(){
  clearInterval(ani);rolling=false;bt.disabled=false;
  if(error||!data){aviso(error||{message:'No se pudo tirar.'});dr.innerHTML='';dKey='';return}
  aviso(null);const t={u:ME.id,d:data.d,t:data.t,ts:'local'+Date.now()};
- TIR[ME.id]=t;dKey=t.ts;dr.innerHTML=dadoHtml(t,26);pintarGrid()}
+ TIR[ME.id]=t;dKey=t.ts;dr.innerHTML=dadoHtml(t,26);pintarGrid();rtPing('combate')}
 
 /* ---------- loot (solo DM) ---------- */
 let LT={oro:'',modoOro:'iguales',items:[],sel:{},pre:null,saved:[],cat:[],q:'',fc:'',fr:'',edit:null,inf:'',ask:true};
@@ -556,5 +556,5 @@ document.addEventListener('keydown',e=>{if(e.key=='Escape')cerrarFicha()});
  ME=await cabecera('Combate');if(!ME)return;DM=!!ME.dirige;if(!DM)initDados();else{await probarV3();await probarEst();await probarPG();await probarFI()}
  try{mi.open=localStorage.getItem('miCombate')!=='0';VC=localStorage.getItem('miConj')!=='0';VR=localStorage.getItem('miRasgos')!=='0'}catch(e){}
  if(DM){prep.style.display='block';const pr=await sb.from('criaturas').select('revelado').limit(1);REV_OK=!pr.error;const{data}=await sb.from('criaturas').select('id,nombre,tipo,imagen,datos'+(REV_OK?',revelado':''));CR=(data||[]).sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));opcionesCR();YO=ME;await cargarNombresDM();fdmBox.innerHTML=selFiltroDM();await cargarEnc();loot.style.display='block';await ltIniciar()}
- await cargar();if(DM&&!ES.activo&&!CB.length)barrerSkins();setInterval(()=>{if(!document.hidden)cargar()},4000)})();
+ await cargar();if(DM&&!ES.activo&&!CB.length)barrerSkins();rtIniciar('combate',()=>{if(!document.hidden)cargar()});setInterval(()=>{if(!document.hidden&&rtTocaPoll(8))cargar()},4000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)cargar()})})();
 </script></body></html>

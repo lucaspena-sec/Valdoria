@@ -1,4 +1,4 @@
-<!doctype html><html lang="es"><head><title>Valdoria - Escenario</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=23"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=13"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
+<!doctype html><html lang="es"><head><title>Valdoria - Escenario</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=23"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=14"></script><script src="rt.js?v=1"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
 <div class="win"><div id="cab"></div><div class="body">
 <div id="vacio" class="box" style="text-align:center"><div style="font-size:42px">🎬</div><b>El DM todavía no mostró ninguna escena.</b><br><small>Cuando muestre una, aparece acá sola.</small></div>
 <div id="escenaEl" style="display:none">
@@ -12,7 +12,6 @@
 <button id="zoomx" onclick="cerrarZoom(event)">✖ Cerrar</button>
 <button id="fs" onclick="pantallaCompleta()" title="Pantalla completa" style="display:none;position:fixed;right:10px;bottom:10px;z-index:70;opacity:.55">⛶</button>
 <script>
-const esc=s=>String(s??'').replace(/[&<>"]/g,c=>'&#'+c.charCodeAt(0)+';');
 const TV=new URLSearchParams(location.search).get('tv')==='1';
 if(TV){document.body.classList.add('tv');fs.style.display='block'}
 let ULT='',IMG='',VISTOS=null;
@@ -47,7 +46,7 @@ async function pedirDespierto(){try{if(TV&&navigator.wakeLock)await navigator.wa
 
 (async()=>{
  const p=await cabecera('Escenario');if(!p)return;
- await ver();setInterval(ver,3000);
+ await ver();rtIniciar('escenario',ver);setInterval(()=>{if(rtTocaPoll(10))ver()},3000);
  document.addEventListener('visibilitychange',()=>{if(!document.hidden){ver();pedirDespierto()}});
  pedirDespierto();
  if(TV){let t;const mostrar=()=>{fs.style.opacity=.55;document.body.style.cursor='';clearTimeout(t);t=setTimeout(()=>{fs.style.opacity=0;document.body.style.cursor='none'},3000)};document.addEventListener('mousemove',mostrar);mostrar()}
