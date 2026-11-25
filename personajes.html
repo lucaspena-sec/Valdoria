@@ -1,4 +1,4 @@
-<!doctype html><html lang="es"><head><title>Valdoria - Personajes</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=23"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=13"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
+<!doctype html><html lang="es"><head><title>Valdoria - Personajes</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=23"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=14"></script><style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}</style></head><body>
 <div class="win"><div id="cab"></div><div class="body">
 <h2>🧙 Tus personajes</h2>
 <p>Elegí con qué personaje jugás. El que dejes activo es el que aparece en Tienda, Equipamiento, Ficha, Combate y Escenario.</p>
@@ -17,7 +17,6 @@
 <button onclick="confirmar()"><b>Sí, borrar</b></button> <button onclick="cerrar()">Cancelar</button>
 </div></div>
 <script>
-const esc=s=>String(s??'').replace(/[&<>"]/g,c=>'&#'+c.charCodeAt(0)+';');
 const MAX=10,cambiar=new URLSearchParams(location.search).get('cambiar')==='1';
 let LIS=[],USR='',DEL=null;
 const aviso=(e,ok)=>{msg.className=e?'err':'ok';msg.textContent=e?(e.message||e):(ok||'')};
