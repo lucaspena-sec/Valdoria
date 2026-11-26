@@ -1,7 +1,7 @@
 <!doctype html><html lang="es"><head><title>Valdoria - Tablero</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=23"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=14"></script><script src="rt.js?v=1"></script>
 <style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}
 /* tablero: todos los estilos viven acá para no tener que subir la versión de style.css */
-#vista{position:relative;height:66vh;height:66dvh;min-height:280px;background:#14110b;border:3px ridge #c9a227;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;cursor:grab}
+#vista{position:relative;height:82vh;height:82dvh;min-height:320px;background:#14110b;border:3px ridge #c9a227;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;cursor:grab}
 #vista:fullscreen{height:100vh;border:0}
 #mundo{position:absolute;left:0;top:0;transform-origin:0 0;background:#2a2418;will-change:transform}
 #bgBox{position:absolute;inset:0;overflow:hidden}
@@ -16,6 +16,10 @@
 .ficha .nm{position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:2px;background:#000c;color:#fff;font-weight:bold;padding:0 4px;white-space:nowrap;pointer-events:none;border-radius:3px}
 #zctl{position:absolute;right:6px;top:6px;z-index:10;display:flex;flex-direction:column;gap:4px}
 #zctl button{margin:0;width:38px;height:38px;padding:0;font-size:18px}
+#zctl button.on{background:#ffd54a;border-style:inset}
+#vista.reg{cursor:crosshair}
+.npcb{margin:0;padding:4px 8px}
+body.m-dm #bPJ{display:none}
 .trow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:4px 0}
 .trow label{display:flex;align-items:center;gap:6px}
 .trow input[type=range]{width:100%;padding:0}
@@ -44,12 +48,14 @@ body.m-dm .sdm{display:flex!important}
  <div class="trow">
   <div class="tcol"><label>Mover la cuadrícula ←→</label><input type="range" id="oxR" min="-140" max="140"></div>
   <div class="tcol"><label>Mover la cuadrícula ↑↓</label><input type="range" id="oyR" min="-140" max="140"></div></div>
- <small>Cada celda vale 5 pies. Si tu mapa ya trae su propia cuadrícula, ajustá tamaño y posición hasta que coincidan.</small>
+ <small>Cada celda vale 5 pies (📏 mide con la regla).  Si tu mapa ya trae su propia cuadrícula, ajustá tamaño y posición hasta que coincidan.</small>
  <h4>Fondo</h4>
  <div class="trow"><input type="file" id="fileIn" accept="image/*,video/*"></div>
  <div class="trow"><input id="urlIn" placeholder="O pegá la URL de una foto, GIF o video (mp4/webm)" style="flex:1 1 220px;width:auto"><button id="bUrl">Usar URL</button><button id="bQuitarBg">Quitar fondo</button></div>
  <h4>Fichas</h4>
- <div class="trow"><button id="bPJ">＋ PJ</button><button id="bCR">＋ Criatura</button><button id="bTam">⇔ Tamaño de la elegida</button><button id="bRen">✏ Renombrar</button><button id="bDel">🗑 Quitar</button></div>
+ <div class="trow"><button id="bPJ">＋ PJ</button><button id="bCR">＋ Criatura</button><button id="bTam">⇔ Tamaño de la elegida</button><button id="bRen">✏ Renombrar</button><button id="bDel">🗑 Quitar</button><button id="bLimpiar">🧹 Limpiar tablero</button></div>
+ <div class="trow"><b>＋ NPC:</b><span id="npcRow" class="trow" style="margin:0"></span></div>
+ <div class="trow sdm"><select id="pjSel" style="flex:1 1 180px;width:auto"></select><button id="bPJd">＋ Personaje</button></div>
  <h4 class="sdm">Para la mesa</h4>
  <div class="trow sdm"><button id="bAct"></button><label><input type="checkbox" id="jugMueve" style="width:auto;margin:0"> Los jugadores mueven su ficha</label></div>
  <div class="trow sdm"><small id="live"></small></div>
@@ -58,8 +64,8 @@ body.m-dm .sdm{display:flex!important}
 </details>
 <div id="vista">
  <div id="mundo"><div id="bgBox"></div><svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg><div id="fichasEl"></div></div>
- <div id="zctl"><button id="zMas" title="Acercar">＋</button><button id="zMenos" title="Alejar">−</button><button id="zFit" title="Ver todo el tablero">⤢</button><button id="bFs" title="Pantalla completa">⛶</button></div>
+ <div id="zctl"><button id="zMas" title="Acercar">＋</button><button id="zMenos" title="Alejar">−</button><button id="bReg" title="Regla: cada celda son 5 pies">📏</button><button id="zFit" title="Ver todo el tablero">⤢</button><button id="bFs" title="Pantalla completa">⛶</button></div>
 </div>
 <div id="estado" class="box"></div>
 </div></div>
-<script src="tablero.js?v=2"></script></body></html>
+<script src="tablero.js?v=3"></script></body></html>

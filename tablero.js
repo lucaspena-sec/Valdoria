@@ -7,15 +7,17 @@
 const $=id=>document.getElementById(id);
 const R3=Math.sqrt(3),KEY='valdoriaTablero1',MIN_K=.05,MAX_K=6;
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-const COL={pj:'#2e6fd8',criatura:'#c0392b'};
-const EMO={pj:['🧙','🛡️','🏹','🗡️','🧝'],criatura:['🐺','👹','🐲','💀','🕷️']};
+const WD=2800,HD=2000,FT=5;   // tablero sin fondo (el doble que antes) y pies por celda
+const COL={pj:'#2e6fd8',criatura:'#c0392b',npc:'#27ae60'};
+const EMO={pj:['🧙','🛡️','🏹','🗡️','🧝'],criatura:['🐺','👹','🐲','💀','🕷️'],npc:['🧑']};
+const NPCS=[['👨‍🌾','Aldeano'],['👨‍🍳','Cocinero'],['💂‍♂️','Guardia'],['👩‍🌾','Aldeana'],['👩‍🍳','Cocinera'],['💂‍♀️','Guardiana']];
 /* Estado. Las fichas viven en CELDAS (a,b), no en píxeles. */
-const DEF=()=>({forma:'hex',orient:'punta',size:56,ox:0,oy:0,ver:true,color:'#ffffff',alpha:.45,W:1400,H:1000,bg:{tipo:'',url:''},activo:false,mover:false,yo:null,
+const DEF=()=>({forma:'hex',orient:'punta',size:56,ox:0,oy:0,ver:true,color:'#ffffff',alpha:.45,W:WD,H:HD,bg:{tipo:'',url:''},activo:false,mover:false,yo:null,
  fichas:[{id:'f1',tipo:'pj',nombre:'Aria',em:'🧙',imagen:'',tam:1,a:2,b:2,jugador:null,cid:null,vis:true},{id:'f2',tipo:'criatura',nombre:'Lobo',em:'🐺',imagen:'',tam:1,a:5,b:3,jugador:null,cid:null,vis:true},{id:'f3',tipo:'criatura',nombre:'Troll',em:'👹',imagen:'',tam:2,a:7,b:5,jugador:null,cid:null,vis:true}]});
 const normFicha=f=>({tipo:'criatura',nombre:'?',em:'❓',imagen:'',a:0,b:0,jugador:null,cid:null,...f,tam:f.tam==2?2:1,vis:f.vis!==false});
 let S=DEF(),V={x:0,y:0,k:1},sel=null,G=null,blobUrl='',tG=null;
 let modo='local';        // 'local' (sin SQL) · 'dm' (dirige la mesa: edita) · 'jug' (mira y, si se permite, mueve la suya)
-let pend=0,tmC=null,ULT='',primera=true,CRS=[];
+let pend=0,tmC=null,ULT='',primera=true,CRS=[],PJS=[],ultPJ=0,REG_ON=false,RG=null;
 const P=new Map();
 function cargarLocal(){try{const j=JSON.parse(localStorage.getItem(KEY)||'null');
  if(j&&typeof j==='object'){const d=DEF();S={...d,...j,bg:{...d.bg,...(j.bg||{})}};
@@ -23,11 +25,11 @@ function cargarLocal(){try{const j=JSON.parse(localStorage.getItem(KEY)||'null')
   S.fichas=S.fichas.filter(f=>f&&f.id).map(normFicha);
   S.size=clamp(+S.size||56,24,140);S.ox=clamp(+S.ox||0,-140,140);S.oy=clamp(+S.oy||0,-140,140);S.alpha=clamp(+S.alpha||.45,.05,1);
   if(S.forma!=='cuad')S.forma='hex';if(S.orient!=='plano')S.orient='punta';
-  S.W=1400;S.H=1000;S.activo=false;S.mover=false;S.yo=null}}catch(e){S=DEF()}}
+  S.W=WD;S.H=HD;S.activo=false;S.mover=false;S.yo=null}}catch(e){S=DEF()}}
 
 const aviso=(t,ok)=>{const m=$('msg');m.className=ok?'ok':'err';m.textContent=t||''};
 const nuevoId=()=>'f'+Date.now().toString(36)+Math.floor(Math.random()*999);
-const fmt=d=>{const ft=d*5;return getU()==='m'?(ft*.3).toFixed(1).replace('.',',').replace(/,0$/,'')+' m':ft+' pies'};
+const fmt=d=>{const ft=d*FT;return getU()==='m'?(ft*.3).toFixed(1).replace('.',',').replace(/,0$/,'')+' m':ft+' pies'};
 const ficha=id=>S.fichas.find(f=>f.id===id);
 const elF=id=>$('fichasEl').querySelector('[data-id="'+id+'"]');
 const puedeMover=f=>!!f&&(modo!=='jug'||(S.mover&&f.tipo==='pj'&&!!f.jugador&&f.jugador===S.yo&&f.vis!==false));
@@ -75,8 +77,17 @@ function dibujarGrid(){
  const svg=$('svg');svg.setAttribute('width',W);svg.setAttribute('height',H);
  svg.innerHTML='<g transform="translate('+ox+' '+oy+')"><path d="'+d+'" fill="none" stroke="'+S.color+'" stroke-opacity="'+S.alpha+'" stroke-width="1.5" vector-effect="non-scaling-stroke" style="display:'+(S.ver?'inline':'none')+'"/>'+
   '<polygon id="hs" points="" fill="rgba(255,213,74,.22)" stroke="#ffd54a" stroke-width="2" vector-effect="non-scaling-stroke"/>'+
-  '<polygon id="hh" points="" fill="rgba(255,255,255,.2)" stroke="#fff" stroke-width="2" vector-effect="non-scaling-stroke"/></g>';
- pintarHl()}
+  '<polygon id="hh" points="" fill="rgba(255,255,255,.2)" stroke="#fff" stroke-width="2" vector-effect="non-scaling-stroke"/></g><g id="reg"></g>';
+ pintarHl();dibujarRegla()}
+// regla de medición: se arrastra de una celda a otra y muestra celdas y pies (solo en tu pantalla)
+function dibujarRegla(){const g=$('reg');if(!g)return;
+ if(!RG){g.innerHTML='';return}
+ const p0=centroCelda(RG.a0,RG.b0),p1=centroCelda(RG.a1,RG.b1),d=distancia({a:RG.a0,b:RG.b0},{a:RG.a1,b:RG.b1}),k=V.k||1;
+ const t=d+' celda'+(d==1?'':'s')+' · '+fmt(d);
+ g.innerHTML='<line x1="'+p0.x+'" y1="'+p0.y+'" x2="'+p1.x+'" y2="'+p1.y+'" stroke="#ffd54a" stroke-width="3" stroke-linecap="round" vector-effect="non-scaling-stroke"/>'+
+  '<circle cx="'+p0.x+'" cy="'+p0.y+'" r="'+(6/k)+'" fill="#ffd54a" stroke="#000" stroke-width="1" vector-effect="non-scaling-stroke"/>'+
+  '<circle cx="'+p1.x+'" cy="'+p1.y+'" r="'+(6/k)+'" fill="#ffd54a" stroke="#000" stroke-width="1" vector-effect="non-scaling-stroke"/>'+
+  (d>0?'<text x="'+((p0.x+p1.x)/2)+'" y="'+((p0.y+p1.y)/2-10/k)+'" text-anchor="middle" font-size="'+(15/k)+'" font-weight="bold" font-family="Tahoma,Verdana,sans-serif" fill="#fff" stroke="#000" stroke-width="'+(4/k)+'" paint-order="stroke" stroke-linejoin="round">'+t+'</text>':'')}
 function pintarHl(){const hs=$('hs');if(!hs)return;const f=ficha(sel);
  hs.setAttribute('points',f&&!vertice(f)?poligono(f.a,f.b):'')}
 function mostrarHh(c){const hh=$('hh');if(hh)hh.setAttribute('points',c?poligono(c.a,c.b):'')}
@@ -131,7 +142,7 @@ function cambiarGrid(fn){
 /* ---------- vista: zoom y arrastre del mapa ---------- */
 const rect=()=>$('vista').getBoundingClientRect();
 const aMundo=(cx,cy)=>{const r=rect();return{x:(cx-r.left-V.x)/V.k,y:(cy-r.top-V.y)/V.k}};
-function aplicarV(){$('mundo').style.transform='translate('+V.x+'px,'+V.y+'px) scale('+V.k+')'}
+function aplicarV(){$('mundo').style.transform='translate('+V.x+'px,'+V.y+'px) scale('+V.k+')';dibujarRegla()}
 function encajar(){const r=rect();if(!r.width)return;V.k=clamp(Math.min(r.width/S.W,r.height/S.H),MIN_K,MAX_K);V.x=(r.width-S.W*V.k)/2;V.y=(r.height-S.H*V.k)/2;aplicarV()}
 function zoomEn(cx,cy,f){const r=rect(),w=aMundo(cx,cy);V.k=clamp(V.k*f,MIN_K,MAX_K);V.x=cx-r.left-w.x*V.k;V.y=cy-r.top-w.y*V.k;aplicarV()}
 
@@ -160,6 +171,9 @@ vista.addEventListener('pointerdown',e=>{
   cancelarFicha();
   const [p1,p2]=[...P.values()],cx=(p1.x+p2.x)/2,cy=(p1.y+p2.y)/2;
   G={t:'pinch',d0:Math.hypot(p1.x-p2.x,p1.y-p2.y)||1,k0:V.k,wc:aMundo(cx,cy)};return}
+ if(REG_ON){const w=aMundo(e.clientX,e.clientY);G={t:'regla'};
+  if(w.x>=0&&w.y>=0&&w.x<=S.W&&w.y<=S.H){const c=celdaEn(w.x,w.y);RG={a0:c.a,b0:c.b,a1:c.a,b1:c.b};dibujarRegla()}else{RG=null;dibujarRegla()}
+  return}
  const el=e.target.closest('.ficha'),f=el&&ficha(el.dataset.id);
  if(f&&puedeMover(f)){const w=aMundo(e.clientX,e.clientY),c=centroFicha(f);
   G={t:'token',id:f.id,moved:false,dx:w.x-c.x,dy:w.y-c.y,px:c.x,py:c.y}}
@@ -171,6 +185,9 @@ vista.addEventListener('pointermove',e=>{
   const [p1,p2]=[...P.values()],cx=(p1.x+p2.x)/2,cy=(p1.y+p2.y)/2,r=rect();
   V.k=clamp(G.k0*Math.hypot(p1.x-p2.x,p1.y-p2.y)/G.d0,MIN_K,MAX_K);
   V.x=cx-r.left-G.wc.x*V.k;V.y=cy-r.top-G.wc.y*V.k;aplicarV();return}
+ if(G.t==='regla'){if(!RG)return;const w=aMundo(p.x,p.y),c=celdaEn(w.x,w.y);
+  c.a=clamp(c.a,-500,500);c.b=clamp(c.b,-500,500);RG.a1=c.a;RG.b1=c.b;dibujarRegla();
+  const d=distancia({a:RG.a0,b:RG.b0},c);estado('📏 '+d+' celda'+(d==1?'':'s')+' = '+fmt(d)+' (cada celda son '+FT+' pies)');return}
  const mv=Math.hypot(p.x-p.sx,p.y-p.sy);
  if(G.t==='pan'){if(mv>6)G.moved=true;if(G.moved){V.x=G.vx+p.x-p.sx;V.y=G.vy+p.y-p.sy;aplicarV()}return}
  if(G.t==='token'){
@@ -184,6 +201,7 @@ function fin(e,cancel){
  if(!G)return;
  if(G.t==='pinch'){if(P.size<2)G=null;return}
  const g=G;G=null;
+ if(g.t==='regla'){if(RG&&RG.a0===RG.a1&&RG.b0===RG.b1){RG=null;dibujarRegla()}return}
  if(g.t==='token'){const f=ficha(g.id),el=elF(g.id);if(!f||!el)return;
   if(g.moved){el.classList.remove('drag');mostrarHh(null);
    if(cancel)pintarFichas();else mover(f,celdaEn(g.px,g.py,f))}
@@ -203,10 +221,10 @@ function despuesDelFondo(guardar){const m=$('mundo');m.style.width=S.W+'px';m.st
 // o={blob:true si es un archivo local temporal, save:false para no guardar (cuando solo se está mostrando lo que ya hay)}
 function ponerBg(tipo,url,o){o=o||{};const guardar=o.save!==false;
  limpiarBg();if(o.blob)blobUrl=url;
- if(!tipo){S.bg={tipo:'',url:''};S.W=1400;S.H=1000;despuesDelFondo(guardar);return}
+ if(!tipo){S.bg={tipo:'',url:''};S.W=WD;S.H=HD;despuesDelFondo(guardar);return}
  const el=document.createElement(tipo==='video'?'video':'img');
- const listo=(w,h)=>{S.W=w||1400;S.H=h||1000;S.bg={tipo,url:o.blob?'':url};despuesDelFondo(guardar)};
- el.onerror=()=>{limpiarBg();S.bg={tipo:'',url:''};S.W=1400;S.H=1000;despuesDelFondo(guardar);aviso('No se pudo cargar el fondo. Revisá que el archivo o la URL sean válidos (en videos, mejor mp4 o webm).')};
+ const listo=(w,h)=>{S.W=w||WD;S.H=h||HD;S.bg={tipo,url:o.blob?'':url};despuesDelFondo(guardar)};
+ el.onerror=()=>{limpiarBg();S.bg={tipo:'',url:''};S.W=WD;S.H=HD;despuesDelFondo(guardar);aviso('No se pudo cargar el fondo. Revisá que el archivo o la URL sean válidos (en videos, mejor mp4 o webm).')};
  if(tipo==='video'){
   el.muted=true;el.defaultMuted=true;el.loop=true;el.autoplay=true;el.playsInline=true;
   el.setAttribute('muted','');el.setAttribute('playsinline','');
@@ -290,26 +308,58 @@ function agregar(tipo){
  const f=normFicha({id:nuevoId(),tipo,nombre:(tipo==='pj'?'PJ ':'Criatura ')+(n+1),em:EMO[tipo][n%EMO[tipo].length],a:c.a,b:c.b});
  S.fichas.push(f);sel=f.id;aviso('',true);pintarFichas();pintarHl();persistirF([f]);estado(f.nombre+' agregado.')}
 $('bPJ').onclick=()=>agregar('pj');
+function agregarNPC(em,nom){
+ if(S.fichas.length>=60){aviso('Máximo 60 fichas.');return}
+ const n=S.fichas.filter(f=>f.tipo==='npc'&&f.em===em).length,c=celdaLibre(centroVista(),ocupadas());
+ const f=normFicha({id:nuevoId(),tipo:'npc',nombre:(nom+(n?' '+(n+1):'')).slice(0,30),em,a:c.a,b:c.b});
+ S.fichas.push(f);sel=f.id;aviso('',true);pintarFichas();pintarHl();persistirF([f]);estado(f.nombre+' agregado.')}
+$('npcRow').innerHTML=NPCS.map(([em,n],i)=>'<button class="npcb" data-i="'+i+'" title="'+n+'"><span style="font-size:24px;line-height:1">'+em+'</span></button>').join('');
+$('npcRow').onclick=e=>{const b=e.target.closest('.npcb');if(b){const x=NPCS[+b.dataset.i];agregarNPC(x[0],x[1])}};
 $('bCR').onclick=()=>agregar('criatura');
 const elegida=()=>{const f=ficha(sel);if(!f)aviso('Primero tocá una ficha para elegirla.');else aviso('',true);return f};
+$('bLimpiar').onclick=()=>{
+ if(!S.fichas.length&&!S.bg.tipo){aviso('El tablero ya está vacío.',true);return}
+ const n=S.fichas.length;
+ if(n&&!confirm('¿Limpiar el tablero? Se quitan TODAS las fichas ('+n+'). No se puede deshacer.'))return;
+ const sinFondo=S.bg.tipo?confirm('¿Quitar también el fondo?\n\nAceptar = quitar el fondo también\nCancelar = dejar el fondo'):false;
+ aviso('',true);S.fichas=[];sel=null;RG=null;pintarFichas();pintarHl();dibujarRegla();pintarPJs();
+ if(n){if(modo==='dm')op(sb.from('tablero_fichas').delete().neq('id',''));else guardarLocal()}
+ if(sinFondo){const viejo=S.bg.url;ponerBg('','',{save:true});if(modo==='dm'&&viejo)borrarArchivoBg(viejo)}
+ estado('Tablero limpio'+(sinFondo?' (sin fondo).':'.'))};
 $('bDel').onclick=()=>{const f=elegida();if(!f||!confirm('¿Quitar a '+f.nombre+' del tablero?'))return;
- S.fichas=S.fichas.filter(x=>x.id!==f.id);sel=null;pintarFichas();pintarHl();
+ S.fichas=S.fichas.filter(x=>x.id!==f.id);sel=null;pintarFichas();pintarHl();pintarPJs();
  if(modo==='dm')op(sb.from('tablero_fichas').delete().eq('id',f.id));else guardarLocal();estado(ayuda())};
 $('bRen').onclick=()=>{const f=elegida();if(!f)return;const n=prompt('Nombre de la ficha',f.nombre);if(n===null||!n.trim())return;f.nombre=n.trim().slice(0,30);pintarFichas();persistirF([f])};
 $('bTam').onclick=()=>{const f=elegida();if(!f)return;const c0=centroFicha(f);f.tam=f.tam===1?2:1;const c=celdaEn(c0.x,c0.y,f);f.a=c.a;f.b=c.b;pintarFichas();pintarHl();persistirF([f]);estado(f.nombre+': tamaño '+(f.tam===1?'normal':'grande')+'.')};
 $('bVis').onclick=()=>{const f=elegida();if(!f)return;f.vis=f.vis===false;pintarFichas();persistirF([f]);estado(f.nombre+(f.vis===false?' quedó oculta para los jugadores.':' ahora la ven los jugadores.'))};
-// una ficha por cada jugador con personaje activo (con su retrato y su nombre)
-$('bJugs').onclick=async()=>{
+// personajes disponibles (el activo de cada jugador), con su retrato y su nombre
+const retrato=id=>sb.storage.from('retratos').getPublicUrl(id+'.jpg').data.publicUrl;
+async function leerPJs(){
  const[pr,fi]=await Promise.all([sb.from('profiles').select('id,username,nombre,is_dm,es_actual,borrado_en'),sb.from('fichas').select('user_id,datos')]);
- if(pr.error){aviso(pr.error.message);return}
+ if(pr.error){aviso(pr.error.message);return null}
  const nom={};(fi.data||[]).forEach(x=>{nom[x.user_id]=((x.datos||{}).nombre||'').trim()});
+ return(pr.data||[]).filter(p=>!p.is_dm&&p.es_actual!==false&&!p.borrado_en).map(p=>({id:p.id,username:p.username,nombre:(nom[p.id]||p.nombre||p.username)}))
+  .sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'))}
+function pintarPJs(){const ya=new Set(S.fichas.filter(f=>f.jugador).map(f=>f.jugador)),v=$('pjSel').value;
+ $('pjSel').innerHTML=PJS.map(p=>'<option value="'+esc(p.id)+'">'+(ya.has(p.id)?'✅ ':'')+esc(p.nombre)+(p.nombre!==p.username?' ('+esc(p.username)+')':'')+'</option>').join('')||'<option value="">(no hay personajes)</option>';
+ if([...$('pjSel').options].some(o=>o.value===v))$('pjSel').value=v}
+async function cargarPJs(){if(Date.now()-ultPJ<4000)return;ultPJ=Date.now();const l=await leerPJs();if(l){PJS=l;pintarPJs()}}
+$('pjSel').addEventListener('focus',cargarPJs);$('pjSel').addEventListener('pointerdown',cargarPJs);
+$('bPJd').onclick=()=>{const p=PJS.find(x=>x.id===$('pjSel').value);if(!p){aviso('Elegí un personaje de la lista.');return}
+ if(S.fichas.some(f=>f.jugador===p.id)){aviso(p.nombre+' ya está en el tablero.');return}
+ if(S.fichas.length>=60){aviso('Máximo 60 fichas.');return}
+ const c=celdaLibre(centroVista(),ocupadas()),f=normFicha({id:nuevoId(),tipo:'pj',nombre:p.nombre.slice(0,30),em:'🧙',imagen:retrato(p.id),a:c.a,b:c.b,jugador:p.id});
+ S.fichas.push(f);sel=f.id;aviso('',true);pintarFichas();pintarHl();persistirF([f]);pintarPJs();estado(f.nombre+' agregado.')};
+// una ficha por cada jugador que todavía no está
+$('bJugs').onclick=async()=>{
+ const lista=await leerPJs();if(!lista)return;PJS=lista;
  const ya=new Set(S.fichas.filter(f=>f.jugador).map(f=>f.jugador)),ocup=ocupadas(),c0=centroVista(),nuevas=[];
- (pr.data||[]).filter(p=>!p.is_dm&&p.es_actual!==false&&!p.borrado_en&&!ya.has(p.id)).forEach(p=>{
+ lista.filter(p=>!ya.has(p.id)).forEach(p=>{
   const c=celdaLibre(c0,ocup);
-  nuevas.push(normFicha({id:nuevoId(),tipo:'pj',nombre:(nom[p.id]||p.nombre||p.username).slice(0,30),em:'🧙',imagen:sb.storage.from('retratos').getPublicUrl(p.id+'.jpg').data.publicUrl,a:c.a,b:c.b,jugador:p.id}))});
+  nuevas.push(normFicha({id:nuevoId(),tipo:'pj',nombre:p.nombre.slice(0,30),em:'🧙',imagen:retrato(p.id),a:c.a,b:c.b,jugador:p.id}))});
  if(!nuevas.length){aviso('Todos los jugadores ya tienen su ficha en el tablero.',true);return}
  if(S.fichas.length+nuevas.length>60){aviso('Se pasaría de 60 fichas.');return}
- aviso('',true);S.fichas.push(...nuevas);pintarFichas();persistirF(nuevas);estado('Se agregaron '+nuevas.length+' ficha'+(nuevas.length==1?'':'s')+' de jugadores.')};
+ aviso('',true);S.fichas.push(...nuevas);pintarFichas();persistirF(nuevas);pintarPJs();estado('Se agregaron '+nuevas.length+' ficha'+(nuevas.length==1?'':'s')+' de jugadores.')};
 // criatura del bestiario (con su foto)
 function opcionesCR(){const q=$('crQ').value.trim().toLowerCase(),v=$('crSel').value;
  $('crSel').innerHTML=CRS.filter(c=>!q||c.nombre.toLowerCase().includes(q)).map(c=>'<option value="'+c.id+'">'+esc(c.nombre)+' · '+esc(c.tipo)+'</option>').join('')||'<option value="">(sin resultados)</option>';
@@ -320,6 +370,9 @@ $('bCrB').onclick=()=>{const c=CRS.find(x=>String(x.id)===$('crSel').value);if(!
  const n=S.fichas.filter(f=>f.cid===c.id).length,p=celdaLibre(centroVista(),ocupadas());
  const f=normFicha({id:nuevoId(),tipo:'criatura',nombre:(c.nombre+(n?' '+(n+1):'')).slice(0,30),em:'👹',imagen:c.imagen||'',a:p.a,b:p.b,cid:c.id});
  S.fichas.push(f);sel=f.id;aviso('',true);pintarFichas();pintarHl();persistirF([f]);estado(f.nombre+' agregada.')};
+function pintarReg(){$('bReg').classList.toggle('on',REG_ON);$('vista').classList.toggle('reg',REG_ON)}
+$('bReg').onclick=()=>{REG_ON=!REG_ON;if(!REG_ON){RG=null;dibujarRegla()}pintarReg();
+ estado(REG_ON?'📏 Regla: arrastrá de un punto a otro (cada celda son '+FT+' pies). Con dos dedos movés el mapa. Tocá de nuevo la regla para apagarla.':ayuda())};
 $('zMas').onclick=()=>{const r=rect();zoomEn(r.left+r.width/2,r.top+r.height/2,1.3)};
 $('zMenos').onclick=()=>{const r=rect();zoomEn(r.left+r.width/2,r.top+r.height/2,1/1.3)};
 $('zFit').onclick=encajar;
@@ -339,7 +392,7 @@ window.addEventListener('resize',()=>{if(!G)encajar()});
  document.body.classList.add('m-'+modo);
  if(modo==='local'||modo==='dm'){
   $('panel').style.display='block';
-  if(modo==='dm'){S=DEF();S.fichas=[];sb.from('criaturas').select('id,nombre,tipo,imagen').order('nombre').then(x=>{CRS=x.data||[];opcionesCR()})}}
+  if(modo==='dm'){S=DEF();S.fichas=[];cargarPJs();sb.from('criaturas').select('id,nombre,tipo,imagen').order('nombre').then(x=>{CRS=x.data||[];opcionesCR()})}}
  else $('panel').style.display='none';
  if(modo==='local'){
   estado(ayuda());
