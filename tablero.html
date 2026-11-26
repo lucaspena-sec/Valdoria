@@ -1,4 +1,4 @@
-<!doctype html><html lang="es"><head><title>Valdoria - Tablero</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=23"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=14"></script>
+<!doctype html><html lang="es"><head><title>Valdoria - Tablero</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="style.css?v=23"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="app.js?v=14"></script><script src="rt.js?v=1"></script>
 <style>/* FONDO: reemplazá none por url("fondo.jpg") */:root{--fondo:none}
 /* tablero: todos los estilos viven acá para no tener que subir la versión de style.css */
 #vista{position:relative;height:66vh;height:66dvh;min-height:280px;background:#14110b;border:3px ridge #c9a227;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;cursor:grab}
@@ -21,12 +21,20 @@
 .trow input[type=range]{width:100%;padding:0}
 .tcol{flex:1 1 220px;min-width:0}
 #estado{margin-top:6px;font-size:13px}
+.ficha.conimg{background-size:cover;background-position:center}
+.ficha.conimg .em{display:none}
+.ficha.oculta{opacity:.45;border-style:dashed}
+.ficha.mia{border-color:#ffd54a}
+.sdm{display:none!important}
+body.m-dm .sdm{display:flex!important}
+#panel{display:none}
 </style></head><body>
 <div class="win"><div id="cab"></div><div class="body">
 <h2>🗺 Tablero</h2>
 <a href="escenario.html">← Volver a Escenario</a>
 <div id="msg" class="err"></div>
-<details class="box"><summary><b>⚙ Ajustes del tablero</b></summary>
+<div id="vacio" class="box" style="display:none;text-align:center"><div style="font-size:42px">🗺</div><b>El DM todavía no mostró el tablero.</b><br><small>Cuando lo muestre, aparece acá solo.</small></div>
+<details class="box" id="panel"><summary><b>⚙ Ajustes del tablero</b></summary>
  <div class="trow"><button id="bForma"></button><button id="bOri"></button>
   <label><input type="checkbox" id="verC" style="width:auto;margin:0"> Mostrar cuadrícula</label>
   <label>Color <input type="color" id="colC" style="width:48px;height:34px;padding:0;margin:0"></label></div>
@@ -42,6 +50,11 @@
  <div class="trow"><input id="urlIn" placeholder="O pegá la URL de una foto, GIF o video (mp4/webm)" style="flex:1 1 220px;width:auto"><button id="bUrl">Usar URL</button><button id="bQuitarBg">Quitar fondo</button></div>
  <h4>Fichas</h4>
  <div class="trow"><button id="bPJ">＋ PJ</button><button id="bCR">＋ Criatura</button><button id="bTam">⇔ Tamaño de la elegida</button><button id="bRen">✏ Renombrar</button><button id="bDel">🗑 Quitar</button></div>
+ <h4 class="sdm">Para la mesa</h4>
+ <div class="trow sdm"><button id="bAct"></button><label><input type="checkbox" id="jugMueve" style="width:auto;margin:0"> Los jugadores mueven su ficha</label></div>
+ <div class="trow sdm"><small id="live"></small></div>
+ <div class="trow sdm"><button id="bJugs">＋ Fichas de los jugadores</button><button id="bVis">👁 Mostrar / ocultar la elegida</button></div>
+ <div class="trow sdm"><input id="crQ" placeholder="Buscar criatura del bestiario" style="flex:1 1 160px;width:auto"><select id="crSel" style="flex:1 1 160px;width:auto"></select><button id="bCrB">＋ Criatura del bestiario</button></div>
 </details>
 <div id="vista">
  <div id="mundo"><div id="bgBox"></div><svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg><div id="fichasEl"></div></div>
@@ -49,4 +62,4 @@
 </div>
 <div id="estado" class="box"></div>
 </div></div>
-<script src="tablero.js?v=1"></script></body></html>
+<script src="tablero.js?v=2"></script></body></html>
