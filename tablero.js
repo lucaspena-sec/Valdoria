@@ -10,15 +10,19 @@ const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const WD=2800,HD=2000,FT=5;   // tablero sin fondo (el doble que antes) y pies por celda
 const COL={pj:'#2e6fd8',criatura:'#c0392b',npc:'#27ae60'};
 const EMO={pj:['🧙','🛡️','🏹','🗡️','🧝'],criatura:['🐺','👹','🐲','💀','🕷️'],npc:['🧑']};
+// Agregados: [clave, nombre, color, ayuda]
+const ATOOLS=[['cob_media','Cobertura media','#f1c40f','+2 a la CA y a las salvaciones de Destreza'],['cob_34','Cobertura 3/4','#e67e22','+5 a la CA y a las salvaciones de Destreza'],['cob_total','Cobertura total','#c0392b','no se puede apuntar directamente'],['dificil','Terreno difícil','#8d5a2b','cada pie cuesta un pie extra de movimiento'],['altura','Altura','#9e9e9e','terreno elevado (pies sobre el suelo)'],['profundidad','Profundidad','#1e66c8','terreno hundido (pies bajo el suelo)'],['goma','🧽 Goma','#666','borra todo lo que haya en la celda']];
+const AICO={cob_media:'🟨',cob_34:'🟧',cob_total:'🟥',dificil:'🟫',altura:'⬜',profundidad:'🟦',goma:''};
 const NPCS=[['👨‍🌾','Aldeano','h'],['👨‍🍳','Cocinero','h'],['💂‍♂️','Guardia','h'],['🧔','Viajero','h'],['👴','Anciano','h'],['🤴','Noble','h'],['👩‍🌾','Aldeana','m'],['👩‍🍳','Cocinera','m'],['💂‍♀️','Guardiana','m'],['👩‍🦰','Viajera','m'],['👵','Anciana','m'],['👸','Dama noble','m']];
 /* Estado. Las fichas viven en CELDAS (a,b), no en píxeles. */
-const DEF=()=>({forma:'hex',orient:'punta',size:56,ox:0,oy:0,ver:true,color:'#ffffff',alpha:.45,W:WD,H:HD,bg:{tipo:'',url:''},activo:false,mover:false,yo:null,
+const DEF=()=>({forma:'hex',orient:'punta',size:56,ox:0,oy:0,ver:true,color:'#ffffff',alpha:.45,W:WD,H:HD,bg:{tipo:'',url:''},activo:false,mover:false,yo:null,agr:[],deleg:false,delegado:null,
  fichas:[{id:'f1',tipo:'pj',nombre:'Aria',em:'🧙',imagen:'',tam:1,a:2,b:2,jugador:null,cid:null,vis:true},{id:'f2',tipo:'criatura',nombre:'Lobo',em:'🐺',imagen:'',tam:1,a:5,b:3,jugador:null,cid:null,vis:true},{id:'f3',tipo:'criatura',nombre:'Troll',em:'👹',imagen:'',tam:2,a:7,b:5,jugador:null,cid:null,vis:true}]});
 const normFicha=f=>({tipo:'criatura',nombre:'?',em:'❓',imagen:'',a:0,b:0,jugador:null,cid:null,...f,tam:f.tam==2?2:1,vis:f.vis!==false});
 let S=DEF(),V={x:0,y:0,k:1},sel=null,G=null,blobUrl='',tG=null;
 let modo='local';        // 'local' (sin SQL) · 'dm' (dirige la mesa: edita) · 'jug' (mira y, si se permite, mueve la suya)
 let pend=0,tmC=null,ULT='',primera=true,CRS=[],PJS=[],ultPJ=0,REG_ON=false,RG=null;
-let HIST=[],LGK=-1,HIST_OK=false;   // historial de movimientos (de la base, o local si no hay SQL)
+let HIST=[],LGK=-1,HIST_OK=false;
+let AG_TOOL=null,AG_LADOS=1,AG_OK=false,AGK=-1,ACUENTAS=[];   // agregados: herramienta elegida, lados de la cobertura, ¿hay SQL?, versión vista   // historial de movimientos (de la base, o local si no hay SQL)
 const KEYLOG='valdoriaTableroLog1',ICO={pj:'🔵',criatura:'🔴',npc:'🟢'};
 const P=new Map();
 function cargarLocal(){try{const j=JSON.parse(localStorage.getItem(KEY)||'null');
@@ -27,14 +31,16 @@ function cargarLocal(){try{const j=JSON.parse(localStorage.getItem(KEY)||'null')
   S.fichas=S.fichas.filter(f=>f&&f.id).map(normFicha);
   S.size=clamp(+S.size||56,24,140);S.ox=clamp(+S.ox||0,-140,140);S.oy=clamp(+S.oy||0,-140,140);S.alpha=clamp(+S.alpha||.45,.05,1);
   if(S.forma!=='cuad')S.forma='hex';if(S.orient!=='plano')S.orient='punta';
-  S.W=WD;S.H=HD;S.activo=false;S.mover=false;S.yo=null}}catch(e){S=DEF()}}
+  S.agr=(Array.isArray(j.agr)?j.agr:[]).filter(g=>g&&Number.isInteger(g.a)&&Number.isInteger(g.b)&&ATOOLS.some(x=>x[0]===g.t&&g.t!=='goma')).map(g=>({a:g.a,b:g.b,t:g.t,l:g.l|0,v:g.v|0,vis:true}));
+  S.W=WD;S.H=HD;S.activo=false;S.mover=false;S.yo=null;S.deleg=false;S.delegado=null}}catch(e){S=DEF()}}
 
 const aviso=(t,ok)=>{const m=$('msg');m.className=ok?'ok':'err';m.textContent=t||''};
 const nuevoId=()=>'f'+Date.now().toString(36)+Math.floor(Math.random()*999);
 const fmt=d=>{const ft=d*FT;return getU()==='m'?(ft*.3).toFixed(1).replace('.',',').replace(/,0$/,'')+' m':ft+' pies'};
 const ficha=id=>S.fichas.find(f=>f.id===id);
 const elF=id=>$('fichasEl').querySelector('[data-id="'+id+'"]');
-const puedeMover=f=>!!f&&(modo!=='jug'||(S.mover&&f.tipo==='pj'&&!!f.jugador&&f.jugador===S.yo&&f.vis!==false));
+// el delegado mueve todas las fichas visibles (PJ, criaturas y NPC); un jugador común, solo la suya y solo si el DM lo permitió
+const puedeMover=f=>!!f&&(modo!=='jug'||(f.vis!==false&&(S.deleg||(S.mover&&f.tipo==='pj'&&!!f.jugador&&f.jugador===S.yo))));
 
 /* ---------- matemática de la cuadrícula ---------- */
 function centroLocal(a,b){const s=S.size;
@@ -77,10 +83,31 @@ function dibujarGrid(){
     const r0=Math.floor(-oy/(s*R3)-q/2)-1,r1=Math.ceil((H-oy)/(s*R3)-q/2)+1;
     for(let r=r0;r<=r1;r++)d+=cel(q,r)}}}
  const svg=$('svg');svg.setAttribute('width',W);svg.setAttribute('height',H);
- svg.innerHTML='<g transform="translate('+ox+' '+oy+')"><path d="'+d+'" fill="none" stroke="'+S.color+'" stroke-opacity="'+S.alpha+'" stroke-width="1.5" vector-effect="non-scaling-stroke" style="display:'+(S.ver?'inline':'none')+'"/>'+
+ svg.innerHTML='<defs><pattern id="pDif" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="12" height="12" fill="#8d5a2b" fill-opacity=".25"/><line x1="0" y1="0" x2="0" y2="12" stroke="#6b3f1a" stroke-width="4"/></pattern></defs><g transform="translate('+ox+' '+oy+')"><path d="'+d+'" fill="none" stroke="'+S.color+'" stroke-opacity="'+S.alpha+'" stroke-width="1.5" vector-effect="non-scaling-stroke" style="display:'+(S.ver?'inline':'none')+'"/><g id="agr"></g>'+
   '<polygon id="hs" points="" fill="rgba(255,213,74,.22)" stroke="#ffd54a" stroke-width="2" vector-effect="non-scaling-stroke"/>'+
   '<polygon id="hh" points="" fill="rgba(255,255,255,.2)" stroke="#fff" stroke-width="2" vector-effect="non-scaling-stroke"/></g><g id="reg"></g>';
- pintarHl();dibujarRegla()}
+ pintarHl();dibujarAgr();dibujarRegla()}
+/* ---------- agregados: coberturas, terreno difícil, altura y profundidad ---------- */
+const nLados=()=>S.forma==='hex'?6:4;
+const todosLados=()=>(1<<nLados())-1;
+const esCob=t=>t.indexOf('cob_')===0;
+// esquinas de una celda centrada en (cx,cy); la arista i va de la esquina i a la i+1 (en cuadrado: 0 arriba, 1 derecha, 2 abajo, 3 izquierda)
+function esquinas(cx,cy,s){
+ if(S.forma==='hex'){const off=S.orient==='punta'?30:0,p=[];for(let i=0;i<6;i++){const t=(60*i-off)*Math.PI/180;p.push([cx+s*Math.cos(t),cy+s*Math.sin(t)])}return p}
+ const h=s/2;return[[cx-h,cy-h],[cx+h,cy-h],[cx+h,cy+h],[cx-h,cy+h]]}
+const valTxt=v=>getU()==='m'?(v*.3).toFixed(1).replace('.',',').replace(/,0$/,'')+' m':v+' pies';
+function dibujarAgr(){const g=$('agr');if(!g)return;
+ const A=S.agr,col=t=>(ATOOLS.find(x=>x[0]===t)||[])[2],w=Math.max(3,S.size*.1);let h='';
+ A.forEach(x=>{if(x.t==='dificil'||x.t==='altura'||x.t==='profundidad'){
+  h+='<polygon points="'+poligono(x.a,x.b)+'" fill="'+(x.t==='dificil'?'url(#pDif)':col(x.t))+'" fill-opacity="'+(x.t==='dificil'?'.75':'.4')+'" stroke="none"'+(x.vis===false?' opacity=".5"':'')+'/>'}});
+ A.forEach(x=>{if(!esCob(x.t))return;const c=centroLocal(x.a,x.b),e=esquinas(c.x,c.y,S.size),n=e.length;
+  for(let i=0;i<n;i++)if((x.l>>i)&1){const p=e[i],q=e[(i+1)%n],
+   f=(P1,P2)=>[P1[0]+(P2[0]-P1[0])*.08,P1[1]+(P2[1]-P1[1])*.08],a=f(p,q),b=f(q,p),
+   ln=(cc,ww,ex)=>'<line x1="'+a[0].toFixed(1)+'" y1="'+a[1].toFixed(1)+'" x2="'+b[0].toFixed(1)+'" y2="'+b[1].toFixed(1)+'" stroke="'+cc+'" stroke-width="'+ww+'" stroke-linecap="round"'+(ex||'')+'/>';
+   h+='<g'+(x.vis===false?' opacity=".5"':'')+'>'+ln('#000',w+3)+ln(col(x.t),w,x.t==='cob_media'?' stroke-dasharray="'+(w*1.6)+' '+(w*.9)+'"':'')+'</g>'}});
+ A.forEach(x=>{if(x.t!=='altura'&&x.t!=='profundidad')return;const c=centroLocal(x.a,x.b);
+  h+='<text x="'+c.x.toFixed(1)+'" y="'+(c.y+S.size*.1).toFixed(1)+'" text-anchor="middle" font-size="'+(S.size*.28)+'" font-weight="bold" font-family="Tahoma,Verdana,sans-serif" fill="#fff" stroke="#000" stroke-width="'+(S.size*.07)+'" paint-order="stroke" stroke-linejoin="round"'+(x.vis===false?' opacity=".6"':'')+'>'+(x.t==='altura'?'▲ +':'▼ −')+valTxt(x.v)+'</text>'});
+ g.innerHTML=h}
 // regla de medición: se arrastra de una celda a otra y muestra celdas y pies (solo en tu pantalla)
 function dibujarRegla(){const g=$('reg');if(!g)return;
  if(!RG){g.innerHTML='';return}
@@ -119,7 +146,7 @@ function syncUI(){
  $('jugMueve').checked=!!S.mover}
 
 /* ---------- guardado: local, o en la base si dirige el DM ---------- */
-let tmG;function guardarLocal(){clearTimeout(tmG);tmG=setTimeout(()=>{try{localStorage.setItem(KEY,JSON.stringify({forma:S.forma,orient:S.orient,size:S.size,ox:S.ox,oy:S.oy,ver:S.ver,color:S.color,alpha:S.alpha,bg:S.bg,fichas:S.fichas}))}catch(e){}},300)}
+let tmG;function guardarLocal(){clearTimeout(tmG);tmG=setTimeout(()=>{try{localStorage.setItem(KEY,JSON.stringify({forma:S.forma,orient:S.orient,size:S.size,ox:S.ox,oy:S.oy,ver:S.ver,color:S.color,alpha:S.alpha,bg:S.bg,fichas:S.fichas,agr:S.agr}))}catch(e){}},300)}
 const ocupado=()=>pend>0||!!tmC;
 /* ---------- historial de movimientos ---------- */
 function fechaHora(t){const d=new Date(t);if(isNaN(d))return '';const hh=d.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
@@ -143,7 +170,7 @@ async function op(p,resync){pend++;let rs=!!resync;
  finally{pend--}
  if(rs)ver(true);else rtPing('tablero')}
 function flushCfg(){tmC=null;
- op(sb.from('tablero_estado').update({forma:S.forma,orient:S.orient,size:S.size,ox:S.ox,oy:S.oy,ver:S.ver,color:S.color,alpha:S.alpha,bg_tipo:S.bg.tipo||'',bg_url:S.bg.url||'',jug_mueven:!!S.mover,activo:!!S.activo,actualizado:new Date().toISOString()}).eq('id',1))}
+ op(sb.from('tablero_estado').update({forma:S.forma,orient:S.orient,size:S.size,ox:S.ox,oy:S.oy,ver:S.ver,color:S.color,alpha:S.alpha,bg_tipo:S.bg.tipo||'',bg_url:S.bg.url||'',jug_mueven:!!S.mover,activo:!!S.activo,...(AG_OK?{delegado:S.delegado||null}:{}),actualizado:new Date().toISOString()}).eq('id',1))}
 function persistirCfg(){if(modo==='local')guardarLocal();else if(modo==='dm'){clearTimeout(tmC);tmC=setTimeout(flushCfg,400)}}
 const aFila=f=>({id:f.id,tipo:f.tipo,nombre:f.nombre,em:f.em,imagen:f.imagen||'',tam:f.tam,a:f.a,b:f.b,jugador:f.jugador||null,criatura_id:f.cid||null,visible:f.vis!==false});
 function persistirF(lista){if(modo==='local')guardarLocal();else if(modo==='dm'&&lista.length)op(sb.from('tablero_fichas').upsert(lista.map(aFila)))}
@@ -159,8 +186,12 @@ function moverRemoto(f,c0,d){
 function todo(g){dibujarGrid();pintarFichas();syncUI();if(g!==false)persistirCfg()}
 // cambia forma u orientación sin que las fichas salten de lugar: pasan de celda vieja a celda nueva según su posición real
 function cambiarGrid(fn){
- const antes=S.fichas.map(f=>({f,c:centroFicha(f)}));
- fn();antes.forEach(o=>{const c=celdaEn(o.c.x,o.c.y,o.f);o.f.a=c.a;o.f.b=c.b});todo();persistirF(S.fichas)}
+ if(S.agr.length&&!confirm('Cambiar la forma o la orientación reubica los agregados, y las coberturas quedan en todos los lados de su celda. ¿Seguir?'))return;
+ const antes=S.fichas.map(f=>({f,c:centroFicha(f)})),antesAg=S.agr.map(g=>({g,c:centroCelda(g.a,g.b)}));
+ fn();antes.forEach(o=>{const c=celdaEn(o.c.x,o.c.y,o.f);o.f.a=c.a;o.f.b=c.b});
+ if(antesAg.length){const vistos=new Set();S.agr=[];antesAg.forEach(o=>{const c=celdaEn(o.c.x,o.c.y),k=c.a+','+c.b+','+o.g.t;if(vistos.has(k))return;vistos.add(k);S.agr.push({...o.g,a:c.a,b:c.b,l:esCob(o.g.t)?todosLados():0})})}
+ AG_LADOS=1;todo();persistirF(S.fichas);pintarAgr();
+ if(antesAg.length){if(modo==='dm')op(sb.rpc('tablero_agr_reemplazar',{p_items:S.agr.map(x=>({a:x.a,b:x.b,t:x.t,l:x.l,v:x.v,vis:x.vis}))}))}}
 
 /* ---------- vista: zoom y arrastre del mapa ---------- */
 const rect=()=>$('vista').getBoundingClientRect();
@@ -171,7 +202,7 @@ function zoomEn(cx,cy,f){const r=rect(),w=aMundo(cx,cy);V.k=clamp(V.k*f,MIN_K,MA
 
 /* ---------- mover fichas ---------- */
 function estado(t){$('estado').textContent=t}
-const ayuda=()=>modo==='jug'?(S.mover?'Tocá tu ficha (borde dorado) y después la celda de destino, o arrastrala. Dos dedos: zoom.':'El DM mueve las fichas. Dos dedos o la rueda: zoom; arrastrá el fondo para moverte.'):'Tocá una ficha para elegirla y después tocá la celda de destino (o arrastrala). Dos dedos o la rueda del mouse: zoom. Arrastrá el fondo para moverte.';
+const ayuda=()=>modo==='jug'?(S.deleg?'El DM te delegó la mesa: movés todas las fichas visibles (borde dorado) y usás Agregados. Tocá una ficha y después la celda, o arrastrala.':S.mover?'Tocá tu ficha (borde dorado) y después la celda de destino, o arrastrala. Dos dedos: zoom.':'El DM mueve las fichas. Dos dedos o la rueda: zoom; arrastrá el fondo para moverte.'):'Tocá una ficha para elegirla y después tocá la celda de destino (o arrastrala). Dos dedos o la rueda del mouse: zoom. Arrastrá el fondo para moverte.';
 function mover(f,c){
  const d=distancia(f,c),box=$('fichasEl');
  if(d===0){sel=f.id;pintarFichas();pintarHl();estado(f.nombre+' sigue en su celda.');return}
@@ -183,7 +214,7 @@ function textoHover(c){const f=ficha(sel);let t='Celda '+c.a+', '+c.b;
  if(f){const d=distancia(f,c);t+=' · 📏 '+d+' celda'+(d==1?'':'s')+' desde '+f.nombre+' ('+fmt(d)+')'}return t}
 function hover(e){if(e.pointerType!=='mouse')return;const w=aMundo(e.clientX,e.clientY),dentro=w.x>=0&&w.y>=0&&w.x<=S.W&&w.y<=S.H;
  if(!dentro){mostrarHh(null);return}const c=celdaEn(w.x,w.y,ficha(sel));mostrarHh(c);estado(textoHover(c))}
-function cancelarFicha(){if(G&&G.t==='token'&&G.moved){const el=elF(G.id);if(el)el.classList.remove('drag');mostrarHh(null);pintarFichas()}}
+function cancelarFicha(){if(G&&G.t==='pintar')flushAg(G);if(G&&G.t==='token'&&G.moved){const el=elF(G.id);if(el)el.classList.remove('drag');mostrarHh(null);pintarFichas()}}
 
 const vista=$('vista');
 vista.addEventListener('pointerdown',e=>{
@@ -196,6 +227,7 @@ vista.addEventListener('pointerdown',e=>{
   cancelarFicha();
   const [p1,p2]=[...P.values()],cx=(p1.x+p2.x)/2,cy=(p1.y+p2.y)/2;
   G={t:'pinch',d0:Math.hypot(p1.x-p2.x,p1.y-p2.y)||1,k0:V.k,wc:aMundo(cx,cy)};return}
+ if(AG_TOOL){G={t:'pintar',mode:AG_TOOL,cells:new Map(),ult:''};pintarEn(e.clientX,e.clientY,G);return}
  if(REG_ON){const w=aMundo(e.clientX,e.clientY);G={t:'regla'};
   if(w.x>=0&&w.y>=0&&w.x<=S.W&&w.y<=S.H){const c=celdaEn(w.x,w.y);RG={a0:c.a,b0:c.b,a1:c.a,b1:c.b};dibujarRegla()}else{RG=null;dibujarRegla()}
   return}
@@ -210,6 +242,7 @@ vista.addEventListener('pointermove',e=>{
   const [p1,p2]=[...P.values()],cx=(p1.x+p2.x)/2,cy=(p1.y+p2.y)/2,r=rect();
   V.k=clamp(G.k0*Math.hypot(p1.x-p2.x,p1.y-p2.y)/G.d0,MIN_K,MAX_K);
   V.x=cx-r.left-G.wc.x*V.k;V.y=cy-r.top-G.wc.y*V.k;aplicarV();return}
+ if(G.t==='pintar'){pintarEn(p.x,p.y,G);return}
  if(G.t==='regla'){if(!RG)return;const w=aMundo(p.x,p.y),c=celdaEn(w.x,w.y);
   c.a=clamp(c.a,-500,500);c.b=clamp(c.b,-500,500);RG.a1=c.a;RG.b1=c.b;dibujarRegla();
   const d=distancia({a:RG.a0,b:RG.b0},c);estado('📏 '+d+' celda'+(d==1?'':'s')+' = '+fmt(d)+' (cada celda son '+FT+' pies)');return}
@@ -226,6 +259,7 @@ function fin(e,cancel){
  if(!G)return;
  if(G.t==='pinch'){if(P.size<2)G=null;return}
  const g=G;G=null;
+ if(g.t==='pintar'){flushAg(g);return}
  if(g.t==='regla'){if(RG&&RG.a0===RG.a1&&RG.b0===RG.b1){RG=null;dibujarRegla()}return}
  if(g.t==='token'){const f=ficha(g.id),el=elF(g.id);if(!f||!el)return;
   if(g.moved){el.classList.remove('drag');mostrarHh(null);
@@ -293,6 +327,10 @@ function aplicar(d){
  const mostrar=modo!=='jug'||d.activo;
  $('vista').style.display=mostrar?'':'none';$('estado').style.display=mostrar?'':'none';$('histBox').style.display=mostrar?'':'none';$('vacio').style.display=mostrar?'none':'block';
  if(!mostrar||!d.cfg){if(modo==='jug')S.activo=false;return}
+ AG_OK=d.ag!==undefined;S.deleg=!!d.deleg;if(d.delegado!==undefined)S.delegado=d.delegado||null;
+ if(modo==='jug'){document.body.classList.toggle('m-deleg',S.deleg);$('panel').style.display=S.deleg?'block':'none';if(!S.deleg&&AG_TOOL){AG_TOOL=null;pintarAgr()}}
+ if(AG_OK&&d.ag!==AGK){AGK=d.ag;cargarAgr()}
+ if(modo==='dm')pintarDeleg();
  HIST_OK=d.lg!==undefined;
  if(HIST_OK&&d.lg!==LGK){LGK=d.lg;cargarLog()}else if(!HIST_OK)pintarHist();
  const c=d.cfg,bgCambio=(c.bg.url||'')!==(S.bg.url||'')||(c.bg.tipo||'')!==(S.bg.tipo||'');
@@ -306,7 +344,7 @@ async function ver(forzar){
  if(modo==='local')return;
  if(!forzar&&(document.hidden||G||ocupado()))return;
  const r=await sb.rpc('tablero_ver');if(r.error||!r.data)return;
- const k=JSON.stringify(r.data);if(!forzar&&k===ULT)return;ULT=k;
+ const k=JSON.stringify(r.data);if(!forzar&&k===ULT)return;ULT=k;if(forzar)AGK=-1;
  const antes=$('vista').style.display==='none';aplicar(r.data);
  if(antes&&$('vista').style.display!=='none')encajar()}
 
@@ -400,8 +438,70 @@ $('bCrB').onclick=()=>{const c=CRS.find(x=>String(x.id)===$('crSel').value);if(!
  const n=S.fichas.filter(f=>f.cid===c.id).length,p=celdaLibre(centroVista(),ocupadas());
  const f=normFicha({id:nuevoId(),tipo:'criatura',nombre:(c.nombre+(n?' '+(n+1):'')).slice(0,30),em:'👹',imagen:c.imagen||'',a:p.a,b:p.b,cid:c.id});
  S.fichas.push(f);sel=f.id;aviso('',true);pintarFichas();pintarHl();persistirF([f]);estado(f.nombre+' agregada.')};
-function pintarReg(){$('bReg').classList.toggle('on',REG_ON);$('vista').classList.toggle('reg',REG_ON)}
-$('bReg').onclick=()=>{REG_ON=!REG_ON;if(!REG_ON){RG=null;dibujarRegla()}pintarReg();
+// aplicar un agregado (o la goma) a la celda bajo el dedo; al soltar se manda todo junto
+const agDisponible=()=>modo==='local'||AG_OK;
+function itemAg(c){const T=AG_TOOL,cob=esCob(T),v=Math.max(5,Math.min(500,parseInt($('agrVal').value)||10));
+ return{a:c.a,b:c.b,t:T,l:cob?AG_LADOS:0,v:(T==='altura'||T==='profundidad')?v:0,vis:(modo==='dm'&&$('agrOculto').checked)?false:true}}
+function pintarEn(cx,cy,g){
+ const w=aMundo(cx,cy);if(w.x<0||w.y<0||w.x>S.W||w.y>S.H)return;
+ const c=celdaEn(w.x,w.y);c.a=clamp(c.a,-500,500);c.b=clamp(c.b,-500,500);const k=c.a+','+c.b;if(g.ult===k)return;g.ult=k;
+ if(g.mode==='goma'){
+  if(!S.agr.some(x=>x.a===c.a&&x.b===c.b&&(modo!=='jug'||x.vis!==false)))return;
+  S.agr=S.agr.filter(x=>!(x.a===c.a&&x.b===c.b&&(modo!=='jug'||x.vis!==false)));g.cells.set(k,{a:c.a,b:c.b})}
+ else{
+  if(esCob(g.mode)&&!AG_LADOS){aviso('Elegí al menos un lado de la cobertura.');return}
+  if(S.agr.length>=2000&&!S.agr.some(x=>x.a===c.a&&x.b===c.b&&x.t===g.mode)){aviso('Máximo 2000 agregados.');return}
+  const it=itemAg(c),i=S.agr.findIndex(x=>x.a===c.a&&x.b===c.b&&x.t===g.mode);
+  const o={a:it.a,b:it.b,t:it.t,l:it.l,v:it.v,vis:it.vis};if(i>=0)S.agr[i]=o;else S.agr.push(o);g.cells.set(k,it)}
+ aviso('',true);dibujarAgr();estado(g.cells.size+' celda'+(g.cells.size==1?'':'s')+(g.mode==='goma'?' borrada'+(g.cells.size==1?'':'s'):' con '+(ATOOLS.find(x=>x[0]===g.mode)||[])[1].toLowerCase())+'.')}
+function flushAg(g){
+ const arr=[...g.cells.values()];g.cells=new Map();if(!arr.length)return;
+ if(modo==='local'){guardarLocal();return}
+ for(let i=0;i<arr.length;i+=200){const parte=arr.slice(i,i+200);
+  op(g.mode==='goma'?sb.rpc('tablero_agr_borrar',{p_cells:parte}):sb.rpc('tablero_agr_poner',{p_items:parte.map(x=>({a:x.a,b:x.b,t:x.t,l:x.l,v:x.v,vis:x.vis}))}))}}
+async function cargarAgr(){const r=await sb.rpc('tablero_agregados');if(r.error||!Array.isArray(r.data))return;
+ S.agr=r.data.map(x=>({a:x.a,b:x.b,t:x.t,l:x.l|0,v:x.v|0,vis:!x.o}));dibujarAgr()}
+// panel de Agregados: botones, lados de la cobertura y opciones
+function pintarLados(){const box=$('agrLados');
+ if(!AG_TOOL||!esCob(AG_TOOL)){box.innerHTML='';return}
+ const col=ATOOLS.find(x=>x[0]===AG_TOOL)[2],n=nLados(),e=esquinas(60,60,S.forma==='hex'?48:80);let h='<svg width="130" height="130" viewBox="0 0 120 120" style="display:block;margin:4px auto"><polygon points="'+e.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')+'" fill="#fffdf4" stroke="#999" stroke-width="1"/>';
+ for(let i=0;i<n;i++){const p=e[i],q=e[(i+1)%n],on=(AG_LADOS>>i)&1,xy='x1="'+p[0].toFixed(1)+'" y1="'+p[1].toFixed(1)+'" x2="'+q[0].toFixed(1)+'" y2="'+q[1].toFixed(1)+'"';
+  h+='<line '+xy+' stroke="'+(on?col:'#bbb')+'" stroke-width="'+(on?9:3)+'" stroke-linecap="round"/><line data-i="'+i+'" '+xy+' stroke="transparent" stroke-width="24" style="cursor:pointer"/>'}
+ const cnt=[...Array(n).keys()].filter(i=>(AG_LADOS>>i)&1).length;
+ box.innerHTML=h+'</svg><div style="text-align:center"><small>Tocá los lados que cubre ('+cnt+' de '+n+')</small><br><button id="lAll">Todos</button> <button id="lNone">Ninguno</button></div>'}
+$('agrLados').onclick=e=>{const l=e.target.closest('[data-i]');
+ if(l){AG_LADOS^=1<<(+l.dataset.i);pintarLados();return}
+ if(e.target.id==='lAll'){AG_LADOS=todosLados();pintarLados()}else if(e.target.id==='lNone'){AG_LADOS=0;pintarLados()}};
+function pintarAgr(){
+ document.querySelectorAll('.agt').forEach(b=>b.classList.toggle('on',b.dataset.t===AG_TOOL));
+ const T=ATOOLS.find(x=>x[0]===AG_TOOL);
+ $('agrVal').parentNode.style.display=(AG_TOOL==='altura'||AG_TOOL==='profundidad')?'':'none';
+ $('agrVal').parentNode.firstChild.textContent=AG_TOOL==='profundidad'?'Profundidad: ':'Altura: ';
+ $('agrAyuda').textContent=T?(T[1]+': '+T[3]+'. Tocá o arrastrá sobre las celdas. Con dos dedos movés el mapa. Tocá el botón de nuevo para dejar de usarlo.'):'Elegí un agregado y después tocá (o arrastrá sobre) las celdas del tablero.';
+ $('vista').classList.toggle('reg',!!AG_TOOL||REG_ON);pintarLados()}
+function elegirAg(t){
+ if(!agDisponible()){aviso('Para usar Agregados corré setup_tablero4.sql en Supabase.');return}
+ AG_TOOL=AG_TOOL===t?null:t;if(AG_TOOL){REG_ON=false;RG=null;dibujarRegla();pintarReg()}
+ if(AG_TOOL&&esCob(AG_TOOL)&&!AG_LADOS)AG_LADOS=1;
+ pintarAgr();estado(AG_TOOL?(ATOOLS.find(x=>x[0]===AG_TOOL)[1])+': tocá o arrastrá sobre las celdas.':ayuda())}
+$('agrTools').innerHTML=ATOOLS.map(x=>'<button class="agt" data-t="'+x[0]+'" style="border-left:6px solid '+x[2]+'">'+(AICO[x[0]]?AICO[x[0]]+' ':'')+x[1].replace(/^🧽 /,'🧽 ')+'</button>').join('');
+$('agrTools').onclick=e=>{const b=e.target.closest('.agt');if(b)elegirAg(b.dataset.t)};
+async function cargarCuentas(){
+ const r=await sb.from('profiles').select('cuenta_id,username,is_dm,borrado_en');if(r.error)return;
+ const m={};(r.data||[]).filter(p=>!p.is_dm&&!p.borrado_en).forEach(p=>{if(!m[p.cuenta_id])m[p.cuenta_id]=p.username});
+ ACUENTAS=Object.entries(m).sort((a,b)=>a[1].localeCompare(b[1],'es'));pintarDeleg()}
+function pintarDeleg(){const v=S.delegado||'';
+ $('delSel').innerHTML='<option value="">(nadie: solo yo)</option>'+ACUENTAS.map(([c,n])=>'<option value="'+esc(c)+'">'+esc(n)+'</option>').join('');
+ $('delSel').value=ACUENTAS.some(([c])=>c===v)?v:''}
+$('delSel').onchange=e=>{S.delegado=e.target.value||null;persistirCfg();
+ const n=(ACUENTAS.find(([c])=>c===S.delegado)||[])[1];estado(S.delegado?n+' puede mover todas las fichas visibles y usar Agregados mientras el tablero esté activo.':'Solo vos manejás el tablero.')};
+$('bAgrRev').onclick=()=>{if(!S.agr.some(x=>x.vis===false)){aviso('No hay agregados ocultos.',true);return}
+ S.agr.forEach(x=>x.vis=true);dibujarAgr();op(sb.rpc('tablero_agr_revelar'));estado('Los agregados ocultos ahora los ven los jugadores.')};
+$('bAgrLimp').onclick=()=>{if(!S.agr.length){aviso('No hay agregados.',true);return}
+ if(!confirm('¿Quitar TODOS los agregados ('+S.agr.length+')? No se puede deshacer.'))return;
+ aviso('',true);S.agr=[];dibujarAgr();if(modo==='dm')op(sb.rpc('tablero_agr_limpiar'));else guardarLocal();estado('Agregados quitados.')};
+function pintarReg(){$('bReg').classList.toggle('on',REG_ON);$('vista').classList.toggle('reg',REG_ON||!!AG_TOOL)}
+$('bReg').onclick=()=>{REG_ON=!REG_ON;if(REG_ON){AG_TOOL=null;pintarAgr()}if(!REG_ON){RG=null;dibujarRegla()}pintarReg();
  estado(REG_ON?'📏 Regla: arrastrá de un punto a otro (cada celda son '+FT+' pies). Con dos dedos movés el mapa. Tocá de nuevo la regla para apagarla.':ayuda())};
 $('zMas').onclick=()=>{const r=rect();zoomEn(r.left+r.width/2,r.top+r.height/2,1.3)};
 $('zMenos').onclick=()=>{const r=rect();zoomEn(r.left+r.width/2,r.top+r.height/2,1/1.3)};
@@ -422,15 +522,15 @@ window.addEventListener('resize',()=>{if(!G)encajar()});
  document.body.classList.add('m-'+modo);
  if(modo==='local'||modo==='dm'){
   $('panel').style.display='block';
-  if(modo==='dm'){S=DEF();S.fichas=[];cargarPJs();sb.from('criaturas').select('id,nombre,tipo,imagen').order('nombre').then(x=>{CRS=x.data||[];opcionesCR()})}}
+  if(modo==='dm'){S=DEF();S.fichas=[];cargarPJs();cargarCuentas();sb.from('criaturas').select('id,nombre,tipo,imagen').order('nombre').then(x=>{CRS=x.data||[];opcionesCR()})}}
  else $('panel').style.display='none';
  if(modo==='local'){
-  estado(ayuda());
+  estado(ayuda());pintarAgr();
   try{HIST=JSON.parse(localStorage.getItem(KEYLOG)||'[]')||[]}catch(e){HIST=[]}pintarHist();
   if(S.bg.tipo&&S.bg.url)ponerBg(S.bg.tipo,S.bg.url,{save:false});
   else{S.bg={tipo:'',url:''};despuesDelFondo(false)}
   return}
- pintarHist();ULT=JSON.stringify(r.data);aplicar(r.data);estado(ayuda());
+ pintarHist();pintarAgr();ULT=JSON.stringify(r.data);aplicar(r.data);estado(ayuda());
  if($('vista').style.display!=='none')encajar();
  rtIniciar('tablero',()=>ver());
  setInterval(()=>{if(rtTocaPoll(8))ver()},4000);

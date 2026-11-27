@@ -27,6 +27,9 @@ body.m-dm #bPJ{display:none}
 .trow input[type=range]{width:100%;padding:0}
 .tcol{flex:1 1 220px;min-width:0}
 #estado{margin-top:6px;font-size:13px}
+.agt{margin:0;padding:6px 10px}
+.agt.on{background:#ffd54a;border-style:inset;font-weight:bold}
+body.m-jug #panel>*:not(summary):not(#agrDet){display:none!important}
 .ficha.conimg{background-size:cover;background-position:center}
 .ficha.conimg .em{display:none}
 .ficha.oculta{opacity:.45;border-style:dashed}
@@ -63,6 +66,16 @@ body.m-dm .sdm{display:flex!important}
  <div class="trow sdm"><small id="live"></small></div>
  <div class="trow sdm"><button id="bJugs">＋ Fichas de los jugadores</button><button id="bVis">👁 Mostrar / ocultar la elegida</button></div>
  <div class="trow sdm"><input id="crQ" placeholder="Buscar criatura del bestiario" style="flex:1 1 160px;width:auto"><select id="crSel" style="flex:1 1 160px;width:auto"></select><button id="bCrB">＋ Criatura del bestiario</button></div>
+<details id="agrDet" class="box"><summary><b>🧱 Agregados</b> <small>(coberturas, terreno, altura…)</small></summary>
+  <div id="agrTools" class="trow"></div>
+  <div class="trow"><label>Altura: <input type="number" id="agrVal" min="5" max="500" step="5" value="10" style="width:80px"> pies</label></div>
+  <div id="agrLados"></div>
+  <div class="trow sdm"><label><input type="checkbox" id="agrOculto" style="width:auto;margin:0"> 🙈 Ocultos para los jugadores (trampas, etc.)</label></div>
+  <small id="agrAyuda"></small>
+  <div class="trow sdm"><label>🎭 Delegar (Agregados y mover fichas) a:</label><select id="delSel" style="flex:1 1 150px;width:auto"></select></div>
+  <div class="trow sdm"><button id="bAgrRev">👁 Revelar los ocultos</button><button id="bAgrLimp">🧹 Quitar todos los agregados</button></div>
+  <small>🟨 media: +2 CA · 🟧 3/4: +5 CA · 🟥 total: no se puede apuntar · 🟫 difícil: cuesta el doble moverse.</small>
+ </details>
 </details>
 <div id="vista">
  <div id="mundo"><div id="bgBox"></div><svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg><div id="fichasEl"></div></div>
@@ -74,4 +87,4 @@ body.m-dm .sdm{display:flex!important}
  <details id="histDet"><summary>Ver todo (<span id="histN">0</span>)</summary><div id="histTodo"></div><button id="bHistBorrar">🗑 Borrar historial</button></details>
 </div>
 </div></div>
-<script src="tablero.js?v=4"></script></body></html>
+<script src="tablero.js?v=5"></script></body></html>
