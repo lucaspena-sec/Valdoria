@@ -10,7 +10,7 @@ const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const WD=2800,HD=2000,FT=5;   // tablero sin fondo (el doble que antes) y pies por celda
 const COL={pj:'#2e6fd8',criatura:'#c0392b',npc:'#27ae60'};
 const EMO={pj:['🧙','🛡️','🏹','🗡️','🧝'],criatura:['🐺','👹','🐲','💀','🕷️'],npc:['🧑']};
-const NPCS=[['👨‍🌾','Aldeano'],['👨‍🍳','Cocinero'],['💂‍♂️','Guardia'],['👩‍🌾','Aldeana'],['👩‍🍳','Cocinera'],['💂‍♀️','Guardiana']];
+const NPCS=[['👨‍🌾','Aldeano','h'],['👨‍🍳','Cocinero','h'],['💂‍♂️','Guardia','h'],['🧔','Viajero','h'],['👴','Anciano','h'],['🤴','Noble','h'],['👩‍🌾','Aldeana','m'],['👩‍🍳','Cocinera','m'],['💂‍♀️','Guardiana','m'],['👩‍🦰','Viajera','m'],['👵','Anciana','m'],['👸','Dama noble','m']];
 /* Estado. Las fichas viven en CELDAS (a,b), no en píxeles. */
 const DEF=()=>({forma:'hex',orient:'punta',size:56,ox:0,oy:0,ver:true,color:'#ffffff',alpha:.45,W:WD,H:HD,bg:{tipo:'',url:''},activo:false,mover:false,yo:null,
  fichas:[{id:'f1',tipo:'pj',nombre:'Aria',em:'🧙',imagen:'',tam:1,a:2,b:2,jugador:null,cid:null,vis:true},{id:'f2',tipo:'criatura',nombre:'Lobo',em:'🐺',imagen:'',tam:1,a:5,b:3,jugador:null,cid:null,vis:true},{id:'f3',tipo:'criatura',nombre:'Troll',em:'👹',imagen:'',tam:2,a:7,b:5,jugador:null,cid:null,vis:true}]});
@@ -18,6 +18,8 @@ const normFicha=f=>({tipo:'criatura',nombre:'?',em:'❓',imagen:'',a:0,b:0,jugad
 let S=DEF(),V={x:0,y:0,k:1},sel=null,G=null,blobUrl='',tG=null;
 let modo='local';        // 'local' (sin SQL) · 'dm' (dirige la mesa: edita) · 'jug' (mira y, si se permite, mueve la suya)
 let pend=0,tmC=null,ULT='',primera=true,CRS=[],PJS=[],ultPJ=0,REG_ON=false,RG=null;
+let HIST=[],LGK=-1,HIST_OK=false;   // historial de movimientos (de la base, o local si no hay SQL)
+const KEYLOG='valdoriaTableroLog1',ICO={pj:'🔵',criatura:'🔴',npc:'🟢'};
 const P=new Map();
 function cargarLocal(){try{const j=JSON.parse(localStorage.getItem(KEY)||'null');
  if(j&&typeof j==='object'){const d=DEF();S={...d,...j,bg:{...d.bg,...(j.bg||{})}};
@@ -119,6 +121,22 @@ function syncUI(){
 /* ---------- guardado: local, o en la base si dirige el DM ---------- */
 let tmG;function guardarLocal(){clearTimeout(tmG);tmG=setTimeout(()=>{try{localStorage.setItem(KEY,JSON.stringify({forma:S.forma,orient:S.orient,size:S.size,ox:S.ox,oy:S.oy,ver:S.ver,color:S.color,alpha:S.alpha,bg:S.bg,fichas:S.fichas}))}catch(e){}},300)}
 const ocupado=()=>pend>0||!!tmC;
+/* ---------- historial de movimientos ---------- */
+function fechaHora(t){const d=new Date(t);if(isNaN(d))return '';const hh=d.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+ return d.toDateString()===new Date().toDateString()?hh:d.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'})+' '+hh}
+function pintarHist(){
+ const fila=h=>'<div class="hl">'+(ICO[h.ty]||'⚪')+' <b>'+esc(h.n)+'</b> ('+h.a0+','+h.b0+') → ('+h.a1+','+h.b1+') · '+h.c+' celda'+(h.c==1?'':'s')+' · '+fmt(h.c)+(h.p?' · '+esc(h.p):'')+' <small>'+fechaHora(h.t)+'</small></div>';
+ $('histUlt').innerHTML=(modo==='dm'&&!HIST_OK)?'<i>Para guardar el historial corré setup_tablero3.sql en Supabase.</i>':!HIST.length?'<i>Todavía no hubo movimientos.</i>':HIST.slice(0,5).map(fila).join('');
+ $('histN').textContent=HIST.length;$('histTodo').innerHTML=HIST.map(fila).join('')}
+function guardarLog(){try{localStorage.setItem(KEYLOG,JSON.stringify(HIST.slice(0,100)))}catch(e){}}
+async function cargarLog(){const r=await sb.rpc('tablero_log');if(r.error||!Array.isArray(r.data))return;HIST=r.data;pintarHist()}
+$('bHistBorrar').onclick=()=>{
+ if(!HIST.length){aviso('El historial ya está vacío.',true);return}
+ if(!confirm('¿Borrar todo el historial de movimientos ('+HIST.length+')?'))return;
+ aviso('',true);
+ if(modo==='dm')op(sb.from('tablero_log').delete().neq('id',0)).then(()=>{HIST=[];pintarHist()});
+ else{HIST=[];guardarLog();pintarHist()}};
+
 // corre una operación contra la base: avisa si falla, pide refrescar y le avisa a los demás que cambió algo
 async function op(p,resync){pend++;let rs=!!resync;
  try{const r=await p;if(r&&r.error){aviso(r.error.message);rs=true}}catch(e){aviso(String(e.message||e));rs=true}
@@ -129,10 +147,15 @@ function flushCfg(){tmC=null;
 function persistirCfg(){if(modo==='local')guardarLocal();else if(modo==='dm'){clearTimeout(tmC);tmC=setTimeout(flushCfg,400)}}
 const aFila=f=>({id:f.id,tipo:f.tipo,nombre:f.nombre,em:f.em,imagen:f.imagen||'',tam:f.tam,a:f.a,b:f.b,jugador:f.jugador||null,criatura_id:f.cid||null,visible:f.vis!==false});
 function persistirF(lista){if(modo==='local')guardarLocal();else if(modo==='dm'&&lista.length)op(sb.from('tablero_fichas').upsert(lista.map(aFila)))}
-function moverRemoto(f){
- if(modo==='local')guardarLocal();
- else if(modo==='dm')op(sb.from('tablero_fichas').update({a:f.a,b:f.b}).eq('id',f.id));
- else op(sb.rpc('tablero_mover',{p_id:f.id,p_a:f.a,p_b:f.b}))}
+function moverRemoto(f,c0,d){
+ const h={id:'t'+Date.now(),t:new Date().toISOString(),n:f.nombre,ty:f.tipo,p:modo==='local'?'':'DM',a0:c0.a,b0:c0.b,a1:f.a,b1:f.b,c:d};
+ if(modo==='local'){guardarLocal();HIST.unshift(h);HIST=HIST.slice(0,100);guardarLog();pintarHist()}
+ else if(modo==='dm'){
+  op((async()=>{const r=await sb.from('tablero_fichas').update({a:f.a,b:f.b}).eq('id',f.id);if(r.error||!HIST_OK)return r;
+   const l=await sb.from('tablero_log').insert({ficha_id:f.id,nombre:f.nombre,tipo:f.tipo,por:'DM',a0:c0.a,b0:c0.b,a1:f.a,b1:f.b,celdas:d,oculta:f.vis===false});
+   if(!l.error)cargarLog();return l})());
+  if(HIST_OK){HIST.unshift(h);pintarHist()}}
+ else op(sb.rpc('tablero_mover',{p_id:f.id,p_a:f.a,p_b:f.b})).then(()=>{if(HIST_OK)cargarLog()})}
 function todo(g){dibujarGrid();pintarFichas();syncUI();if(g!==false)persistirCfg()}
 // cambia forma u orientación sin que las fichas salten de lugar: pasan de celda vieja a celda nueva según su posición real
 function cambiarGrid(fn){
@@ -151,8 +174,10 @@ function estado(t){$('estado').textContent=t}
 const ayuda=()=>modo==='jug'?(S.mover?'Tocá tu ficha (borde dorado) y después la celda de destino, o arrastrala. Dos dedos: zoom.':'El DM mueve las fichas. Dos dedos o la rueda: zoom; arrastrá el fondo para moverte.'):'Tocá una ficha para elegirla y después tocá la celda de destino (o arrastrala). Dos dedos o la rueda del mouse: zoom. Arrastrá el fondo para moverte.';
 function mover(f,c){
  const d=distancia(f,c),box=$('fichasEl');
+ if(d===0){sel=f.id;pintarFichas();pintarHl();estado(f.nombre+' sigue en su celda.');return}
+ const c0={a:f.a,b:f.b};
  box.classList.add('mov');clearTimeout(tG);tG=setTimeout(()=>box.classList.remove('mov'),300);
- f.a=c.a;f.b=c.b;sel=f.id;pintarFichas();pintarHl();moverRemoto(f);
+ f.a=c.a;f.b=c.b;sel=f.id;pintarFichas();pintarHl();moverRemoto(f,c0,d);
  estado(f.nombre+' se movió '+d+' celda'+(d==1?'':'s')+' ('+fmt(d)+').')}
 function textoHover(c){const f=ficha(sel);let t='Celda '+c.a+', '+c.b;
  if(f){const d=distancia(f,c);t+=' · 📏 '+d+' celda'+(d==1?'':'s')+' desde '+f.nombre+' ('+fmt(d)+')'}return t}
@@ -266,8 +291,10 @@ const tipoUrl=u=>/\.(mp4|webm|ogv|m4v|mov)(\?|#|$)/i.test(u)?'video':'image';
 /* ---------- ver lo que hay en la base (jugadores y DM) ---------- */
 function aplicar(d){
  const mostrar=modo!=='jug'||d.activo;
- $('vista').style.display=mostrar?'':'none';$('estado').style.display=mostrar?'':'none';$('vacio').style.display=mostrar?'none':'block';
+ $('vista').style.display=mostrar?'':'none';$('estado').style.display=mostrar?'':'none';$('histBox').style.display=mostrar?'':'none';$('vacio').style.display=mostrar?'none':'block';
  if(!mostrar||!d.cfg){if(modo==='jug')S.activo=false;return}
+ HIST_OK=d.lg!==undefined;
+ if(HIST_OK&&d.lg!==LGK){LGK=d.lg;cargarLog()}else if(!HIST_OK)pintarHist();
  const c=d.cfg,bgCambio=(c.bg.url||'')!==(S.bg.url||'')||(c.bg.tipo||'')!==(S.bg.tipo||'');
  Object.assign(S,{forma:c.forma,orient:c.orient,size:c.size,ox:c.ox,oy:c.oy,ver:c.ver,color:c.color,alpha:+c.alpha,activo:!!d.activo,mover:!!d.mover,yo:d.yo||null});
  S.fichas=(d.fichas||[]).map(f=>normFicha({id:f.id,tipo:f.tipo,nombre:f.nombre,em:f.em,imagen:f.imagen,tam:f.tam,a:f.a,b:f.b,jugador:f.jugador,cid:f.cid,vis:f.vis}));
@@ -308,13 +335,16 @@ function agregar(tipo){
  const f=normFicha({id:nuevoId(),tipo,nombre:(tipo==='pj'?'PJ ':'Criatura ')+(n+1),em:EMO[tipo][n%EMO[tipo].length],a:c.a,b:c.b});
  S.fichas.push(f);sel=f.id;aviso('',true);pintarFichas();pintarHl();persistirF([f]);estado(f.nombre+' agregado.')}
 $('bPJ').onclick=()=>agregar('pj');
-function agregarNPC(em,nom){
+function agregarNPC(em,nom,auto){
  if(S.fichas.length>=60){aviso('Máximo 60 fichas.');return}
  const n=S.fichas.filter(f=>f.tipo==='npc'&&f.em===em).length,c=celdaLibre(centroVista(),ocupadas());
- const f=normFicha({id:nuevoId(),tipo:'npc',nombre:(nom+(n?' '+(n+1):'')).slice(0,30),em,a:c.a,b:c.b});
+ const f=normFicha({id:nuevoId(),tipo:'npc',nombre:(auto?nom+(n?' '+(n+1):''):nom).slice(0,30),em,a:c.a,b:c.b});
  S.fichas.push(f);sel=f.id;aviso('',true);pintarFichas();pintarHl();persistirF([f]);estado(f.nombre+' agregado.')}
-$('npcRow').innerHTML=NPCS.map(([em,n],i)=>'<button class="npcb" data-i="'+i+'" title="'+n+'"><span style="font-size:24px;line-height:1">'+em+'</span></button>').join('');
-$('npcRow').onclick=e=>{const b=e.target.closest('.npcb');if(b){const x=NPCS[+b.dataset.i];agregarNPC(x[0],x[1])}};
+// NPC: se elige el icono en el desplegable, se escribe el nombre (opcional) y se toca ＋
+$('npcSel').innerHTML=[['h','Hombres'],['m','Mujeres']].map(([g,t])=>'<optgroup label="'+t+'">'+NPCS.map((x,i)=>x[2]===g?'<option value="'+i+'">'+x[0]+' '+x[1]+'</option>':'').join('')+'</optgroup>').join('');
+const addNpc=()=>{const x=NPCS[+$('npcSel').value];if(!x)return;const nom=$('npcNom').value.trim();agregarNPC(x[0],nom||x[1],!nom);$('npcNom').value=''};
+$('bNpc').onclick=addNpc;
+$('npcNom').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();addNpc()}};
 $('bCR').onclick=()=>agregar('criatura');
 const elegida=()=>{const f=ficha(sel);if(!f)aviso('Primero tocá una ficha para elegirla.');else aviso('',true);return f};
 $('bLimpiar').onclick=()=>{
@@ -396,10 +426,11 @@ window.addEventListener('resize',()=>{if(!G)encajar()});
  else $('panel').style.display='none';
  if(modo==='local'){
   estado(ayuda());
+  try{HIST=JSON.parse(localStorage.getItem(KEYLOG)||'[]')||[]}catch(e){HIST=[]}pintarHist();
   if(S.bg.tipo&&S.bg.url)ponerBg(S.bg.tipo,S.bg.url,{save:false});
   else{S.bg={tipo:'',url:''};despuesDelFondo(false)}
   return}
- ULT=JSON.stringify(r.data);aplicar(r.data);estado(ayuda());
+ pintarHist();ULT=JSON.stringify(r.data);aplicar(r.data);estado(ayuda());
  if($('vista').style.display!=='none')encajar();
  rtIniciar('tablero',()=>ver());
  setInterval(()=>{if(rtTocaPoll(8))ver()},4000);

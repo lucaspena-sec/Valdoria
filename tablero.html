@@ -18,7 +18,9 @@
 #zctl button{margin:0;width:38px;height:38px;padding:0;font-size:18px}
 #zctl button.on{background:#ffd54a;border-style:inset}
 #vista.reg{cursor:crosshair}
-.npcb{margin:0;padding:4px 8px}
+.hl{padding:3px 0;border-bottom:1px dotted #9a8f6a;font-size:12px}
+#histTodo{max-height:260px;overflow:auto}
+body.m-jug #bHistBorrar{display:none}
 body.m-dm #bPJ{display:none}
 .trow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:4px 0}
 .trow label{display:flex;align-items:center;gap:6px}
@@ -54,7 +56,7 @@ body.m-dm .sdm{display:flex!important}
  <div class="trow"><input id="urlIn" placeholder="O pegá la URL de una foto, GIF o video (mp4/webm)" style="flex:1 1 220px;width:auto"><button id="bUrl">Usar URL</button><button id="bQuitarBg">Quitar fondo</button></div>
  <h4>Fichas</h4>
  <div class="trow"><button id="bPJ">＋ PJ</button><button id="bCR">＋ Criatura</button><button id="bTam">⇔ Tamaño de la elegida</button><button id="bRen">✏ Renombrar</button><button id="bDel">🗑 Quitar</button><button id="bLimpiar">🧹 Limpiar tablero</button></div>
- <div class="trow"><b>＋ NPC:</b><span id="npcRow" class="trow" style="margin:0"></span></div>
+ <div class="trow"><b>＋ NPC:</b><select id="npcSel" style="flex:0 1 190px;width:auto"></select><input id="npcNom" maxlength="30" placeholder="Nombre (opcional)" style="flex:1 1 130px;width:auto"><button id="bNpc" title="Agregar el NPC al tablero">＋</button></div>
  <div class="trow sdm"><select id="pjSel" style="flex:1 1 180px;width:auto"></select><button id="bPJd">＋ Personaje</button></div>
  <h4 class="sdm">Para la mesa</h4>
  <div class="trow sdm"><button id="bAct"></button><label><input type="checkbox" id="jugMueve" style="width:auto;margin:0"> Los jugadores mueven su ficha</label></div>
@@ -67,5 +69,9 @@ body.m-dm .sdm{display:flex!important}
  <div id="zctl"><button id="zMas" title="Acercar">＋</button><button id="zMenos" title="Alejar">−</button><button id="bReg" title="Regla: cada celda son 5 pies">📏</button><button id="zFit" title="Ver todo el tablero">⤢</button><button id="bFs" title="Pantalla completa">⛶</button></div>
 </div>
 <div id="estado" class="box"></div>
+<div id="histBox" class="box"><b>📜 Historial de movimientos</b>
+ <div id="histUlt"></div>
+ <details id="histDet"><summary>Ver todo (<span id="histN">0</span>)</summary><div id="histTodo"></div><button id="bHistBorrar">🗑 Borrar historial</button></details>
+</div>
 </div></div>
-<script src="tablero.js?v=3"></script></body></html>
+<script src="tablero.js?v=4"></script></body></html>
