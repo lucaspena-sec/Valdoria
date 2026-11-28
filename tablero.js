@@ -85,8 +85,8 @@ function dibujarGrid(){
  const svg=$('svg');svg.setAttribute('width',W);svg.setAttribute('height',H);
  svg.innerHTML='<defs><pattern id="pDif" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="12" height="12" fill="#8d5a2b" fill-opacity=".25"/><line x1="0" y1="0" x2="0" y2="12" stroke="#6b3f1a" stroke-width="4"/></pattern></defs><g transform="translate('+ox+' '+oy+')"><path d="'+d+'" fill="none" stroke="'+S.color+'" stroke-opacity="'+S.alpha+'" stroke-width="1.5" vector-effect="non-scaling-stroke" style="display:'+(S.ver?'inline':'none')+'"/><g id="agr"></g>'+
   '<polygon id="hs" points="" fill="rgba(255,213,74,.22)" stroke="#ffd54a" stroke-width="2" vector-effect="non-scaling-stroke"/>'+
-  '<polygon id="hh" points="" fill="rgba(255,255,255,.2)" stroke="#fff" stroke-width="2" vector-effect="non-scaling-stroke"/></g><g id="reg"></g>';
- pintarHl();dibujarAgr();dibujarRegla()}
+  '<polygon id="hh" points="" fill="rgba(255,255,255,.2)" stroke="#fff" stroke-width="2" vector-effect="non-scaling-stroke"/></g><g id="reg"></g><g id="area"></g>';
+ pintarHl();dibujarAgr();dibujarRegla();recalcArea()}
 /* ---------- agregados: coberturas, terreno difícil, altura y profundidad ---------- */
 const nLados=()=>S.forma==='hex'?6:4;
 const todosLados=()=>(1<<nLados())-1;
@@ -108,6 +108,54 @@ function dibujarAgr(){const g=$('agr');if(!g)return;
  A.forEach(x=>{if(x.t!=='altura'&&x.t!=='profundidad')return;const c=centroLocal(x.a,x.b);
   h+='<text x="'+c.x.toFixed(1)+'" y="'+(c.y+S.size*.1).toFixed(1)+'" text-anchor="middle" font-size="'+(S.size*.28)+'" font-weight="bold" font-family="Tahoma,Verdana,sans-serif" fill="#fff" stroke="#000" stroke-width="'+(S.size*.07)+'" paint-order="stroke" stroke-linejoin="round"'+(x.vis===false?' opacity=".6"':'')+'>'+(x.t==='altura'?'▲ +':'▼ −')+valTxt(x.v)+'</text>'});
  g.innerHTML=h}
+/* ---------- áreas de efecto: radio, cubo, cono y línea (solo en tu pantalla, como la regla) ---------- */
+const AMODOS=[['medir','📏','Medir'],['radio','⚪','Radio'],['cubo','▢','Cubo'],['cono','🔺','Cono'],['linea','➖','Línea']];
+const ADEF={radio:20,cubo:30,cono:15,linea:30};
+const AAYUDA={medir:'Arrastrá de un punto a otro para medir.',radio:'Radio: tocá (o arrastrá) para ubicar el centro. Afecta a las fichas dentro del radio.',cubo:'Cubo: tocá (o arrastrá) para ubicar su centro; el tamaño es el lado.',cono:'Cono: tocá para ubicar el vértice y arrastrá para apuntar. Al final mide de ancho lo mismo que de largo.',linea:'Línea: tocá para ubicar el inicio y arrastrá para apuntar. Elegí el largo y el ancho.'};
+const ANOM={radio:'Radio',cubo:'Cubo',cono:'Cono',linea:'Línea'};
+let AREA_M='medir',AREA_L=20,AREA_W=5,AREA_O='celda',AREA=null,ACELDAS=[],AFEC=new Set();
+const pxFt=()=>(S.forma==='hex'?R3*S.size:S.size)/FT;
+// ¿el punto (x,y) del mundo está dentro del área? (se usa con el centro de cada celda y de cada ficha)
+function enArea(x,y){const A=AREA,dx=x-A.x,dy=y-A.y,k=pxFt(),L=AREA_L*k,e=Math.max(1,S.size*.02);
+ if(A.m==='radio')return Math.hypot(dx,dy)<=L+e;
+ if(A.m==='cubo')return Math.abs(dx)<=L/2+e&&Math.abs(dy)<=L/2+e;
+ const ca=Math.cos(A.ang),sa=Math.sin(A.ang),u=dx*ca+dy*sa,v=-dx*sa+dy*ca;
+ if(A.m==='cono')return u>e&&u<=L+e&&Math.abs(v)<=u/2+e;
+ return u>e&&u<=L+e&&Math.abs(v)<=AREA_W*k/2+e}
+function celdasArea(){const A=AREA,c0=celdaEn(A.x,A.y),R=Math.ceil((A.m==='cubo'?AREA_L*.75:Math.max(AREA_L,A.m==='linea'?AREA_W:0))/FT*1.25)+3,out=[];
+ for(let da=-R;da<=R;da++)for(let db=-R;db<=R;db++){const a=c0.a+da,b=c0.b+db,c=centroCelda(a,b);if(enArea(c.x,c.y))out.push({a,b})}
+ return out}
+function origenEn(w){const c=celdaEn(w.x,w.y);
+ if(S.forma==='cuad'&&AREA_O==='esquina'){const s=S.size;return{x:Math.round((w.x-S.ox)/s)*s+S.ox,y:Math.round((w.y-S.oy)/s)*s+S.oy}}
+ return centroCelda(c.a,c.b)}
+function areaMover(w,ini){
+ if(w.x<0||w.y<0||w.x>S.W||w.y>S.H)return;
+ if(ini){const o=origenEn(w);AREA={m:AREA_M,x:o.x,y:o.y,ang:AREA?AREA.ang:0};recalcArea();return}
+ if(!AREA)return;
+ if(AREA.m==='radio'||AREA.m==='cubo'){const o=origenEn(w);AREA.x=o.x;AREA.y=o.y}
+ else{const dx=w.x-AREA.x,dy=w.y-AREA.y;
+  if(Math.hypot(dx,dy)>pxFt()*FT*.5){let ang=Math.atan2(dy,dx);const q=Math.PI/12,n=Math.round(ang/q);if(Math.abs(ang-n*q)<.087)ang=n*q;AREA.ang=ang}}   // imán: cada 15° si estás a menos de 5°
+ recalcArea()}
+function marcarAfec(){document.querySelectorAll('#fichasEl .ficha').forEach(el=>el.classList.toggle('afec',AFEC.has(el.dataset.id)))}
+function recalcArea(){
+ const info=$('areaInfo');
+ if(!AREA){AFEC=new Set();ACELDAS=[];dibujarArea();marcarAfec();if(info)info.textContent='';return}
+ ACELDAS=celdasArea();
+ const fs=S.fichas.filter(f=>{const c=centroFicha(f);return enArea(c.x,c.y)});AFEC=new Set(fs.map(f=>f.id));
+ dibujarArea();marcarAfec();
+ if(info)info.textContent=ANOM[AREA.m]+' de '+valTxt(AREA_L)+(AREA.m==='linea'?' × '+valTxt(AREA_W):'')+' · '+ACELDAS.length+' celda'+(ACELDAS.length==1?'':'s')+' · '+(fs.length?'afecta a '+fs.length+': '+fs.map(f=>(f.vis===false?'🙈 ':'')+f.nombre).join(', '):'no afecta a ninguna ficha')}
+function dibujarArea(){const g=$('area');if(!g)return;if(!AREA){g.innerHTML='';return}
+ const A=AREA,k=pxFt(),L=AREA_L*k,W=AREA_W*k,ca=Math.cos(A.ang),sa=Math.sin(A.ang),
+  P=(u,v)=>(A.x+u*ca-v*sa).toFixed(1)+','+(A.y+u*sa+v*ca).toFixed(1),
+  st='fill="rgba(255,87,34,.16)" stroke="#ff5722" stroke-width="3" vector-effect="non-scaling-stroke"';let sh='';
+ if(A.m==='radio')sh='<circle cx="'+A.x+'" cy="'+A.y+'" r="'+L+'" '+st+'/>';
+ else if(A.m==='cubo')sh='<rect x="'+(A.x-L/2)+'" y="'+(A.y-L/2)+'" width="'+L+'" height="'+L+'" '+st+'/>';
+ else if(A.m==='cono')sh='<polygon points="'+[P(0,0),P(L,-L/2),P(L,L/2)].join(' ')+'" '+st+'/>';
+ else sh='<polygon points="'+[P(0,-W/2),P(L,-W/2),P(L,W/2),P(0,W/2)].join(' ')+'" '+st+'/>';
+ const tip=P(L,0).split(',');
+ const dir=(A.m==='cono'||A.m==='linea')?'<line x1="'+A.x+'" y1="'+A.y+'" x2="'+tip[0]+'" y2="'+tip[1]+'" stroke="#ff5722" stroke-width="2" stroke-dasharray="6 6" vector-effect="non-scaling-stroke"/>':'';
+ const cel=ACELDAS.length<=1500?'<g transform="translate('+S.ox+' '+S.oy+')">'+ACELDAS.map(c=>'<polygon points="'+poligono(c.a,c.b)+'" fill="rgba(255,87,34,.28)" stroke="none"/>').join('')+'</g>':'';
+ g.innerHTML=cel+sh+dir+'<circle cx="'+A.x+'" cy="'+A.y+'" r="'+(S.size*.12)+'" fill="#ff5722" stroke="#fff" stroke-width="2" vector-effect="non-scaling-stroke"/>'}
 // regla de medición: se arrastra de una celda a otra y muestra celdas y pies (solo en tu pantalla)
 function dibujarRegla(){const g=$('reg');if(!g)return;
  if(!RG){g.innerHTML='';return}
@@ -130,11 +178,11 @@ function pintarFichas(){
   el.style.setProperty('--c',COL[f.tipo]||'#888');
   const em=el.firstChild,nm=el.lastChild;em.textContent=f.em;em.style.fontSize=(w*.55)+'px';
   nm.textContent=(f.vis===false?'🙈 ':'')+f.nombre;nm.style.fontSize=Math.max(9,S.size*.22)+'px';
-  el.classList.toggle('sel',f.id===sel);el.classList.toggle('oculta',f.vis===false);el.classList.toggle('mia',modo==='jug'&&puedeMover(f));
+  el.classList.toggle('sel',f.id===sel);el.classList.toggle('afec',AFEC.has(f.id));el.classList.toggle('oculta',f.vis===false);el.classList.toggle('mia',modo==='jug'&&puedeMover(f));
   // foto del retrato o de la criatura (si no carga, se queda el emoji)
   if(el._img!==f.imagen){el._img=f.imagen;el.classList.remove('conimg');el.style.backgroundImage='';
    if(f.imagen){const im=new Image(),u=f.imagen;im.onload=()=>{if(el._img===u){el.style.backgroundImage="url('"+u.replace(/'/g,'%27')+"')";el.classList.add('conimg')}};im.src=u}}});
- [...box.children].forEach(el=>{if(!vivas.has(el.dataset.id))el.remove()})}
+ [...box.children].forEach(el=>{if(!vivas.has(el.dataset.id))el.remove()});recalcArea()}
 function syncUI(){
  $('bForma').textContent=S.forma==='hex'?'⬡ Hexágonos (tocá para cuadrados)':'▦ Cuadrados (tocá para hexágonos)';
  $('bOri').style.display=S.forma==='hex'?'':'none';
@@ -228,6 +276,7 @@ vista.addEventListener('pointerdown',e=>{
   const [p1,p2]=[...P.values()],cx=(p1.x+p2.x)/2,cy=(p1.y+p2.y)/2;
   G={t:'pinch',d0:Math.hypot(p1.x-p2.x,p1.y-p2.y)||1,k0:V.k,wc:aMundo(cx,cy)};return}
  if(AG_TOOL){G={t:'pintar',mode:AG_TOOL,cells:new Map(),ult:''};pintarEn(e.clientX,e.clientY,G);return}
+ if(REG_ON&&AREA_M!=='medir'){G={t:'area'};areaMover(aMundo(e.clientX,e.clientY),true);return}
  if(REG_ON){const w=aMundo(e.clientX,e.clientY);G={t:'regla'};
   if(w.x>=0&&w.y>=0&&w.x<=S.W&&w.y<=S.H){const c=celdaEn(w.x,w.y);RG={a0:c.a,b0:c.b,a1:c.a,b1:c.b};dibujarRegla()}else{RG=null;dibujarRegla()}
   return}
@@ -243,6 +292,7 @@ vista.addEventListener('pointermove',e=>{
   V.k=clamp(G.k0*Math.hypot(p1.x-p2.x,p1.y-p2.y)/G.d0,MIN_K,MAX_K);
   V.x=cx-r.left-G.wc.x*V.k;V.y=cy-r.top-G.wc.y*V.k;aplicarV();return}
  if(G.t==='pintar'){pintarEn(p.x,p.y,G);return}
+ if(G.t==='area'){areaMover(aMundo(p.x,p.y),false);return}
  if(G.t==='regla'){if(!RG)return;const w=aMundo(p.x,p.y),c=celdaEn(w.x,w.y);
   c.a=clamp(c.a,-500,500);c.b=clamp(c.b,-500,500);RG.a1=c.a;RG.b1=c.b;dibujarRegla();
   const d=distancia({a:RG.a0,b:RG.b0},c);estado('📏 '+d+' celda'+(d==1?'':'s')+' = '+fmt(d)+' (cada celda son '+FT+' pies)');return}
@@ -260,6 +310,7 @@ function fin(e,cancel){
  if(G.t==='pinch'){if(P.size<2)G=null;return}
  const g=G;G=null;
  if(g.t==='pintar'){flushAg(g);return}
+ if(g.t==='area')return;
  if(g.t==='regla'){if(RG&&RG.a0===RG.a1&&RG.b0===RG.b1){RG=null;dibujarRegla()}return}
  if(g.t==='token'){const f=ficha(g.id),el=elF(g.id);if(!f||!el)return;
   if(g.moved){el.classList.remove('drag');mostrarHh(null);
@@ -500,9 +551,22 @@ $('bAgrRev').onclick=()=>{if(!S.agr.some(x=>x.vis===false)){aviso('No hay agrega
 $('bAgrLimp').onclick=()=>{if(!S.agr.length){aviso('No hay agregados.',true);return}
  if(!confirm('¿Quitar TODOS los agregados ('+S.agr.length+')? No se puede deshacer.'))return;
  aviso('',true);S.agr=[];dibujarAgr();if(modo==='dm')op(sb.rpc('tablero_agr_limpiar'));else guardarLocal();estado('Agregados quitados.')};
-function pintarReg(){$('bReg').classList.toggle('on',REG_ON);$('vista').classList.toggle('reg',REG_ON||!!AG_TOOL)}
+function pintarAreaUI(){document.querySelectorAll('.arb').forEach(b=>b.classList.toggle('on',b.dataset.m===AREA_M));
+ const m=AREA_M!=='medir';$('areaMed').style.display=m?'':'none';$('areaWl').style.display=AREA_M==='linea'?'':'none';
+ $('areaOriL').style.display=(m&&S.forma==='cuad'&&(AREA_M==='radio'||AREA_M==='cubo'))?'':'none';$('areaAyuda').textContent=AAYUDA[AREA_M]||''}
+function elegirArea(m){AREA_M=m;RG=null;dibujarRegla();
+ if(m==='medir')AREA=null;else{AREA_L=ADEF[m];$('areaL').value=AREA_L;if(AREA)AREA.m=m}
+ pintarAreaUI();recalcArea();estado(AAYUDA[m])}
+$('areaModos').innerHTML=AMODOS.map(([k,i,t])=>'<button class="arb" data-m="'+k+'">'+i+' '+t+'</button>').join('');
+$('areaModos').onclick=e=>{const b=e.target.closest('.arb');if(b)elegirArea(b.dataset.m)};
+$('areaL').oninput=e=>{AREA_L=clamp(parseInt(e.target.value)||5,5,300);recalcArea()};
+$('areaW').oninput=e=>{AREA_W=clamp(parseInt(e.target.value)||5,5,300);recalcArea()};
+$('areaOri').onchange=e=>{AREA_O=e.target.value};
+$('bAreaX').onclick=()=>{AREA=null;recalcArea();estado(AAYUDA[AREA_M]||'')};
+function pintarReg(){$('bReg').classList.toggle('on',REG_ON);$('vista').classList.toggle('reg',REG_ON||!!AG_TOOL);
+ $('areaBar').style.display=REG_ON?'':'none';if(!REG_ON&&AREA){AREA=null;recalcArea()}if(REG_ON)pintarAreaUI()}
 $('bReg').onclick=()=>{REG_ON=!REG_ON;if(REG_ON){AG_TOOL=null;pintarAgr()}if(!REG_ON){RG=null;dibujarRegla()}pintarReg();
- estado(REG_ON?'📏 Regla: arrastrá de un punto a otro (cada celda son '+FT+' pies). Con dos dedos movés el mapa. Tocá de nuevo la regla para apagarla.':ayuda())};
+ estado(REG_ON?'📏 Regla y áreas: elegí Medir, Radio, Cubo, Cono o Línea (cada celda son '+FT+' pies). Con dos dedos movés el mapa. Tocá de nuevo 📏 para apagarla.':ayuda())};
 $('zMas').onclick=()=>{const r=rect();zoomEn(r.left+r.width/2,r.top+r.height/2,1.3)};
 $('zMenos').onclick=()=>{const r=rect();zoomEn(r.left+r.width/2,r.top+r.height/2,1/1.3)};
 $('zFit').onclick=encajar;

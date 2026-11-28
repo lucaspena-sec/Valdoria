@@ -27,6 +27,9 @@ body.m-dm #bPJ{display:none}
 .trow input[type=range]{width:100%;padding:0}
 .tcol{flex:1 1 220px;min-width:0}
 #estado{margin-top:6px;font-size:13px}
+.arb{margin:0;padding:6px 10px}
+.arb.on{background:#ffd54a;border-style:inset;font-weight:bold}
+.ficha.afec{box-shadow:0 0 0 3px #ff5722,0 0 14px 5px #ff5722}
 .agt{margin:0;padding:6px 10px}
 .agt.on{background:#ffd54a;border-style:inset;font-weight:bold}
 body.m-jug #panel>*:not(summary):not(#agrDet){display:none!important}
@@ -81,10 +84,20 @@ body.m-dm .sdm{display:flex!important}
  <div id="mundo"><div id="bgBox"></div><svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg><div id="fichasEl"></div></div>
  <div id="zctl"><button id="zMas" title="Acercar">＋</button><button id="zMenos" title="Alejar">−</button><button id="bReg" title="Regla: cada celda son 5 pies">📏</button><button id="zFit" title="Ver todo el tablero">⤢</button><button id="bFs" title="Pantalla completa">⛶</button></div>
 </div>
+<div id="areaBar" class="box" style="display:none">
+ <div id="areaModos" class="trow"></div>
+ <div id="areaMed" class="trow" style="display:none">
+  <label>Tamaño <input type="number" id="areaL" min="5" max="300" step="5" value="20" style="width:76px"> pies</label>
+  <label id="areaWl" style="display:none">Ancho <input type="number" id="areaW" min="5" max="300" step="5" value="5" style="width:70px"> pies</label>
+  <label id="areaOriL" style="display:none">Origen <select id="areaOri" style="width:auto"><option value="celda">centro de la celda</option><option value="esquina">esquina de la cuadrícula</option></select></label>
+  <button id="bAreaX">✖ Quitar</button>
+ </div>
+ <small id="areaAyuda"></small><div id="areaInfo" style="margin-top:4px;font-size:13px"></div>
+</div>
 <div id="estado" class="box"></div>
 <div id="histBox" class="box"><b>📜 Historial de movimientos</b>
  <div id="histUlt"></div>
  <details id="histDet"><summary>Ver todo (<span id="histN">0</span>)</summary><div id="histTodo"></div><button id="bHistBorrar">🗑 Borrar historial</button></details>
 </div>
 </div></div>
-<script src="tablero.js?v=5"></script></body></html>
+<script src="tablero.js?v=6"></script></body></html>
